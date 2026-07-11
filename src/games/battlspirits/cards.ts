@@ -97,14 +97,14 @@ export const CARD_DB: Record<string, CardDef> = {
 
   spirit_moon_shacco: {
     id: 'spirit_moon_shacco',
-    name: 'ムーンシャッコ',
+    name: 'ムーシャッコ',
     cardType: 'spirit',
     cost: 3,
-    symbols: ['blue', 'blue', 'blue'],
-    lv1: { cost: 0, bp: 2 },
-    lv2: { cost: 1, bp: 3 },
+    symbols: ['red', 'red', 'red'],
+    lv1: { cost: 1, bp: 2 },
+    lv2: { cost: 2, bp: 3 },
     effects: [
-      { trigger: 'attack', action: 'draw', value: 1, level: [2], condition: { minHandSize: 5 }, description: 'バトル終了時、手札5枚以上なら1枚ドロー' },
+      { trigger: 'attack', action: 'draw', value: 1, level: [2], condition: { maxHandSize: 5 }, description: 'Lv2時、攻撃中にバトル終了時、手札が5枚以下なら1枚ドロー' },
     ],
   },
 

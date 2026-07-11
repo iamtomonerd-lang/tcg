@@ -14,6 +14,7 @@ export interface CardEffect {
   level?: (1 | 2)[]; // which levels this effect activates on (e.g. [1,2] for Lv1-2, [2] for Lv2 only)
   condition?: {
     minHandSize?: number;
+    maxHandSize?: number; // maximum hand size for effect to activate
     requiresSymbol?: string; // requires this symbol color on field
     requiresFatiguedRed?: boolean; // requires fatigued red spirit on field
     requiresAdjacentSymbol?: string; // requires adjacent spirit with this symbol
