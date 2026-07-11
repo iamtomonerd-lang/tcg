@@ -15,6 +15,7 @@ export interface CardEffect {
     level?: 1 | 2;
     minHandSize?: number;
     requiresSymbol?: string; // requires this symbol color on field
+    requiresFatiguedRed?: boolean; // requires fatigued red spirit on field
   };
   symbol?: string; // for search_deck: symbol to search for
   description?: string;

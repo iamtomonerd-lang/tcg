@@ -125,7 +125,7 @@ export const CARD_DB: Record<string, CardDef> = {
     lv1: { cost: 0, bp: 3 },
     lv2: { cost: 1, bp: 5 },
     effects: [
-      { trigger: 'summon', action: 'destroy_creature', target: 'opponent_creature', condition: { requiresSymbol: 'red' }, description: '機械族の自分の赤スピリットがいるなら、相手のBP3000以下のスピリット1体を破壊' },
+      { trigger: 'summon', action: 'destroy_creature', target: 'opponent_creature', condition: { requiresFatiguedRed: true }, description: '疲労状態の赤のスピリットがいるなら、相手のBP3000以下のスピリット1体を破壊' },
     ],
   },
 

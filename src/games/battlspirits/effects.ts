@@ -26,6 +26,13 @@ export function applyEffect(
     if (effect.condition.minHandSize && me.hand.length < effect.condition.minHandSize) {
       return next;
     }
+    if (effect.condition.requiresFatiguedRed) {
+      // Check if there's a fatigued (canAttack: false) red spirit
+      const hasFatiguedRed = me.spirits.some((s: any) => !s.canAttack && s.def.symbols.includes('red'));
+      if (!hasFatiguedRed) {
+        return next;
+      }
+    }
   }
 
   switch (effect.action) {
