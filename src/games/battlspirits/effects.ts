@@ -58,25 +58,39 @@ export function applyEffect(
       break;
     }
     case 'search_deck': {
-      // Search deck for cards with matching symbol
-      const searchCount = effect.value ?? 1;
+      // Open top X cards, find 1 with matching symbol, add to hand, discard rest
+      const openCount = effect.value ?? 2; // Open top X cards
       const targetSymbol = effect.symbol;
-      let found = 0;
-      for (let i = 0; i < me.deck.length && found < searchCount; i++) {
-        const card = me.deck[i]!;
-        if (!targetSymbol || card.symbols.includes(targetSymbol)) {
+      const opened = me.deck.splice(0, Math.min(openCount, me.deck.length));
+
+      let found = false;
+      for (let i = 0; i < opened.length; i++) {
+        const card = opened[i]!;
+        if (!found && (!targetSymbol || card.symbols.includes(targetSymbol))) {
           me.hand.push(card);
-          me.deck.splice(i, 1);
-          i--;
-          found++;
+          opened.splice(i, 1);
+          found = true;
+          break;
         }
       }
+
+      // Discard remaining opened cards to trash
+      me.trash.push(...opened);
       break;
     }
     case 'destroy_creature': {
-      // Destroy opponent's spirit
-      if (opponent.spirits.length > 0) {
-        opponent.spirits.pop();
+      // Destroy opponent's spirit (weakest one with BP <= 3)
+      let targetIndex = -1;
+      for (let i = 0; i < opponent.spirits.length; i++) {
+        const spirit = opponent.spirits[i]!;
+        const stats = spirit.level === 1 ? spirit.def.lv1 : spirit.def.lv2 || spirit.def.lv1;
+        if (stats.bp <= 3) {
+          targetIndex = i;
+          break;
+        }
+      }
+      if (targetIndex >= 0) {
+        opponent.spirits.splice(targetIndex, 1);
       }
       break;
     }

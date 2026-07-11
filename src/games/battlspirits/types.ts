@@ -9,11 +9,12 @@ export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immedia
 export interface CardEffect {
   trigger: EffectTrigger; // when it activates
   action: EffectAction; // what it does
-  value?: number; // amount of damage/heal/draw or BP boost
+  value?: number; // amount of damage/heal/draw or BP boost or deck cards to open
   target?: string; // "opponent_hero" | "opponent_creature" | "any" | "self"
   condition?: {
     level?: 1 | 2;
     minHandSize?: number;
+    requiresSymbol?: string; // requires this symbol color on field
   };
   symbol?: string; // for search_deck: symbol to search for
   description?: string;
