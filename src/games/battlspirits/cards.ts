@@ -1,0 +1,154 @@
+/**
+ * Sample card database for Battle Spirits (Standard).
+ * All effects are data-driven; no hardcoded logic.
+ */
+
+import type { CardDef } from './types.js';
+
+const STARTER_DECK_IDS = [
+  // Spirits: 10 cards across costs
+  'spirit_recruit', 'spirit_recruit',
+  'spirit_soldier', 'spirit_soldier',
+  'spirit_knight', 'spirit_knight',
+  'spirit_warrior',
+  'spirit_mage',
+
+  // Nexuses: 4 cards
+  'nexus_shrine', 'nexus_shrine',
+  'nexus_stone', 'nexus_stone',
+
+  // Magic: 6 cards
+  'magic_slash', 'magic_slash', 'magic_slash',
+  'magic_heal', 'magic_heal',
+  'magic_draw',
+];
+
+export const CARD_DB: Record<string, CardDef> = {
+  // === SPIRITS ===
+
+  spirit_recruit: {
+    id: 'spirit_recruit',
+    name: 'Recruit',
+    cardType: 'spirit',
+    cost: 1,
+    symbols: ['red'],
+    lv1: { cost: 0, bp: 2 },
+    lv2: { cost: 1, bp: 4 },
+    effects: [
+      { trigger: 'summon', action: 'damage', value: 1, target: 'opponent_hero' },
+    ],
+  },
+
+  spirit_soldier: {
+    id: 'spirit_soldier',
+    name: 'Soldier',
+    cardType: 'spirit',
+    cost: 2,
+    symbols: ['red', 'red'],
+    lv1: { cost: 0, bp: 3 },
+    lv2: { cost: 2, bp: 5 },
+    effects: [
+      { trigger: 'attack', action: 'damage', value: 2, target: 'opponent_hero' },
+    ],
+  },
+
+  spirit_knight: {
+    id: 'spirit_knight',
+    name: 'Knight',
+    cardType: 'spirit',
+    cost: 3,
+    symbols: ['red', 'red', 'red'],
+    lv1: { cost: 0, bp: 4 },
+    lv2: { cost: 2, bp: 6 },
+  },
+
+  spirit_warrior: {
+    id: 'spirit_warrior',
+    name: 'Warrior',
+    cardType: 'spirit',
+    cost: 4,
+    symbols: ['red', 'red', 'red', 'red'],
+    lv1: { cost: 1, bp: 5 },
+    lv2: { cost: 3, bp: 8 },
+  },
+
+  spirit_mage: {
+    id: 'spirit_mage',
+    name: 'Mage',
+    cardType: 'spirit',
+    cost: 3,
+    symbols: ['blue', 'blue', 'blue'],
+    lv1: { cost: 0, bp: 2 },
+    lv2: { cost: 1, bp: 4 },
+    effects: [
+      { trigger: 'summon', action: 'draw', value: 2 },
+    ],
+  },
+
+  // === NEXUSES ===
+
+  nexus_shrine: {
+    id: 'nexus_shrine',
+    name: 'Shrine',
+    cardType: 'nexus',
+    cost: 2,
+    symbols: ['red', 'red'],
+    lv1: { cost: 0, bp: 0 },
+    lv2: { cost: 1, bp: 0 },
+    effects: [
+      { trigger: 'summon', action: 'heal', value: 3, target: 'self' },
+    ],
+  },
+
+  nexus_stone: {
+    id: 'nexus_stone',
+    name: 'Stone',
+    cardType: 'nexus',
+    cost: 1,
+    symbols: ['blue'],
+    lv1: { cost: 0, bp: 0 },
+    lv2: { cost: 2, bp: 0 },
+  },
+
+  // === MAGIC ===
+
+  magic_slash: {
+    id: 'magic_slash',
+    name: 'Slash',
+    cardType: 'magic',
+    cost: 2,
+    symbols: ['red', 'red'],
+    lv1: { cost: 0, bp: 0 },
+    effects: [
+      { trigger: 'immediate', action: 'damage', value: 3, target: 'opponent_hero' },
+    ],
+  },
+
+  magic_heal: {
+    id: 'magic_heal',
+    name: 'Mend',
+    cardType: 'magic',
+    cost: 2,
+    symbols: ['white', 'white'],
+    lv1: { cost: 0, bp: 0 },
+    effects: [
+      { trigger: 'immediate', action: 'heal', value: 5, target: 'self' },
+    ],
+  },
+
+  magic_draw: {
+    id: 'magic_draw',
+    name: 'Insight',
+    cardType: 'magic',
+    cost: 2,
+    symbols: ['blue', 'blue'],
+    lv1: { cost: 0, bp: 0 },
+    effects: [
+      { trigger: 'immediate', action: 'draw', value: 2 },
+    ],
+  },
+};
+
+export function getStarterDeck(): CardDef[] {
+  return STARTER_DECK_IDS.map((id) => CARD_DB[id]!);
+}
