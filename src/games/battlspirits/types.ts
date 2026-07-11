@@ -3,21 +3,23 @@
  */
 
 export type CardType = 'spirit' | 'nexus' | 'magic';
-export type EffectAction = 'damage' | 'heal' | 'draw' | 'boost_bp' | 'search_deck' | 'destroy_creature';
-export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate';
+export type EffectAction = 'damage' | 'heal' | 'draw' | 'boost_bp' | 'search_deck' | 'destroy_creature' | 'trash_to_hand' | 'place_core' | 'discard_hand' | 'destroy_nexus';
+export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate' | 'battle_end' | 'end_step';
 
 export interface CardEffect {
   trigger: EffectTrigger; // when it activates
   action: EffectAction; // what it does
-  value?: number; // amount of damage/heal/draw or BP boost or deck cards to open
-  target?: string; // "opponent_hero" | "opponent_creature" | "any" | "self"
+  value?: number; // amount of damage/heal/draw or BP boost or deck cards to open or cores to place
+  target?: string; // "opponent_hero" | "opponent_creature" | "any" | "self" | "trash"
   condition?: {
     level?: 1 | 2;
     minHandSize?: number;
     requiresSymbol?: string; // requires this symbol color on field
     requiresFatiguedRed?: boolean; // requires fatigued red spirit on field
+    requiresAdjacentSymbol?: string; // requires adjacent spirit with this symbol
   };
-  symbol?: string; // for search_deck: symbol to search for
+  symbol?: string; // for search_deck/trash_to_hand: symbol to search for
+  excludeId?: string; // for trash_to_hand: exclude this card ID
   description?: string;
 }
 
@@ -49,12 +51,16 @@ export interface Spirit {
   canAttack: boolean;
   /** temporary BP boost from effects */
   bpBoost?: number;
+  /** cores placed on this spirit */
+  placedCores?: number;
 }
 
 export interface Nexus {
   def: CardDef;
   level: 1 | 2;
   coreCount: number;
+  /** cores placed on this nexus */
+  placedCores?: number;
 }
 
 export interface PlayerState {

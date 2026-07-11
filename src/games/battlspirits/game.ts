@@ -262,8 +262,8 @@ function clonePlayer(p: any) {
     cores: p.cores,
     hand: p.hand.slice(),
     deck: p.deck.slice(),
-    spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0 })),
-    nexuses: p.nexuses.map((n: any) => ({ ...n })),
+    spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0, placedCores: s.placedCores ?? 0 })),
+    nexuses: p.nexuses.map((n: any) => ({ ...n, placedCores: n.placedCores ?? 0 })),
     trash: p.trash.slice(),
   };
 }

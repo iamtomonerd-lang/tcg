@@ -33,6 +33,14 @@ export function applyEffect(
         return next;
       }
     }
+    if (effect.condition.requiresAdjacentSymbol) {
+      // Check if there's an adjacent spirit with matching symbol
+      const symbol = effect.condition.requiresAdjacentSymbol;
+      const hasAdjacent = me.spirits.some((s: any) => s.def.symbols.includes(symbol));
+      if (!hasAdjacent) {
+        return next;
+      }
+    }
   }
 
   switch (effect.action) {
@@ -98,6 +106,49 @@ export function applyEffect(
       }
       if (targetIndex >= 0) {
         opponent.spirits.splice(targetIndex, 1);
+      }
+      break;
+    }
+    case 'trash_to_hand': {
+      // Move card from trash to hand
+      const targetSymbol = effect.symbol;
+      const excludeId = effect.excludeId;
+      for (let i = 0; i < me.trash.length; i++) {
+        const card = me.trash[i]!;
+        if ((!targetSymbol || card.symbols.includes(targetSymbol)) &&
+            (!excludeId || card.id !== excludeId) &&
+            card.cardType === 'spirit') {
+          me.hand.push(card);
+          me.trash.splice(i, 1);
+          break;
+        }
+      }
+      break;
+    }
+    case 'place_core': {
+      // Place core on this spirit
+      if (spirit) {
+        spirit.placedCores = (spirit.placedCores ?? 0) + (effect.value ?? 1);
+      }
+      break;
+    }
+    case 'discard_hand': {
+      // Discard card from hand with specific symbol
+      const targetSymbol = effect.symbol;
+      for (let i = 0; i < me.hand.length; i++) {
+        const card = me.hand[i]!;
+        if (!targetSymbol || card.symbols.includes(targetSymbol)) {
+          me.trash.push(card);
+          me.hand.splice(i, 1);
+          break;
+        }
+      }
+      break;
+    }
+    case 'destroy_nexus': {
+      // Destroy a nexus (this is typically the card itself)
+      if (me.nexuses.length > 0) {
+        me.nexuses.pop();
       }
       break;
     }

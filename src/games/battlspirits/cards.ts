@@ -6,7 +6,7 @@
 import type { CardDef } from './types.js';
 
 const STARTER_DECK_IDS = [
-  // Spirits: 14 cards across costs
+  // Spirits: 18 cards across costs
   'spirit_recruit', 'spirit_recruit',
   'spirit_soldier', 'spirit_soldier',
   'spirit_knight', 'spirit_knight',
@@ -17,10 +17,15 @@ const STARTER_DECK_IDS = [
   'spirit_ro_meek',
   'spirit_haria',
   'spirit_gun_gata',
+  'spirit_graipher',
+  'spirit_seldalius',
+  'spirit_lev_falus',
+  'spirit_cubel',
 
-  // Nexuses: 4 cards
+  // Nexuses: 5 cards
   'nexus_shrine', 'nexus_shrine',
   'nexus_stone', 'nexus_stone',
+  'nexus_wind_fang_rock',
 
   // Magic: 6 cards
   'magic_slash', 'magic_slash', 'magic_slash',
@@ -152,6 +157,62 @@ export const CARD_DB: Record<string, CardDef> = {
     lv2: { cost: 2, bp: 8 },
   },
 
+  spirit_graipher: {
+    id: 'spirit_graipher',
+    name: 'グライファー',
+    cardType: 'spirit',
+    cost: 5,
+    symbols: ['red', 'red', 'red', 'red', 'red'],
+    lv1: { cost: 1, bp: 5 },
+    lv2: { cost: 2, bp: 7 },
+    effects: [
+      { trigger: 'attack', action: 'discard_hand', symbol: '風守', condition: { level: 1 } },
+      { trigger: 'attack', action: 'boost_bp', value: 3, condition: { level: 1 } },
+      { trigger: 'attack', action: 'destroy_creature', target: 'opponent_creature', condition: { level: 2 } },
+    ],
+  },
+
+  spirit_seldalius: {
+    id: 'spirit_seldalius',
+    name: 'セルダリウス',
+    cardType: 'spirit',
+    cost: 6,
+    symbols: ['white', 'white', 'white', 'white', 'white', 'white'],
+    lv1: { cost: 1, bp: 6 },
+    lv2: { cost: 2, bp: 7 },
+    effects: [
+      { trigger: 'summon', action: 'trash_to_hand', symbol: '風守', excludeId: 'spirit_seldalius', condition: { level: 2 } },
+      { trigger: 'attack', action: 'destroy_creature', target: 'opponent_creature', condition: { level: 2 } },
+    ],
+  },
+
+  spirit_lev_falus: {
+    id: 'spirit_lev_falus',
+    name: '飛傑レヴファルス',
+    cardType: 'spirit',
+    cost: 6,
+    symbols: ['white', 'white', 'white', 'white', 'white', 'white'],
+    lv1: { cost: 1, bp: 6 },
+    lv2: { cost: 2, bp: 8 },
+    effects: [
+      { trigger: 'summon', action: 'destroy_creature', target: 'opponent_creature', condition: { level: 2, requiresAdjacentSymbol: '風守' } },
+      { trigger: 'attack', action: 'boost_bp', value: 2, condition: { level: 2 } },
+    ],
+  },
+
+  spirit_cubel: {
+    id: 'spirit_cubel',
+    name: 'キュベル',
+    cardType: 'spirit',
+    cost: 5,
+    symbols: ['purple', 'purple', 'purple', 'purple', 'purple'],
+    lv1: { cost: 1, bp: 4 },
+    lv2: { cost: 2, bp: 7 },
+    effects: [
+      { trigger: 'summon', action: 'place_core', value: 2, condition: { level: 2 } },
+    ],
+  },
+
   // === NEXUSES ===
 
   nexus_shrine: {
@@ -175,6 +236,20 @@ export const CARD_DB: Record<string, CardDef> = {
     symbols: ['blue'],
     lv1: { cost: 0, bp: 0 },
     lv2: { cost: 2, bp: 0 },
+  },
+
+  nexus_wind_fang_rock: {
+    id: 'nexus_wind_fang_rock',
+    name: '最奥・風牙岩',
+    cardType: 'nexus',
+    cost: 3,
+    symbols: ['purple', 'purple', 'purple'],
+    lv1: { cost: 1, bp: 0 },
+    lv2: { cost: 2, bp: 0 },
+    effects: [
+      { trigger: 'attack', action: 'boost_bp', value: 2, condition: { level: 1 } },
+      { trigger: 'destroy', action: 'place_core', value: 1, condition: { level: 2 } },
+    ],
   },
 
   // === MAGIC ===
