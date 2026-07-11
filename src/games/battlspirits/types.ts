@@ -11,12 +11,13 @@ export interface CardEffect {
   action: EffectAction; // what it does
   value?: number; // amount of damage/heal/draw or BP boost or deck cards to open or cores to place
   target?: string; // "opponent_hero" | "opponent_creature" | "any" | "self" | "trash"
+  level?: (1 | 2)[]; // which levels this effect activates on (e.g. [1,2] for Lv1-2, [2] for Lv2 only)
   condition?: {
-    level?: 1 | 2;
     minHandSize?: number;
     requiresSymbol?: string; // requires this symbol color on field
     requiresFatiguedRed?: boolean; // requires fatigued red spirit on field
     requiresAdjacentSymbol?: string; // requires adjacent spirit with this symbol
+    excludeEXSymbol?: boolean; // exclude cards with EX symbol
   };
   symbol?: string; // for search_deck/trash_to_hand: symbol to search for
   excludeId?: string; // for trash_to_hand: exclude this card ID
@@ -36,6 +37,7 @@ export interface CardDef {
   cardType: CardType;
   cost: number;
   symbols: string[]; // symbol colors for cost reduction
+  exSymbol?: boolean; // has decoration on symbol (EX symbol)
   // For spirits and nexuses: Lv1 and Lv2
   lv1: LvStats;
   lv2?: LvStats;

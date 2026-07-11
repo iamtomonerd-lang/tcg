@@ -104,7 +104,7 @@ export const CARD_DB: Record<string, CardDef> = {
     lv1: { cost: 0, bp: 2 },
     lv2: { cost: 1, bp: 3 },
     effects: [
-      { trigger: 'attack', action: 'draw', value: 1, condition: { level: 2, minHandSize: 5 }, description: 'バトル終了時、手札5枚以上なら1枚ドロー' },
+      { trigger: 'attack', action: 'draw', value: 1, level: [2], condition: { minHandSize: 5 }, description: 'バトル終了時、手札5枚以上なら1枚ドロー' },
     ],
   },
 
@@ -117,7 +117,7 @@ export const CARD_DB: Record<string, CardDef> = {
     lv1: { cost: 0, bp: 3 },
     lv2: { cost: 1, bp: 5 },
     effects: [
-      { trigger: 'attack', action: 'boost_bp', value: 2, condition: { level: 1 }, description: 'Lv1時、攻撃中にBP+2' },
+      { trigger: 'attack', action: 'boost_bp', value: 2, level: [1], description: 'Lv1時、攻撃中にBP+2' },
     ],
   },
 
@@ -143,7 +143,7 @@ export const CARD_DB: Record<string, CardDef> = {
     lv1: { cost: 1, bp: 4 },
     lv2: { cost: 2, bp: 6 },
     effects: [
-      { trigger: 'attack', action: 'search_deck', value: 1, symbol: '風守', condition: { level: 1 }, description: 'Lv1時、攻撃中にデッキの上から2枚をオープン。その中の風守系統を手札に加え、残りは破棄' },
+      { trigger: 'attack', action: 'search_deck', value: 2, symbol: '風守', level: [1], description: 'Lv1時、攻撃中にデッキの上から2枚をオープン。その中の風守系統を手札に加え、残りは破棄' },
     ],
   },
 
@@ -166,9 +166,9 @@ export const CARD_DB: Record<string, CardDef> = {
     lv1: { cost: 1, bp: 5 },
     lv2: { cost: 2, bp: 7 },
     effects: [
-      { trigger: 'attack', action: 'discard_hand', symbol: '風守', condition: { level: 1 } },
-      { trigger: 'attack', action: 'boost_bp', value: 3, condition: { level: 1 } },
-      { trigger: 'attack', action: 'destroy_creature', target: 'opponent_creature', condition: { level: 2 } },
+      { trigger: 'attack', action: 'discard_hand', symbol: '風守', level: [1, 2] },
+      { trigger: 'attack', action: 'boost_bp', value: 3, level: [1, 2] },
+      { trigger: 'attack', action: 'destroy_creature', target: 'opponent_creature', level: [2] },
     ],
   },
 
@@ -181,8 +181,8 @@ export const CARD_DB: Record<string, CardDef> = {
     lv1: { cost: 1, bp: 6 },
     lv2: { cost: 2, bp: 7 },
     effects: [
-      { trigger: 'summon', action: 'trash_to_hand', symbol: '風守', excludeId: 'spirit_seldalius', condition: { level: 2 } },
-      { trigger: 'attack', action: 'destroy_creature', target: 'opponent_creature', condition: { level: 2 } },
+      { trigger: 'summon', action: 'trash_to_hand', symbol: '風守', excludeId: 'spirit_seldalius', level: [1, 2], condition: { excludeEXSymbol: true }, description: 'EXシンボル除外' },
+      { trigger: 'attack', action: 'destroy_creature', target: 'opponent_creature', level: [2] },
     ],
   },
 
@@ -195,8 +195,8 @@ export const CARD_DB: Record<string, CardDef> = {
     lv1: { cost: 1, bp: 6 },
     lv2: { cost: 2, bp: 8 },
     effects: [
-      { trigger: 'summon', action: 'destroy_creature', target: 'opponent_creature', condition: { level: 2, requiresAdjacentSymbol: '風守' } },
-      { trigger: 'attack', action: 'boost_bp', value: 2, condition: { level: 2 } },
+      { trigger: 'summon', action: 'destroy_creature', target: 'opponent_creature', level: [1, 2], condition: { requiresAdjacentSymbol: '風守' } },
+      { trigger: 'attack', action: 'boost_bp', value: 2, level: [2] },
     ],
   },
 
@@ -209,7 +209,7 @@ export const CARD_DB: Record<string, CardDef> = {
     lv1: { cost: 1, bp: 4 },
     lv2: { cost: 2, bp: 7 },
     effects: [
-      { trigger: 'summon', action: 'place_core', value: 2, condition: { level: 2 } },
+      { trigger: 'summon', action: 'place_core', value: 2, level: [1, 2], condition: { excludeEXSymbol: true } },
     ],
   },
 
@@ -247,8 +247,8 @@ export const CARD_DB: Record<string, CardDef> = {
     lv1: { cost: 1, bp: 0 },
     lv2: { cost: 2, bp: 0 },
     effects: [
-      { trigger: 'attack', action: 'boost_bp', value: 2, condition: { level: 1 } },
-      { trigger: 'destroy', action: 'place_core', value: 1, condition: { level: 2 } },
+      { trigger: 'attack', action: 'boost_bp', value: 2, level: [1, 2] },
+      { trigger: 'destroy', action: 'place_core', value: 1, level: [2] },
     ],
   },
 

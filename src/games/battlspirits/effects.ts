@@ -18,11 +18,13 @@ export function applyEffect(
   const me = next.players[sourcePlayer]!;
   const opponent = next.players[1 - sourcePlayer]!;
 
+  // Check effect level applicability
+  if (effect.level && spirit && !effect.level.includes(spirit.level)) {
+    return next;
+  }
+
   // Check effect conditions
   if (effect.condition) {
-    if (effect.condition.level && spirit && spirit.level !== effect.condition.level) {
-      return next;
-    }
     if (effect.condition.minHandSize && me.hand.length < effect.condition.minHandSize) {
       return next;
     }
@@ -113,10 +115,12 @@ export function applyEffect(
       // Move card from trash to hand
       const targetSymbol = effect.symbol;
       const excludeId = effect.excludeId;
+      const excludeEXSymbol = effect.condition?.excludeEXSymbol ?? false;
       for (let i = 0; i < me.trash.length; i++) {
         const card = me.trash[i]!;
         if ((!targetSymbol || card.symbols.includes(targetSymbol)) &&
             (!excludeId || card.id !== excludeId) &&
+            (!excludeEXSymbol || !card.exSymbol) &&
             card.cardType === 'spirit') {
           me.hand.push(card);
           me.trash.splice(i, 1);
