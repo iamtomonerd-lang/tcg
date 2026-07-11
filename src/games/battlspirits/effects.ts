@@ -12,10 +12,21 @@ export function applyEffect(
   effect: CardEffect,
   sourcePlayer: number,
   targetNexusIndex?: number,
+  spirit?: any, // the spirit triggering the effect
 ): GameState {
   const next = cloneGameState(state);
   const me = next.players[sourcePlayer]!;
   const opponent = next.players[1 - sourcePlayer]!;
+
+  // Check effect conditions
+  if (effect.condition) {
+    if (effect.condition.level && spirit && spirit.level !== effect.condition.level) {
+      return next;
+    }
+    if (effect.condition.minHandSize && me.hand.length < effect.condition.minHandSize) {
+      return next;
+    }
+  }
 
   switch (effect.action) {
     case 'damage': {
@@ -39,6 +50,36 @@ export function applyEffect(
       }
       break;
     }
+    case 'boost_bp': {
+      // Boost the spirit's BP temporarily (stored as a modifier in spirit state)
+      if (spirit) {
+        spirit.bpBoost = (spirit.bpBoost ?? 0) + (effect.value ?? 1);
+      }
+      break;
+    }
+    case 'search_deck': {
+      // Search deck for cards with matching symbol
+      const searchCount = effect.value ?? 1;
+      const targetSymbol = effect.symbol;
+      let found = 0;
+      for (let i = 0; i < me.deck.length && found < searchCount; i++) {
+        const card = me.deck[i]!;
+        if (!targetSymbol || card.symbols.includes(targetSymbol)) {
+          me.hand.push(card);
+          me.deck.splice(i, 1);
+          i--;
+          found++;
+        }
+      }
+      break;
+    }
+    case 'destroy_creature': {
+      // Destroy opponent's spirit
+      if (opponent.spirits.length > 0) {
+        opponent.spirits.pop();
+      }
+      break;
+    }
   }
 
   return next;
@@ -52,11 +93,12 @@ export function triggerEffects(
   trigger: string,
   card: CardDef,
   sourcePlayer: number,
+  spirit?: any,
 ): GameState {
   let next = state;
   const effects = card.effects?.filter((e) => e.trigger === trigger) ?? [];
   for (const effect of effects) {
-    next = applyEffect(next, effect, sourcePlayer);
+    next = applyEffect(next, effect, sourcePlayer, undefined, spirit);
   }
   return next;
 }

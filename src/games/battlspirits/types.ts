@@ -3,14 +3,19 @@
  */
 
 export type CardType = 'spirit' | 'nexus' | 'magic';
-export type EffectAction = 'damage' | 'heal' | 'draw';
+export type EffectAction = 'damage' | 'heal' | 'draw' | 'boost_bp' | 'search_deck' | 'destroy_creature';
 export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate';
 
 export interface CardEffect {
   trigger: EffectTrigger; // when it activates
   action: EffectAction; // what it does
-  value?: number; // amount of damage/heal/draw
+  value?: number; // amount of damage/heal/draw or BP boost
   target?: string; // "opponent_hero" | "opponent_creature" | "any" | "self"
+  condition?: {
+    level?: 1 | 2;
+    minHandSize?: number;
+  };
+  symbol?: string; // for search_deck: symbol to search for
   description?: string;
 }
 
@@ -40,6 +45,8 @@ export interface Spirit {
   coreCount: number;
   /** true = ready to attack, false = fatigued */
   canAttack: boolean;
+  /** temporary BP boost from effects */
+  bpBoost?: number;
 }
 
 export interface Nexus {

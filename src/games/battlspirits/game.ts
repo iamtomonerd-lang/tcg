@@ -93,6 +93,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       actions.push({ type: 'attack', spiritIndex: i });
     }
 
+    // Block with spirits (if any ready)
+    for (let i = 0; i < me.spirits.length; i++) {
+      if (me.spirits[i]!.canAttack) {
+        actions.push({ type: 'block', spiritIndex: i });
+      }
+    }
+
     // Always can pass
     actions.push({ type: 'pass' });
 
@@ -110,14 +117,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (card.cost > me.cores) return next;
         me.hand.splice(action.handIndex, 1);
         me.cores -= card.cost;
-        const spirit: Spirit = {
+        const spirit: any = {
           def: card,
           level: 1,
           coreCount: card.lv1.cost,
           canAttack: true,
+          bpBoost: 0,
         };
         me.spirits.push(spirit);
-        next = triggerEffects(next, 'summon', card, next.currentPlayer);
+        next = triggerEffects(next, 'summon', card, next.currentPlayer, spirit);
         break;
       }
       case 'place_nexus': {
@@ -148,10 +156,19 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const spirit = me.spirits[action.spiritIndex];
         if (!spirit || !spirit.canAttack) return next;
         spirit.canAttack = false;
-        // Phase 1 simplified: direct damage equal to spirit's BP
+        // Trigger attack effects first (may boost BP)
+        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, spirit);
+        // Phase 1 simplified: direct damage equal to spirit's BP + any boost
         const stats = spirit.level === 1 ? spirit.def.lv1 : spirit.def.lv2 || spirit.def.lv1;
-        next.players[1 - next.currentPlayer]!.life -= stats.bp;
-        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer);
+        const totalBP = stats.bp + (spirit.bpBoost ?? 0);
+        next.players[1 - next.currentPlayer]!.life -= totalBP;
+        break;
+      }
+      case 'block': {
+        const spirit = me.spirits[action.spiritIndex];
+        if (!spirit || !spirit.canAttack) return next;
+        // Block triggers effects on the blocking spirit
+        next = triggerEffects(next, 'block', spirit.def, next.currentPlayer, spirit);
         break;
       }
       case 'pass': {
@@ -189,6 +206,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'place_nexus': return `N${action.handIndex}`;
       case 'use_magic': return `M${action.handIndex}`;
       case 'attack': return `A${action.spiritIndex}`;
+      case 'block': return `B${action.spiritIndex}`;
       case 'pass': return 'P';
       default: return '?';
     }
@@ -212,6 +230,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'attack': {
         const spirit = me.spirits[action.spiritIndex];
         return `${spirit?.def.name ?? '?'} attacks`;
+      }
+      case 'block': {
+        const spirit = me.spirits[action.spiritIndex];
+        return `${spirit?.def.name ?? '?'} blocks`;
       }
       case 'pass': return 'End turn';
       default: return '?';
@@ -240,7 +262,7 @@ function clonePlayer(p: any) {
     cores: p.cores,
     hand: p.hand.slice(),
     deck: p.deck.slice(),
-    spirits: p.spirits.map((s: any) => ({ ...s })),
+    spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0 })),
     nexuses: p.nexuses.map((n: any) => ({ ...n })),
     trash: p.trash.slice(),
   };
