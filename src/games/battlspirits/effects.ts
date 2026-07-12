@@ -35,14 +35,16 @@ export function updateSpiritLevel(spirit: Spirit): void {
 
 /**
  * Destroy a spirit: its card goes to the owner's trash and the cores on it
- * return to the owner's reserve (official Battle Spirits rule).
+ * go to the trash (returned to reserve on refresh phase per official rules).
  */
 export function destroySpirit(owner: PlayerState, spiritIndex: number): Spirit | undefined {
   const spirit = owner.spirits[spiritIndex];
   if (!spirit) return undefined;
   owner.spirits.splice(spiritIndex, 1);
   owner.trash.push(spirit.def);
-  owner.cores += spirit.coreCount;
+  // Send cores to trash (will return to reserve at refresh)
+  owner.trashCores += spirit.coreCount;
+  owner.trashSoulCores += spirit.soulCoreCount;
   return spirit;
 }
 
@@ -279,6 +281,8 @@ function clonePlayerState(p: PlayerState): PlayerState {
     life: p.life,
     cores: p.cores,
     soulCores: p.soulCores,
+    trashCores: p.trashCores,
+    trashSoulCores: p.trashSoulCores,
     hand: p.hand.slice(),
     deck: p.deck.slice(),
     spirits: p.spirits.map((s) => ({ ...s, soulCoreCount: s.soulCoreCount })),

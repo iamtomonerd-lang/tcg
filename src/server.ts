@@ -246,6 +246,8 @@ function serializeState(state: GameState) {
       life: p.life,
       cores: p.cores,
       soulCores: p.soulCores || 0,
+      trashCores: p.trashCores || 0,
+      trashSoulCores: p.trashSoulCores || 0,
       handSize: p.hand.length,
       handCards: p.hand.map((c) => ({
         id: c.id,

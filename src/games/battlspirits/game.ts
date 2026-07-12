@@ -68,6 +68,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       life: 20,
       cores: 3, // starting regular cores
       soulCores: 1, // starting soul core
+      trashCores: 0, // cores in trash
+      trashSoulCores: 0, // soul cores in trash
       hand: [],
       deck,
       spirits: [],
@@ -128,6 +130,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             spirit.cannotAttackUntilNextTurn = false;
             spirit.cannotDefendUntilNextTurn = false;
           }
+          // Return cores from trash to reserve
+          p.cores += p.trashCores;
+          p.soulCores += p.trashSoulCores;
+          p.trashCores = 0;
+          p.trashSoulCores = 0;
           next.phase = 'main';
           return next; // Stop here, player can now take actions
         }
@@ -759,6 +766,8 @@ function clonePlayer(p: any) {
     life: p.life,
     cores: p.cores,
     soulCores: p.soulCores || 0,
+    trashCores: p.trashCores || 0,
+    trashSoulCores: p.trashSoulCores || 0,
     hand: p.hand.slice(),
     deck: p.deck.slice(),
     spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0, soulCoreCount: s.soulCoreCount ?? 0 })),

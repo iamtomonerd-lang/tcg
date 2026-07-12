@@ -94,6 +94,8 @@ export interface PlayerState {
   life: number;
   cores: number; // regular cores in reserve
   soulCores: number; // soul cores in reserve
+  trashCores: number; // regular cores in trash
+  trashSoulCores: number; // soul cores in trash
   hand: CardDef[];
   deck: CardDef[];
   spirits: Spirit[];
