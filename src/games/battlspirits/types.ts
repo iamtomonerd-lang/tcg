@@ -15,6 +15,8 @@ export interface CardEffect {
   level?: (1 | 2)[]; // which levels this effect activates on (e.g. [1,2] for Lv1-2, [2] for Lv2 only)
   skill?: string; // skill keyword (e.g., "真界放", "継召", "ソウルマジック：赤")
   isFlash?: boolean; // can be activated as flash timing (during opponent's actions)
+  requiresTarget?: boolean; // effect requires target selection (e.g., destroy_creature)
+  variableValue?: boolean; // effect value is player-selected (e.g., discard count)
   condition?: {
     minHandSize?: number;
     maxHandSize?: number; // maximum hand size for effect to activate
@@ -22,6 +24,9 @@ export interface CardEffect {
     requiresFatiguedRed?: boolean; // requires fatigued red spirit on field
     requiresAdjacentSymbol?: string; // requires adjacent spirit with this symbol
     excludeEXSymbol?: boolean; // exclude cards with EX symbol
+    requiresNexus?: boolean; // requires at least one nexus on field
+    requiresSpirit?: { lineage?: string; count?: number }; // requires specific spirit(s)
+    opponentHasNexus?: boolean; // opponent must have nexus
   };
   symbol?: string; // for search_deck/trash_to_hand: symbol to search for
   excludeId?: string; // for trash_to_hand: exclude this card ID
@@ -66,6 +71,12 @@ export interface Spirit {
   bpBoost?: number;
   /** cores placed on this spirit */
   placedCores?: number;
+  /** cannot attack until next turn */
+  cannotAttackUntilNextTurn?: boolean;
+  /** cannot defend until next turn */
+  cannotDefendUntilNextTurn?: boolean;
+  /** status effects like paralysis, weakness */
+  statusEffects?: string[];
 }
 
 export interface Nexus {
@@ -120,11 +131,11 @@ export interface GameState {
 export type Action =
   | { type: 'summon'; handIndex: number; targetNexusIndex?: number }
   | { type: 'place_nexus'; handIndex: number }
-  | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number }
+  | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number }
   | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number }
   | { type: 'block'; spiritIndex: number }
   | { type: 'defend'; spiritIndex: number } // respond to pending attack with defense
   | { type: 'take_damage' } // accept attack damage without defending
   | { type: 'pass' } // end current action phase
-  | { type: 'flash'; handIndex: number; targetCard?: string } // activate a flash magic card
+  | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; effectValue?: number } // activate a flash magic card
   | { type: 'skip_flash' }; // pass on flash opportunity

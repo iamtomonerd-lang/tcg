@@ -88,6 +88,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     // Refresh all ready spirits (can attack next turn)
     for (const spirit of p.spirits) {
       spirit.canAttack = true;
+      // Clear persistent status effects
+      spirit.cannotAttackUntilNextTurn = false;
+      spirit.cannotDefendUntilNextTurn = false;
     }
     return next;
   }
@@ -162,8 +165,31 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
     // Use magic
     for (let i = 0; i < me.hand.length; i++) {
-      if (me.hand[i]!.cardType === 'magic') {
-        actions.push({ type: 'use_magic', handIndex: i });
+      const card = me.hand[i]!;
+      if (card.cardType === 'magic') {
+        // Check if card has effects with requiresTarget
+        const hasTargetEffect = card.effects?.some((e) => e.requiresTarget) ?? false;
+        // Check if card has effects with variableValue
+        const hasVariableEffect = card.effects?.some((e) => e.variableValue) ?? false;
+
+        if (hasTargetEffect) {
+          // Generate targeting actions for opponent spirits
+          const opponent = state.players[1 - state.currentPlayer]!;
+          if (opponent.spirits.length > 0) {
+            for (let t = 0; t < opponent.spirits.length; t++) {
+              actions.push({ type: 'use_magic', handIndex: i, targetSpiritIndex: t });
+            }
+          }
+        } else if (hasVariableEffect) {
+          // Generate variable value actions (0 to max, typically hand size or some reasonable max)
+          const maxValue = Math.min(me.hand.length, 5); // Reasonable max for discards
+          for (let v = 0; v <= maxValue; v++) {
+            actions.push({ type: 'use_magic', handIndex: i, effectValue: v });
+          }
+        } else {
+          // No targeting or variable values needed
+          actions.push({ type: 'use_magic', handIndex: i });
+        }
       }
     }
 
@@ -205,7 +231,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       // Use the magic card as flash
       me.hand.splice(action.handIndex, 1);
       me.cores -= actualCost;
-      next = triggerEffects(next, 'immediate', card, next.currentPlayer);
+      next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue);
 
       // Give opponent counter-timing (stack flash opportunity)
       const opponentHasFlash = opponent.hand.some(
@@ -389,8 +415,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.hand.splice(action.handIndex, 1);
         me.cores -= actualCost;
 
-        // Trigger magic effects
-        next = triggerEffects(next, 'immediate', card, next.currentPlayer);
+        // Trigger magic effects with optional target and value
+        next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue);
         break;
       }
       case 'attack': {
@@ -494,13 +520,23 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     switch (action.type) {
       case 'summon': return `S${action.handIndex}`;
       case 'place_nexus': return `N${action.handIndex}`;
-      case 'use_magic': return `M${action.handIndex}`;
+      case 'use_magic': {
+        let key = `M${action.handIndex}`;
+        if (action.targetSpiritIndex !== undefined) key += `T${action.targetSpiritIndex}`;
+        if (action.effectValue !== undefined) key += `V${action.effectValue}`;
+        return key;
+      }
       case 'attack': return `A${action.spiritIndex}`;
       case 'block': return `B${action.spiritIndex}`;
       case 'defend': return `D${action.spiritIndex}`;
       case 'take_damage': return 'TD';
       case 'pass': return 'P';
-      case 'flash': return `F${action.handIndex}`;
+      case 'flash': {
+        let key = `F${action.handIndex}`;
+        if (action.targetSpiritIndex !== undefined) key += `T${action.targetSpiritIndex}`;
+        if (action.effectValue !== undefined) key += `V${action.effectValue}`;
+        return key;
+      }
       case 'skip_flash': return 'SF';
       default: return '?';
     }
@@ -519,7 +555,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'use_magic': {
         const card = me.hand[action.handIndex];
-        return `Use ${card?.name ?? '?'}`;
+        let desc = `Use ${card?.name ?? '?'}`;
+        if (action.targetSpiritIndex !== undefined) {
+          const opponent = state.players[1 - state.currentPlayer]!;
+          const target = opponent.spirits[action.targetSpiritIndex];
+          desc += ` on ${target?.def.name ?? '?'}`;
+        }
+        if (action.effectValue !== undefined) {
+          desc += ` (${action.effectValue})`;
+        }
+        return desc;
       }
       case 'attack': {
         const spirit = me.spirits[action.spiritIndex];
@@ -537,7 +582,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'pass': return 'End turn';
       case 'flash': {
         const card = me.hand[action.handIndex];
-        return `Flash: ${card?.name ?? '?'}`;
+        let desc = `Flash: ${card?.name ?? '?'}`;
+        if (action.targetSpiritIndex !== undefined) {
+          const opponent = state.players[1 - state.currentPlayer]!;
+          const target = opponent.spirits[action.targetSpiritIndex];
+          desc += ` on ${target?.def.name ?? '?'}`;
+        }
+        if (action.effectValue !== undefined) {
+          desc += ` (${action.effectValue})`;
+        }
+        return desc;
       }
       case 'skip_flash': return 'Skip flash';
       default: return '?';

@@ -13,6 +13,8 @@ export function applyEffect(
   sourcePlayer: number,
   targetNexusIndex?: number,
   spirit?: any, // the spirit triggering the effect
+  targetSpiritIndex?: number,
+  effectValue?: number,
 ): GameState {
   const next = cloneGameState(state);
   const me = next.players[sourcePlayer]!;
@@ -46,25 +48,49 @@ export function applyEffect(
         return next;
       }
     }
+    if (effect.condition.requiresNexus && me.nexuses.length === 0) {
+      return next;
+    }
+    if (effect.condition.opponentHasNexus && opponent.nexuses.length === 0) {
+      return next;
+    }
+    if (effect.condition.requiresSpirit) {
+      const { lineage, count } = effect.condition.requiresSpirit;
+      let matchCount = 0;
+      if (lineage) {
+        matchCount = me.spirits.filter((s: any) => s.def.lineage?.includes(lineage)).length;
+      } else {
+        matchCount = me.spirits.length;
+      }
+      if (count && matchCount < count) {
+        return next;
+      }
+      if (!count && matchCount === 0) {
+        return next;
+      }
+    }
   }
 
   switch (effect.action) {
     case 'damage': {
       const target = effect.target || 'opponent_hero';
+      const damageValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       if (target === 'opponent_hero') {
-        opponent.life -= effect.value ?? 1;
+        opponent.life -= damageValue;
       } else if (target === 'opponent_creature' && targetNexusIndex !== undefined) {
         // TODO: damage creature (not in phase 1)
       }
       break;
     }
     case 'heal': {
-      me.life += effect.value ?? 1;
+      const healValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
+      me.life += healValue;
       if (me.life > 20) me.life = 20; // Cap at starting life
       break;
     }
     case 'draw': {
-      for (let i = 0; i < (effect.value ?? 1); i++) {
+      const drawValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
+      for (let i = 0; i < drawValue; i++) {
         const card = me.deck.shift();
         if (card) me.hand.push(card);
       }
@@ -72,14 +98,15 @@ export function applyEffect(
     }
     case 'boost_bp': {
       // Boost the spirit's BP temporarily (stored as a modifier in spirit state)
+      const boostValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       if (spirit) {
-        spirit.bpBoost = (spirit.bpBoost ?? 0) + (effect.value ?? 1);
+        spirit.bpBoost = (spirit.bpBoost ?? 0) + boostValue;
       }
       break;
     }
     case 'search_deck': {
       // Open top X cards, find 1 with matching lineage, add to hand, discard rest
-      const openCount = effect.value ?? 2; // Open top X cards
+      const openCount = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 2);
       const targetLineage = effect.symbol; // Symbol field contains lineage for search_deck
       const opened = me.deck.splice(0, Math.min(openCount, me.deck.length));
 
@@ -99,17 +126,19 @@ export function applyEffect(
       break;
     }
     case 'destroy_creature': {
-      // Destroy opponent's spirit (weakest one with BP <= 3)
-      let targetIndex = -1;
-      for (let i = 0; i < opponent.spirits.length; i++) {
-        const spirit = opponent.spirits[i]!;
-        const stats = spirit.level === 1 ? spirit.def.lv1 : spirit.def.lv2 || spirit.def.lv1;
-        if (stats.bp <= 3) {
-          targetIndex = i;
-          break;
+      // Destroy opponent's spirit at targetSpiritIndex, or weakest one with BP <= 3
+      let targetIndex = targetSpiritIndex ?? -1;
+      if (targetIndex === -1) {
+        for (let i = 0; i < opponent.spirits.length; i++) {
+          const spiritDef = opponent.spirits[i]!;
+          const stats = spiritDef.level === 1 ? spiritDef.def.lv1 : spiritDef.def.lv2 || spiritDef.def.lv1;
+          if (stats.bp <= 3) {
+            targetIndex = i;
+            break;
+          }
         }
       }
-      if (targetIndex >= 0) {
+      if (targetIndex >= 0 && targetIndex < opponent.spirits.length) {
         opponent.spirits.splice(targetIndex, 1);
       }
       break;
@@ -134,8 +163,9 @@ export function applyEffect(
     }
     case 'place_core': {
       // Place core on this spirit and check for level-up
+      const coreValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       if (spirit) {
-        spirit.placedCores = (spirit.placedCores ?? 0) + (effect.value ?? 1);
+        spirit.placedCores = (spirit.placedCores ?? 0) + coreValue;
         // Check if spirit can level up to Lv2
         if (spirit.level === 1 && spirit.def.lv2 && spirit.placedCores >= spirit.def.lv2.cost) {
           spirit.level = 2;
@@ -145,14 +175,16 @@ export function applyEffect(
       break;
     }
     case 'discard_hand': {
-      // Discard card from hand with specific symbol
+      // Discard card from hand with specific symbol, or up to effectValue cards
       const targetSymbol = effect.symbol;
-      for (let i = 0; i < me.hand.length; i++) {
+      const discardCount = effect.variableValue && effectValue !== undefined ? effectValue : 1;
+      let discarded = 0;
+      for (let i = me.hand.length - 1; i >= 0 && discarded < discardCount; i--) {
         const card = me.hand[i]!;
         if (!targetSymbol || card.symbolColors.includes(targetSymbol)) {
           me.trash.push(card);
           me.hand.splice(i, 1);
-          break;
+          discarded++;
         }
       }
       break;
@@ -178,11 +210,13 @@ export function triggerEffects(
   card: CardDef,
   sourcePlayer: number,
   spirit?: any,
+  targetSpiritIndex?: number,
+  effectValue?: number,
 ): GameState {
   let next = state;
   const effects = card.effects?.filter((e) => e.trigger === trigger) ?? [];
   for (const effect of effects) {
-    next = applyEffect(next, effect, sourcePlayer, undefined, spirit);
+    next = applyEffect(next, effect, sourcePlayer, undefined, spirit, targetSpiritIndex, effectValue);
   }
   return next;
 }
