@@ -1,187 +1,278 @@
-.game-board {
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
+/* ===== Full-screen single-view battle layout =====
+   Left: battle area (opponent / center bar / self)
+   Right: side panel (actions + history)
+   Everything fits in the viewport; no page scrolling. */
 
-.game-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.game-header h2 {
-  margin: 0;
-  font-size: 1.8rem;
-}
-
-.game-controls {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.auto-play-button,
-.reset-button {
-  padding: 0.75rem 1.5rem;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 2px solid white;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.auto-play-button:hover,
-.reset-button:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
-}
-
-.auto-play-button.active {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-.board-container {
+.game-screen {
+  --card-w: clamp(56px, 8.5vh, 92px);
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  overflow-y: auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(240px, 22vw, 320px);
+  background: #171c28;
+  color: #e8eaf0;
+  overflow: hidden;
 }
 
 .loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 400px;
-  font-size: 1.5rem;
   color: white;
-}
-
-.game-over {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 100;
-}
-
-.game-over-content {
-  background: white;
+  font-size: 1.2rem;
   padding: 3rem;
-  border-radius: 12px;
   text-align: center;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
 
-.game-over-content h3 {
-  font-size: 2rem;
-  color: #667eea;
-  margin-bottom: 1rem;
+/* ===== Battle area ===== */
+
+.battle-area {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
 }
 
-.game-over-content p {
-  font-size: 1.5rem;
+/* Center bar between the two fields */
+.center-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.3rem 1rem;
+  background: rgba(255, 255, 255, 0.07);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.85rem;
+}
+
+.turn-chip {
+  background: #667eea;
+  color: white;
+  padding: 0.15rem 0.7rem;
+  border-radius: 999px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.center-phase {
+  color: #9aa3b8;
+  font-weight: 600;
+}
+
+.center-alert {
+  font-weight: 700;
+}
+
+.center-alert.attack {
+  color: #ff7b6b;
+}
+
+.center-alert.flash {
+  color: #ffd75e;
+}
+
+.turn-owner {
+  margin-left: auto;
+  color: #9aa3b8;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ===== Side panel ===== */
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #f7f8fc;
   color: #333;
-  margin-bottom: 2rem;
+  border-left: 2px solid #2a3040;
 }
 
-.game-over-content button {
-  padding: 1rem 2rem;
-  font-size: 1.1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.side-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.8rem;
+  background: #667eea;
+  color: white;
+  font-size: 0.95rem;
+}
+
+.side-header .reset-button {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.side-header .reset-button:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.side-error {
+  margin: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+/* Actions section: at most ~55% of the panel, scrolls internally */
+.side-actions {
+  flex: 0 1 auto;
+  max-height: 55%;
+  overflow-y: auto;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid #dde1ec;
+}
+
+.side-actions-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.side-actions-title .hint {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
   color: white;
 }
 
-@media (max-width: 1024px) {
-  .game-board {
-    max-width: 100%;
-  }
-
-  .game-header {
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
-  }
-
-  .game-header h2 {
-    font-size: 1.5rem;
-  }
+.side-actions-title .hint.attack {
+  background: #e74c3c;
 }
 
-/* Human action panel */
-.main-action-panel {
-  margin: 0 0 1rem 0;
-  padding: 1rem 1.5rem;
-  background: #f0f4ff;
-  border: 2px solid #667eea;
-  border-radius: 8px;
+.side-actions-title .hint.flash {
+  background: #d4a017;
 }
 
-.main-action-panel h5 {
-  margin: 0 0 0.75rem 0;
-  font-size: 1rem;
-  color: #333;
-}
-
-.main-action-panel .context-hint {
-  color: #e74c3c;
-  font-weight: 600;
-  margin-left: 0.5rem;
-}
-
-.main-action-panel .action-buttons {
+.action-buttons {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
-.main-action-panel .action-button {
-  padding: 0.6rem 1.2rem;
+.action-button {
+  padding: 0.45rem 0.7rem;
   background: #667eea;
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.95rem;
-  transition: all 0.2s;
+  font-size: 0.82rem;
+  text-align: left;
+  line-height: 1.3;
+  transition: background 0.15s, transform 0.1s;
 }
 
-.main-action-panel .action-button:hover:not(:disabled) {
-  background: #5568d3;
-  transform: translateY(-1px);
+.action-button:hover:not(:disabled) {
+  background: #5062d8;
+  transform: translateX(2px);
 }
 
-.main-action-panel .action-button:disabled {
+.action-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.main-action-panel.thinking {
+.thinking {
   color: #666;
   font-weight: 600;
-  border-style: dashed;
+  font-size: 0.9rem;
+  padding: 0.4rem 0;
 }
 
-/* Error banner */
+/* History: fills the rest, scrolls internally */
+.side-history {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.6rem 0.8rem;
+}
+
+.side-history-title {
+  flex: 0 0 auto;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #555;
+  margin-bottom: 0.4rem;
+}
+
+.history-list {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.history-item {
+  padding: 0.15rem 0;
+  border-bottom: 1px dashed #e3e6f0;
+  color: #444;
+}
+
+.history-item .turn-number {
+  color: #999;
+  margin-right: 0.2rem;
+}
+
+.history-empty {
+  color: #aaa;
+  font-style: italic;
+}
+
+/* ===== Game over overlay ===== */
+
+.game-over {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.game-over-content {
+  background: white;
+  color: #333;
+  padding: 2rem 3rem;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+}
+
+.game-over-content h3 {
+  font-size: 1.6rem;
+  color: #667eea;
+  margin-bottom: 0.8rem;
+}
+
+.game-over-content p {
+  font-size: 1.15rem;
+  margin-bottom: 1.2rem;
+}
+
+.game-over-content button {
+  padding: 0.7rem 2rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* Error banner (shared) */
 .error-banner {
-  margin: 0 0 1rem 0;
-  padding: 1rem 1.5rem;
+  padding: 0.8rem 1.2rem;
   background: #fdecea;
   border: 2px solid #e74c3c;
   border-radius: 8px;
@@ -189,14 +280,28 @@
   font-weight: 600;
 }
 
-/* Spirit core display */
-.spirit-cores {
-  margin-top: 0.4rem;
-  font-size: 0.8rem;
-  color: #555;
-}
+/* ===== Narrow screens: stack the panel below (fallback with scrolling) ===== */
+@media (max-width: 820px) {
+  .app.in-game {
+    height: auto;
+    overflow: auto;
+  }
 
-.spirit-cores .lv2-hint {
-  color: #999;
-  font-size: 0.72rem;
+  .game-screen {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .side-panel {
+    border-left: none;
+    border-top: 2px solid #2a3040;
+  }
+
+  .side-actions {
+    max-height: none;
+  }
+
+  .history-list {
+    max-height: 180px;
+  }
 }

@@ -6,121 +6,106 @@ interface PlayerPanelProps {
   isCurrent: boolean;
   showHand: boolean;
   typeLabel: string;
+  position: 'top' | 'bottom';
 }
 
 function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
   if (!imagePath) return null;
   return (
     <img
-      className="card-image"
+      className="fcard-image"
       src={`/${imagePath}`}
       alt={name}
       loading="lazy"
       onError={(e) => {
-        // Hide the image if the file is missing; text info below still shows
         (e.target as HTMLImageElement).style.display = 'none';
       }}
     />
   );
 }
 
-export default function PlayerPanel({ playerNumber, player, isCurrent, showHand, typeLabel }: PlayerPanelProps) {
+export default function PlayerPanel({ playerNumber, player, isCurrent, showHand, typeLabel, position }: PlayerPanelProps) {
+  const statsBar = (
+    <div className="player-bar">
+      <span className={`pname ${isCurrent ? 'active' : ''}`}>
+        P{playerNumber} <span className="ptype">{typeLabel}</span>
+        {isCurrent && <span className="turn-badge">▶ ターン中</span>}
+      </span>
+      <span className={`pstat life ${player.life <= 5 ? 'low' : ''}`} title="ライフ">❤️ {player.life}</span>
+      <span className="pstat" title="コア（リザーブ）">🔵 {player.cores}</span>
+      <span className="pstat" title="手札">🃏 {player.handSize}</span>
+      <span className="pstat" title="デッキ残り">📚 {player.deck.count}</span>
+      <span className="pstat" title="トラッシュ">🗑️ {player.trash.count}</span>
+    </div>
+  );
+
+  const fieldRow = (
+    <div className="field-row">
+      {player.nexuses.map((nexus: any, i: number) => (
+        <div key={`n${i}`} className="fcard nexus" title={`${nexus.name}（ネクサス Lv${nexus.level}）`}>
+          <CardImage imagePath={nexus.imagePath} name={nexus.name} />
+          <div className="fcard-chips">
+            <span className="chip nexus-chip">ネクサス</span>
+            <span className="chip">Lv{nexus.level}</span>
+          </div>
+          <div className="fcard-name">{nexus.name}</div>
+        </div>
+      ))}
+      {player.spirits.map((spirit: any, i: number) => (
+        <div
+          key={`s${i}`}
+          className={`fcard spirit ${spirit.canAttack ? '' : 'tapped'}`}
+          title={`${spirit.name}｜Lv${spirit.level}｜BP${spirit.bp}｜コア${spirit.coreCount}${spirit.canAttack ? '' : '｜疲労'}`}
+        >
+          <CardImage imagePath={spirit.imagePath} name={spirit.name} />
+          <div className="fcard-chips">
+            <span className="chip">Lv{spirit.level}</span>
+            <span className="chip bp">BP{spirit.bp}</span>
+            <span className="chip core">●{spirit.coreCount}</span>
+          </div>
+          <div className="fcard-name">{spirit.name}</div>
+          {!spirit.canAttack && <div className="tap-overlay">疲労</div>}
+        </div>
+      ))}
+      {player.nexuses.length === 0 && player.spirits.length === 0 && (
+        <div className="field-empty">場にカードなし</div>
+      )}
+    </div>
+  );
+
+  const handRow = showHand ? (
+    <div className="hand-row">
+      <span className="hand-label">手札</span>
+      {player.handCards.length > 0 ? (
+        player.handCards.map((card: any, i: number) => (
+          <div key={i} className="fcard hand" title={`${card.name}（コスト${card.cost}）`}>
+            <CardImage imagePath={card.imagePath} name={card.name} />
+            <span className="cost-badge">{card.cost}</span>
+            <div className="fcard-name">{card.name}</div>
+          </div>
+        ))
+      ) : (
+        <div className="field-empty">手札なし</div>
+      )}
+    </div>
+  ) : null;
+
+  // Top player: hand (if visible) above, field closest to center.
+  // Bottom player: field closest to center, hand below.
   return (
-    <div className={`player-panel ${isCurrent ? 'current' : ''}`}>
-      <div className="player-info">
-        <div className="player-name">
-          <span>プレイヤー {playerNumber}（{typeLabel}）</span>
-          {isCurrent && <span className="current-indicator">⭐ ターン中</span>}
-        </div>
-
-        <div className="player-stats">
-          <div className="stat">
-            <span className="label">ライフ</span>
-            <span className={`value ${player.life <= 5 ? 'low-life' : ''}`}>{player.life}</span>
-          </div>
-          <div className="stat">
-            <span className="label">コア</span>
-            <span className="value">{player.cores}</span>
-          </div>
-          <div className="stat">
-            <span className="label">手札</span>
-            <span className="value">{player.handSize}</span>
-          </div>
-          <div className="stat">
-            <span className="label">デッキ</span>
-            <span className="value">{player.deck.count}</span>
-          </div>
-          <div className="stat">
-            <span className="label">トラッシュ</span>
-            <span className="value">{player.trash.count}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Spirits */}
-      <div className="field-section">
-        <h4>スピリット ({player.spirits.length})</h4>
-        <div className="spirits-container">
-          {player.spirits.length > 0 ? (
-            player.spirits.map((spirit: any, i: number) => (
-              <div key={i} className={`spirit-card ${spirit.canAttack ? 'ready' : 'fatigued'}`}>
-                <CardImage imagePath={spirit.imagePath} name={spirit.name} />
-                <div className="spirit-name">{spirit.name}</div>
-                <div className="spirit-stats">
-                  <span className="level">Lv{spirit.level}</span>
-                  <span className="bp">BP {spirit.bp}</span>
-                </div>
-                <div className="spirit-cores">
-                  🔵×{spirit.coreCount}
-                  {spirit.coresForLv2 && spirit.level === 1 && (
-                    <span className="lv2-hint">（Lv2まであと{spirit.coresForLv2 - spirit.coreCount}）</span>
-                  )}
-                </div>
-                {!spirit.canAttack && <div className="fatigue-badge">疲労</div>}
-              </div>
-            ))
-          ) : (
-            <div className="empty">スピリットなし</div>
-          )}
-        </div>
-      </div>
-
-      {/* Nexuses */}
-      <div className="field-section">
-        <h4>ネクサス ({player.nexuses.length})</h4>
-        <div className="nexuses-container">
-          {player.nexuses.length > 0 ? (
-            player.nexuses.map((nexus: any, i: number) => (
-              <div key={i} className="nexus-card">
-                <CardImage imagePath={nexus.imagePath} name={nexus.name} />
-                <div className="nexus-name">{nexus.name}</div>
-                <div className="nexus-level">Lv{nexus.level}</div>
-              </div>
-            ))
-          ) : (
-            <div className="empty">ネクサスなし</div>
-          )}
-        </div>
-      </div>
-
-      {/* Hand (visible for human players; hidden for AI opponents) */}
-      {showHand && (
-        <div className="field-section">
-          <h4>手札 ({player.handSize})</h4>
-          <div className="hand-container">
-            {player.handCards.length > 0 ? (
-              player.handCards.map((card: any, i: number) => (
-                <div key={i} className="hand-card">
-                  <CardImage imagePath={card.imagePath} name={card.name} />
-                  <div className="card-name">{card.name}</div>
-                  <div className="card-cost">コスト {card.cost}</div>
-                </div>
-              ))
-            ) : (
-              <div className="empty">手札なし</div>
-            )}
-          </div>
-        </div>
+    <div className={`player-panel ${position} ${isCurrent ? 'current' : ''}`}>
+      {position === 'top' ? (
+        <>
+          {statsBar}
+          {handRow}
+          {fieldRow}
+        </>
+      ) : (
+        <>
+          {fieldRow}
+          {handRow}
+          {statsBar}
+        </>
       )}
     </div>
   );

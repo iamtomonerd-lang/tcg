@@ -40,13 +40,15 @@ export default function App() {
   };
 
   return (
-    <div className="app">
-      <header className="header">
-        <h1>🎮 Battle Spirits AI</h1>
-        <p>ユニバーサルTCG対戦AI</p>
-      </header>
+    <div className={`app ${session ? 'in-game' : ''}`}>
+      {!session && (
+        <header className="header">
+          <h1>🎮 Battle Spirits AI</h1>
+          <p>ユニバーサルTCG対戦AI</p>
+        </header>
+      )}
 
-      <main className="main">
+      <main className={session ? 'main-game' : 'main'}>
         {startError && <div className="error-banner">⚠️ {startError}</div>}
         {!session ? (
           <GameSetup onStartGame={handleStartGame} />

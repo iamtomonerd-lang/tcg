@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import PlayerPanel from './PlayerPanel';
-import GameInfo from './GameInfo';
 import '../styles/GameBoard.css';
 
 interface GameBoardProps {
@@ -23,6 +22,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const [isBusy, setIsBusy] = useState(false);
   const [gameHistory, setGameHistory] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
 
   const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
 
@@ -77,6 +77,13 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
       return () => clearTimeout(timer);
     }
   }, [isTerminal, state, isHumanTurn, isBusy, currentPlayer]);
+
+  // Keep the history scrolled to the latest entry
+  useEffect(() => {
+    if (historyRef.current) {
+      historyRef.current.scrollTop = historyRef.current.scrollHeight;
+    }
+  }, [gameHistory]);
 
   const playAITurn = async () => {
     if (isBusy) return;
@@ -138,9 +145,11 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     return <div className="loading">ゲーム読み込み中...</div>;
   }
 
-  const p0 = state.players[0];
-  const p1 = state.players[1];
   const anyHuman = playerTypes.includes('human');
+
+  // Human player sits at the bottom; in AI-vs-AI, P0 sits at the bottom
+  const bottomPlayer = playerTypes[1] === 'human' && playerTypes[0] !== 'human' ? 1 : 0;
+  const topPlayer = 1 - bottomPlayer;
 
   // Show a player's hand if they are human, or in AI-vs-AI spectator mode
   const showHand = (n: number) => playerTypes[n] === 'human' || !anyHuman;
@@ -151,80 +160,98 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   };
 
   return (
-    <div className="game-board">
-      <div className="game-header">
-        <h2>Battle Spirits</h2>
-        <div className="game-controls">
-          <button className="reset-button" onClick={onEndGame}>
-            🔄 リセット
-          </button>
+    <div className="game-screen">
+      {/* ===== Battle area (left) ===== */}
+      <div className="battle-area">
+        <PlayerPanel
+          playerNumber={topPlayer}
+          player={state.players[topPlayer]}
+          isCurrent={currentPlayer === topPlayer}
+          showHand={showHand(topPlayer)}
+          typeLabel={playerLabel(topPlayer)}
+          position="top"
+        />
+
+        <div className="center-bar">
+          <span className="turn-chip">ターン {state.turnCount + 1}</span>
+          {state.pendingAttack ? (
+            <span className="center-alert attack">
+              ⚔️ 「{state.pendingAttack.attackerName}」がアタック中！（ライフダメージ {state.pendingAttack.damage}）
+            </span>
+          ) : state.pendingFlash ? (
+            <span className="center-alert flash">⚡ フラッシュタイミング</span>
+          ) : (
+            <span className="center-phase">メインステップ</span>
+          )}
+          <span className="turn-owner">
+            {isTerminal ? 'ゲーム終了' : `P${currentPlayer}（${playerLabel(currentPlayer)}）の番`}
+          </span>
         </div>
+
+        <PlayerPanel
+          playerNumber={bottomPlayer}
+          player={state.players[bottomPlayer]}
+          isCurrent={currentPlayer === bottomPlayer}
+          showHand={showHand(bottomPlayer)}
+          typeLabel={playerLabel(bottomPlayer)}
+          position="bottom"
+        />
       </div>
 
-      {error && <div className="error-banner">⚠️ {error}</div>}
+      {/* ===== Side panel (right) ===== */}
+      <aside className="side-panel">
+        <div className="side-header">
+          <strong>Battle Spirits</strong>
+          <button className="reset-button" onClick={onEndGame}>🔄 リセット</button>
+        </div>
 
-      {/* Action panel for the human player's turn */}
-      {isHumanTurn && (
-        <div className="action-panel main-action-panel">
-          <h5>
-            🎯 あなたのターンです（プレイヤー{currentPlayer}）
-            {state.pendingAttack && (
-              <span className="context-hint">
-                — 相手の「{state.pendingAttack.attackerName}」がアタック中！（ダメージ {state.pendingAttack.damage}）
-              </span>
+        {error && <div className="error-banner side-error">⚠️ {error}</div>}
+
+        <div className="side-actions">
+          {isHumanTurn ? (
+            <>
+              <div className="side-actions-title">
+                🎯 あなたの番です
+                {state.pendingAttack && <span className="hint attack">防御するか選択</span>}
+                {state.pendingFlash && <span className="hint flash">フラッシュ使用可</span>}
+              </div>
+              <div className="action-buttons">
+                {legalActions.map((action) => (
+                  <button
+                    key={action.index}
+                    className="action-button"
+                    onClick={() => executeAction(action.index)}
+                    disabled={isBusy}
+                  >
+                    {action.description}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : !isTerminal ? (
+            <div className="thinking">🤖 {playerLabel(currentPlayer)} 考え中...</div>
+          ) : (
+            <div className="thinking">ゲーム終了</div>
+          )}
+        </div>
+
+        <div className="side-history">
+          <div className="side-history-title">行動履歴</div>
+          <div className="history-list" ref={historyRef}>
+            {gameHistory.length > 0 ? (
+              gameHistory.map((action, i) => (
+                <div key={i} className="history-item">
+                  <span className="turn-number">{i + 1}.</span> {action}
+                </div>
+              ))
+            ) : (
+              <div className="history-empty">まだ行動がありません</div>
             )}
-            {state.pendingFlash && <span className="context-hint">— フラッシュタイミング</span>}
-          </h5>
-          <div className="action-buttons">
-            {legalActions.map((action) => (
-              <button
-                key={action.index}
-                className="action-button"
-                onClick={() => executeAction(action.index)}
-                disabled={isBusy}
-              >
-                {action.description}
-              </button>
-            ))}
           </div>
         </div>
-      )}
+      </aside>
 
-      {!isHumanTurn && !isTerminal && (
-        <div className="action-panel main-action-panel thinking">
-          🤖 {playerLabel(currentPlayer)}（プレイヤー{currentPlayer}）が考え中...
-        </div>
-      )}
-
-      <div className="board-container">
-        {/* Player 1 */}
-        <PlayerPanel
-          playerNumber={1}
-          player={p1}
-          isCurrent={currentPlayer === 1}
-          showHand={showHand(1)}
-          typeLabel={playerLabel(1)}
-        />
-
-        {/* Game info center */}
-        <GameInfo
-          turnCount={state.turnCount}
-          currentPlayer={currentPlayer}
-          isTerminal={isTerminal}
-          result={state.result}
-          gameHistory={gameHistory}
-        />
-
-        {/* Player 0 */}
-        <PlayerPanel
-          playerNumber={0}
-          player={p0}
-          isCurrent={currentPlayer === 0}
-          showHand={showHand(0)}
-          typeLabel={playerLabel(0)}
-        />
-      </div>
-
+      {/* ===== Game over overlay ===== */}
       {isTerminal && (
         <div className="game-over">
           <div className="game-over-content">
