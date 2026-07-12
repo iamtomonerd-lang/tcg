@@ -143,7 +143,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           const card = p.deck.shift()!;
           p.hand.push(card);
           next.phase = 'refresh';
-          return next;
+          break; // continue the loop so refresh runs and phase reaches main
         }
         case 'refresh': {
           // Refresh all spirits (can attack this turn)
