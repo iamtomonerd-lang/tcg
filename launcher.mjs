@@ -56,10 +56,11 @@ async function main() {
   console.log('🎮 Starting Battle Spirits AI...');
   console.log('📦 Building and starting server...');
 
-  // Start the server
+  // Start the server (use shell on Windows for npm compatibility)
+  const isWindows = platform() === 'win32';
   const server = spawn('npm', ['run', 'web'], {
     stdio: 'pipe',
-    shell: true,
+    shell: isWindows,
   });
 
   let hasError = false;
