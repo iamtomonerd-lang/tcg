@@ -97,9 +97,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
         case 'core': {
           // Recover cores: 1 per nexus on field (minimum 1)
-          const p = next.players[next.currentPlayer]!;
-          const coreRecover = Math.max(1, p.nexuses.length);
-          p.cores = Math.min(p.cores + coreRecover, 20); // Cap at 20
+          // But skip on turn 1 (turnCount = 0 for each player's first turn)
+          const isFirstTurn = next.turnCount === 0;
+          if (!isFirstTurn) {
+            const p = next.players[next.currentPlayer]!;
+            const coreRecover = Math.max(1, p.nexuses.length);
+            p.cores = Math.min(p.cores + coreRecover, 20); // Cap at 20
+          }
           next.phase = 'draw';
           break;
         }

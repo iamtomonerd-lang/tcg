@@ -1,4 +1,5 @@
 import '../styles/PlayerPanel.css';
+import CoreReserve from './CoreReserve';
 
 interface PlayerPanelProps {
   playerNumber: number;
@@ -45,17 +46,25 @@ export default function PlayerPanel({
   dragOverCard,
 }: PlayerPanelProps) {
   const statsBar = (
-    <div className="player-bar">
-      <span className={`pname ${isCurrent ? 'active' : ''}`}>
-        P{playerNumber} <span className="ptype">{typeLabel}</span>
-        {isCurrent && <span className="turn-badge">▶ ターン中</span>}
-      </span>
-      <span className={`pstat life ${player.life <= 5 ? 'low' : ''}`} title="ライフ">❤️ {player.life}</span>
-      <span className="pstat" title="コア（リザーブ）">🔵 {player.cores}</span>
-      {player.soulCores > 0 && <span className="pstat soul" title="ソウルコア">⭐ {player.soulCores}</span>}
-      <span className="pstat" title="手札">🃏 {player.handSize}</span>
-      <span className="pstat" title="デッキ残り">📚 {player.deck.count}</span>
-      <span className="pstat" title="トラッシュ">🗑️ {player.trash.count}</span>
+    <div className="player-stats-section">
+      <div className="player-bar">
+        <span className={`pname ${isCurrent ? 'active' : ''}`}>
+          P{playerNumber} <span className="ptype">{typeLabel}</span>
+          {isCurrent && <span className="turn-badge">▶ ターン中</span>}
+        </span>
+        <span className={`pstat life ${player.life <= 5 ? 'low' : ''}`} title="ライフ">❤️ {player.life}</span>
+        <span className="pstat" title="手札">🃏 {player.handSize}</span>
+        <span className="pstat" title="デッキ残り">📚 {player.deck.count}</span>
+        <span className="pstat" title="トラッシュ">🗑️ {player.trash.count}</span>
+      </div>
+      <CoreReserve
+        cores={player.cores}
+        soulCores={player.soulCores}
+        isHumanTurn={isHumanTurn}
+        playerNumber={playerNumber}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />
     </div>
   );
 

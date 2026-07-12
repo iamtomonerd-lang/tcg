@@ -177,6 +177,15 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
         action.description.includes('add_core') ||
         action.description.toLowerCase().includes('core')
       );
+    } else if (dragData.type === 'core') {
+      // Core dragged onto spirit: find add_core action
+      // dropData should have spiritIndex
+      if (dropData.spiritIndex !== undefined) {
+        matchingAction = legalActions.find((action) =>
+          action.description.includes('コア') ||
+          action.description.toLowerCase().includes('core')
+        );
+      }
     }
 
     if (matchingAction) {
