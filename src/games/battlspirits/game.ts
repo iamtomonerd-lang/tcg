@@ -648,19 +648,21 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!next.pendingDraw) return next;
 
         const pd = next.pendingDraw;
+        const selectedIndices = action.selectedCardIndices || [];
+        const arrangedIndices = action.arrangedCardIndices || action.cardIndices || [];
 
-        // Add cards in toHandIndices to hand (風牙系統かつオファーリングドロー以外)
-        for (const idx of pd.toHandIndices) {
+        // Add selected cards to hand
+        for (const idx of selectedIndices) {
           me.hand.push(pd.openedCards[idx]!);
         }
 
-        // Put rearranged cards back to deck bottom in order specified by cardIndices
-        for (const idx of action.cardIndices) {
+        // Put rearranged cards back to deck bottom in specified order
+        for (const idx of arrangedIndices) {
           me.deck.push(pd.openedCards[idx]!);
         }
 
         // Remaining cards go to trash
-        const usedIndices = new Set([...pd.toHandIndices, ...action.cardIndices]);
+        const usedIndices = new Set([...selectedIndices, ...arrangedIndices]);
         for (let i = 0; i < pd.openedCards.length; i++) {
           if (!usedIndices.has(i)) {
             me.trash.push(pd.openedCards[i]!);
@@ -858,8 +860,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'skip_flash': return 'フラッシュを使わない';
       case 'select_draw_arrange': {
         if (!state.pendingDraw) return 'オファーリングドロー';
-        const handCards = state.pendingDraw.toHandIndices.map(idx => state.pendingDraw!.openedCards[idx]!.name).join(', ');
-        return `オファーリングドロー: ${handCards}を手札に加える`;
+        const selectedIndices = action.selectedCardIndices || [];
+        const selectedCards = selectedIndices.map(idx => state.pendingDraw!.openedCards[idx]!.name).join(', ');
+        return `オファーリングドロー: ${selectedCards || 'なし'}を手札に加える`;
       }
       default: return '?';
     }

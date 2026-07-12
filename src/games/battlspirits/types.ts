@@ -156,4 +156,4 @@ export type Action =
   | { type: 'pass' } // end current action phase
   | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul' } // activate a flash magic card
   | { type: 'skip_flash' } // pass on flash opportunity
-  | { type: 'select_draw_arrange'; cardIndices: number[] }; // arrange remaining cards and put to deck bottom (cardIndices are indices in toRearrangeIndices order)
+  | { type: 'select_draw_arrange'; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; cardIndices?: number[] }; // arrange and select cards for offering draw

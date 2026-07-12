@@ -25,6 +25,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const [dragData, setDragData] = useState<any>(null);
   const [dragOverCard, setDragOverCard] = useState<string | null>(null);
   const [arrangedCardIndices, setArrangedCardIndices] = useState<number[]>([]);
+  const [selectedHandIndices, setSelectedHandIndices] = useState<Set<number>>(new Set());
   const historyRef = useRef<HTMLDivElement>(null);
 
   const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
@@ -88,10 +89,11 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     }
   }, [gameHistory]);
 
-  // Reset arranged cards when pending draw changes
+  // Reset arranged cards and selected hand cards when pending draw changes
   useEffect(() => {
     if (state?.pendingDraw) {
       setArrangedCardIndices([...state.pendingDraw.toRearrangeIndices]);
+      setSelectedHandIndices(new Set());
     }
   }, [state?.pendingDraw]);
 
@@ -121,13 +123,19 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     }
   };
 
-  const executeAction = async (actionIndex: number, options?: { cardIndices?: number[] }) => {
+  const executeAction = async (actionIndex: number, options?: { cardIndices?: number[]; selectedCardIndices?: number[]; arrangedCardIndices?: number[] }) => {
     if (isBusy) return;
     setIsBusy(true);
     try {
       const body: any = { actionIndex };
       if (options?.cardIndices !== undefined) {
         body.cardIndices = options.cardIndices;
+      }
+      if (options?.selectedCardIndices !== undefined) {
+        body.selectedCardIndices = options.selectedCardIndices;
+      }
+      if (options?.arrangedCardIndices !== undefined) {
+        body.arrangedCardIndices = options.arrangedCardIndices;
       }
       const response = await fetch(`/api/game/${sessionId}/action`, {
         method: 'POST',
@@ -306,14 +314,28 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
               <div className="draw-cards">
                 {state.pendingDraw.toHandIndices.length > 0 && (
                   <div className="draw-section">
-                    <div className="draw-section-title">手札に追加されます</div>
+                    <div className="draw-section-title">手札に追加（クリックで選択）</div>
                     {state.pendingDraw.toHandIndices.map((idx) => {
                       const card = state.pendingDraw.openedCards[idx];
+                      const isSelected = selectedHandIndices.has(idx);
                       return (
-                        <div key={`hand-${idx}`} className="draw-card-display">
+                        <button
+                          key={`hand-${idx}`}
+                          className={`draw-card-selectable ${isSelected ? 'selected' : ''}`}
+                          onClick={() => {
+                            const newSelected = new Set(selectedHandIndices);
+                            if (isSelected) {
+                              newSelected.delete(idx);
+                            } else {
+                              newSelected.add(idx);
+                            }
+                            setSelectedHandIndices(newSelected);
+                          }}
+                        >
                           <div className="draw-card-name">{card.name}</div>
                           <div className="draw-card-cost">コスト{card.cost}</div>
-                        </div>
+                          <div className="draw-card-checkmark">{isSelected ? '✓' : ''}</div>
+                        </button>
                       );
                     })}
                   </div>
@@ -369,7 +391,8 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
                 className="action-button"
                 onClick={() => {
                   if (isHumanTurn) {
-                    executeAction(0, { cardIndices: arrangedCardIndices });
+                    const selectedIndices = Array.from(selectedHandIndices);
+                    executeAction(0, { selectedCardIndices: selectedIndices, arrangedCardIndices });
                   }
                 }}
                 disabled={isBusy}

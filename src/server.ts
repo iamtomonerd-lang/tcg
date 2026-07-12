@@ -111,11 +111,18 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
 
-  const { actionIndex, cardIndices } = req.body;
+  const { actionIndex, cardIndices, selectedCardIndices, arrangedCardIndices } = req.body;
   let action: any;
 
-  if (cardIndices !== undefined) {
-    // Card arrangement for offering draw
+  if (selectedCardIndices !== undefined || arrangedCardIndices !== undefined) {
+    // Card arrangement for offering draw with player selection
+    action = {
+      type: 'select_draw_arrange',
+      selectedCardIndices: selectedCardIndices || [],
+      arrangedCardIndices: arrangedCardIndices || [],
+    };
+  } else if (cardIndices !== undefined) {
+    // Legacy: Card arrangement for offering draw (all cards)
     action = { type: 'select_draw_arrange', cardIndices };
   } else {
     const actions = session.game.legalActions(session.state);
