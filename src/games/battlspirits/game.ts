@@ -66,7 +66,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     rng.shuffle(deck);
     return {
       life: 20,
-      cores: 3, // starting reserve cores
+      cores: 3, // starting regular cores
+      soulCores: 1, // starting soul core
       hand: [],
       deck,
       spirits: [],
@@ -116,11 +117,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         case 'refresh': {
           // Refresh all spirits (can attack this turn)
           const p = next.players[next.currentPlayer]!;
-          // Return all cores (regular and soul) to reserve; reset spirits to Lv1
+          // Return regular cores to reserve; keep soul cores on spirits
           for (const spirit of p.spirits) {
-            p.cores += spirit.coreCount; // Return all cores to reserve
+            p.cores += spirit.coreCount; // Return regular cores to reserve
             spirit.coreCount = 0;
-            spirit.level = 1; // Reset to Lv1
+            // Don't reset level - it's determined by soul cores now
+            updateSpiritLevel(spirit);
             spirit.canAttack = true;
             // Clear persistent status effects
             spirit.cannotAttackUntilNextTurn = false;
@@ -451,6 +453,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           def: card,
           level: 1,
           coreCount: card.lv1.cost,
+          soulCoreCount: 0,
           canAttack: true, // Newly summoned spirits are in refresh state
           bpBoost: 0,
         };
@@ -755,9 +758,10 @@ function clonePlayer(p: any) {
   return {
     life: p.life,
     cores: p.cores,
+    soulCores: p.soulCores || 0,
     hand: p.hand.slice(),
     deck: p.deck.slice(),
-    spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0 })),
+    spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0, soulCoreCount: s.soulCoreCount ?? 0 })),
     nexuses: p.nexuses.map((n: any) => ({ ...n, placedCores: n.placedCores ?? 0 })),
     trash: p.trash.slice(),
   };

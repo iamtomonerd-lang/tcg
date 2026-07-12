@@ -74,6 +74,11 @@
   animation: pulse 1s infinite;
 }
 
+.pstat.soul {
+  color: #fbbf24;
+  font-weight: 800;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
@@ -169,6 +174,13 @@
 .chip.core {
   background: #1e7e4d;
   color: #fff;
+  font-weight: 800;
+  font-size: 0.7rem;
+}
+
+.chip.soul {
+  background: #6b46c1;
+  color: #fbbf24;
   font-weight: 800;
   font-size: 0.7rem;
 }

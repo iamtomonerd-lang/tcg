@@ -24,6 +24,7 @@ export interface CardEffect {
     requiresFatiguedRed?: boolean; // requires fatigued red spirit on field
     requiresAdjacentSymbol?: string; // requires adjacent spirit with this symbol
     excludeEXSymbol?: boolean; // exclude cards with EX symbol
+    excludeSoulCore?: boolean; // exclude soul cores (for place_core effects)
     requiresNexus?: boolean; // requires at least one nexus on field
     requiresSpirit?: { lineage?: string; count?: number }; // requires specific spirit(s)
     opponentHasNexus?: boolean; // opponent must have nexus
@@ -65,6 +66,8 @@ export interface Spirit {
   def: CardDef;
   level: 1 | 2;
   coreCount: number;
+  /** soul cores (persist across refresh, used for permanent leveling) */
+  soulCoreCount: number;
   /** true = ready to attack, false = fatigued */
   canAttack: boolean;
   /** temporary BP boost from effects */
@@ -89,7 +92,8 @@ export interface Nexus {
 
 export interface PlayerState {
   life: number;
-  cores: number; // cores in reserve
+  cores: number; // regular cores in reserve
+  soulCores: number; // soul cores in reserve
   hand: CardDef[];
   deck: CardDef[];
   spirits: Spirit[];

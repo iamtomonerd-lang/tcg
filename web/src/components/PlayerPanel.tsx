@@ -33,6 +33,7 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, showHand,
       </span>
       <span className={`pstat life ${player.life <= 5 ? 'low' : ''}`} title="ライフ">❤️ {player.life}</span>
       <span className="pstat" title="コア（リザーブ）">🔵 {player.cores}</span>
+      {player.soulCores > 0 && <span className="pstat soul" title="ソウルコア">⭐ {player.soulCores}</span>}
       <span className="pstat" title="手札">🃏 {player.handSize}</span>
       <span className="pstat" title="デッキ残り">📚 {player.deck.count}</span>
       <span className="pstat" title="トラッシュ">🗑️ {player.trash.count}</span>
@@ -61,7 +62,8 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, showHand,
           <div className="fcard-chips">
             <span className="chip">Lv{spirit.level}</span>
             <span className="chip bp">BP{spirit.bp}</span>
-            <span className="chip core">コア{spirit.coreCount}</span>
+            {spirit.coreCount > 0 && <span className="chip core">コア{spirit.coreCount}</span>}
+            {spirit.soulCoreCount > 0 && <span className="chip soul">⭐{spirit.soulCoreCount}</span>}
           </div>
           <div className="fcard-name">{spirit.name}</div>
           {!spirit.canAttack && <div className="tap-overlay">疲労</div>}

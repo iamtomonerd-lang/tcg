@@ -245,6 +245,7 @@ function serializeState(state: GameState) {
     players: state.players.map((p) => ({
       life: p.life,
       cores: p.cores,
+      soulCores: p.soulCores || 0,
       handSize: p.hand.length,
       handCards: p.hand.map((c) => ({
         id: c.id,
@@ -258,7 +259,9 @@ function serializeState(state: GameState) {
         name: s.def.name,
         level: s.level,
         coreCount: s.coreCount,
+        soulCoreCount: s.soulCoreCount || 0,
         coresForLv2: s.def.lv2 ? s.def.lv2.cost : null,
+        lv2CoreType: s.def.lv2?.coreType,
         canAttack: s.canAttack,
         imagePath: s.def.imagePath,
         bp: (s.level === 1 ? s.def.lv1 : s.def.lv2 || s.def.lv1).bp + (s.bpBoost ?? 0),
