@@ -134,41 +134,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           break;
         }
         case 'draw': {
-          // Open 3 cards from deck; if deck is empty, player loses (deck-out)
+          // Standard draw phase: draw 1 card
           const p = next.players[next.currentPlayer]!;
           if (p.deck.length === 0) {
             next.result = { winner: 1 - next.currentPlayer };
             return next;
           }
-
-          // Open up to 3 cards from top of deck
-          const openCount = Math.min(3, p.deck.length);
-          const openedCards: any[] = [];
-          for (let i = 0; i < openCount; i++) {
-            openedCards.push(p.deck.shift()!);
-          }
-
-          // Determine which cards go to hand: 風牙 lineage and not オファーリングドロー
-          const toHandIndices: number[] = [];
-          const toRearrangeIndices: number[] = [];
-          for (let i = 0; i < openedCards.length; i++) {
-            const card = openedCards[i];
-            const hasWindFangLineage = card.lineage && card.lineage.includes('風牙');
-            const isNotOfferingDraw = card.id !== 'magic_offering_draw';
-            if (hasWindFangLineage && isNotOfferingDraw) {
-              toHandIndices.push(i);
-            } else {
-              toRearrangeIndices.push(i);
-            }
-          }
-
-          // Set pending draw for player to arrange remaining cards
-          next.pendingDraw = {
-            openedCards,
-            toHandIndices,
-            toRearrangeIndices,
-          };
-          return next; // Stop here, player must arrange cards to put back to deck
+          const card = p.deck.shift()!;
+          p.hand.push(card);
+          next.phase = 'refresh';
+          return next;
         }
         case 'refresh': {
           // Refresh all spirits (can attack this turn)
@@ -613,6 +588,44 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.coreType);
         me.trash.push(card);
+
+        // Special handling for オファーリングドロー
+        if (card.id === 'magic_offering_draw') {
+          if (me.deck.length === 0) {
+            // Deck out
+            next.result = { winner: 1 - next.currentPlayer };
+            return next;
+          }
+
+          // Open up to 3 cards from top of deck
+          const openCount = Math.min(3, me.deck.length);
+          const openedCards: any[] = [];
+          for (let i = 0; i < openCount; i++) {
+            openedCards.push(me.deck.shift()!);
+          }
+
+          // Identify 風牙 lineage cards (excluding オファーリングドロー) as selectable (max 2)
+          const selectableIndices: number[] = [];
+          const toRearrangeIndices: number[] = [];
+          for (let i = 0; i < openedCards.length; i++) {
+            const c = openedCards[i];
+            const hasWindFangLineage = c.lineage && c.lineage.includes('風牙');
+            const isNotOfferingDraw = c.id !== 'magic_offering_draw';
+            if (hasWindFangLineage && isNotOfferingDraw && selectableIndices.length < 2) {
+              selectableIndices.push(i);
+            } else {
+              toRearrangeIndices.push(i);
+            }
+          }
+
+          // Set pending draw for player to select and arrange cards
+          next.pendingDraw = {
+            openedCards,
+            toHandIndices: selectableIndices, // Can select up to 2
+            toRearrangeIndices,
+          };
+          return next; // Stop here, player must arrange cards
+        }
 
         // Trigger magic effects with optional target and value
         next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue);

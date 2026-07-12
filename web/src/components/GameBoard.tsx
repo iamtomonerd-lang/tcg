@@ -318,11 +318,13 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
                     {state.pendingDraw.toHandIndices.map((idx) => {
                       const card = state.pendingDraw.openedCards[idx];
                       const isSelected = selectedHandIndices.has(idx);
+                      const canSelect = isSelected || selectedHandIndices.size < 2;
                       return (
                         <button
                           key={`hand-${idx}`}
                           className={`draw-card-selectable ${isSelected ? 'selected' : ''}`}
                           onClick={() => {
+                            if (!canSelect) return;
                             const newSelected = new Set(selectedHandIndices);
                             if (isSelected) {
                               newSelected.delete(idx);
@@ -331,6 +333,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
                             }
                             setSelectedHandIndices(newSelected);
                           }}
+                          disabled={!canSelect}
                         >
                           <div className="draw-card-name">{card.name}</div>
                           <div className="draw-card-cost">コスト{card.cost}</div>
