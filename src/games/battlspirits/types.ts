@@ -97,6 +97,8 @@ export interface PendingFlash {
   trigger: FlashTrigger; // what triggered the flash opportunity
   cardId: string; // which card triggered it
   actionIndex?: number; // the action that triggered this flash window
+  initiatingPlayer: number; // player who triggered the flash window (0 or 1)
+  lastFlashPlayer?: number; // player who last used a flash (for stacking)
 }
 
 export interface PendingAttack {

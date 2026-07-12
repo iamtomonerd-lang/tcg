@@ -206,13 +206,48 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       me.hand.splice(action.handIndex, 1);
       me.cores -= actualCost;
       next = triggerEffects(next, 'immediate', card, next.currentPlayer);
-      next.pendingFlash = null; // Clear flash opportunity after resolving
+
+      // Give opponent counter-timing (stack flash opportunity)
+      const opponentHasFlash = opponent.hand.some(
+        (c) => c.cardType === 'magic' && c.effects?.some((e) => e.isFlash)
+      );
+
+      if (opponentHasFlash) {
+        // Keep same flash trigger, but update for counter timing
+        next.pendingFlash = {
+          trigger: next.pendingFlash!.trigger,
+          cardId: '',
+          initiatingPlayer: next.pendingFlash!.initiatingPlayer,
+          lastFlashPlayer: next.currentPlayer,
+        };
+        // Switch to opponent for counter-timing
+        next.currentPlayer = 1 - next.currentPlayer;
+        return next;
+      }
+
+      // No counter-timing available: resolve the original action
+      next.pendingFlash = null;
+      // Return to original player to complete the action
+      if (next.pendingFlash === null) {
+        next.currentPlayer = 1 - next.currentPlayer;
+      }
       return next;
     }
 
     if (action.type === 'skip_flash') {
-      // Just clear the pending flash and continue
+      if (!next.pendingFlash) return next;
+
+      // If there was a flash used before, return to initiator to continue
+      if (next.pendingFlash.lastFlashPlayer !== undefined && next.pendingFlash.lastFlashPlayer !== next.pendingFlash.initiatingPlayer) {
+        // Return to initiating player (attacker) for potential counter-flash
+        next.currentPlayer = next.pendingFlash.initiatingPlayer;
+        next.pendingFlash.lastFlashPlayer = undefined; // Clear last flash player to allow re-stacking
+        return next;
+      }
+
+      // No more flash opportunity: clear and return to original player
       next.pendingFlash = null;
+      next.currentPlayer = 1 - next.currentPlayer;
       return next;
     }
 
@@ -425,6 +460,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           next.pendingFlash = {
             trigger: trigger as any,
             cardId: '', // Not tracking specific card here
+            initiatingPlayer: next.currentPlayer, // Player who triggered the flash window
           };
           // Switch to opponent for flash opportunity
           next.currentPlayer = 1 - next.currentPlayer;
