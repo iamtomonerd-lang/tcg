@@ -1,13 +1,11 @@
-import { useState } from 'react';
 import '../styles/PlayerPanel.css';
 
 interface PlayerPanelProps {
   playerNumber: number;
   player: any;
   isCurrent: boolean;
-  isOpponent: boolean;
-  sessionId?: string;
-  onActionExecuted?: () => void;
+  showHand: boolean;
+  typeLabel: string;
 }
 
 function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
@@ -26,15 +24,12 @@ function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
   );
 }
 
-export default function PlayerPanel({ playerNumber, player, isCurrent, isOpponent, sessionId, onActionExecuted }: PlayerPanelProps) {
-  const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
-  const [availableActions, setAvailableActions] = useState<any[]>([]);
-  const [isLoadingActions, setIsLoadingActions] = useState(false);
+export default function PlayerPanel({ playerNumber, player, isCurrent, showHand, typeLabel }: PlayerPanelProps) {
   return (
-    <div className={`player-panel ${isOpponent ? 'opponent' : 'self'} ${isCurrent ? 'current' : ''}`}>
+    <div className={`player-panel ${isCurrent ? 'current' : ''}`}>
       <div className="player-info">
         <div className="player-name">
-          <span>プレイヤー {playerNumber}</span>
+          <span>プレイヤー {playerNumber}（{typeLabel}）</span>
           {isCurrent && <span className="current-indicator">⭐ ターン中</span>}
         </div>
 
@@ -54,6 +49,10 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, isOpponen
           <div className="stat">
             <span className="label">デッキ</span>
             <span className="value">{player.deck.count}</span>
+          </div>
+          <div className="stat">
+            <span className="label">トラッシュ</span>
+            <span className="value">{player.trash.count}</span>
           </div>
         </div>
       </div>
@@ -98,18 +97,14 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, isOpponen
         </div>
       </div>
 
-      {/* Hand (hidden if opponent) */}
-      {!isOpponent && (
+      {/* Hand (visible for human players; hidden for AI opponents) */}
+      {showHand && (
         <div className="field-section">
           <h4>手札 ({player.handSize})</h4>
           <div className="hand-container">
             {player.handCards.length > 0 ? (
               player.handCards.map((card: any, i: number) => (
-                <div
-                  key={i}
-                  className={`hand-card ${selectedCardIndex === i ? 'selected' : ''} ${isCurrent && !isOpponent ? 'clickable' : ''}`}
-                  onClick={() => isCurrent && !isOpponent && handleCardClick(i)}
-                >
+                <div key={i} className="hand-card">
                   <CardImage imagePath={card.imagePath} name={card.name} />
                   <div className="card-name">{card.name}</div>
                   <div className="card-cost">コスト {card.cost}</div>
@@ -119,85 +114,8 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, isOpponen
               <div className="empty">手札なし</div>
             )}
           </div>
-
-          {selectedCardIndex !== null && availableActions.length > 0 && (
-            <div className="action-panel">
-              <h5>可能なアクション</h5>
-              <div className="action-buttons">
-                {availableActions.map((action, idx) => (
-                  <button
-                    key={idx}
-                    className="action-button"
-                    onClick={() => executeAction(action.index)}
-                    disabled={isLoadingActions}
-                  >
-                    {action.description}
-                  </button>
-                ))}
-              </div>
-              <button
-                className="action-button cancel"
-                onClick={() => {
-                  setSelectedCardIndex(null);
-                  setAvailableActions([]);
-                }}
-              >
-                キャンセル
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>
   );
-
-  async function handleCardClick(cardIndex: number) {
-    if (!sessionId) return;
-    setSelectedCardIndex(cardIndex);
-    setIsLoadingActions(true);
-
-    try {
-      const response = await fetch(`/api/game/${sessionId}/actions`);
-      const data = await response.json();
-
-      // Filter actions related to this hand card (summoning, magic, nexus placement)
-      // This is a simplified filter; ideally the backend would support filtering
-      const filtered = data.actions.filter((action: any, idx: number) => {
-        const desc = action.description.toLowerCase();
-        // Check if this action involves the selected card
-        return desc.includes('summon') || desc.includes('place') || desc.includes('use') || desc.includes('flash');
-      });
-
-      setAvailableActions(filtered.length > 0 ? filtered : data.actions);
-    } catch (error) {
-      console.error('Failed to fetch actions:', error);
-    } finally {
-      setIsLoadingActions(false);
-    }
-  }
-
-  async function executeAction(actionIndex: number) {
-    if (!sessionId) return;
-    setIsLoadingActions(true);
-
-    try {
-      const response = await fetch(`/api/game/${sessionId}/action`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actionIndex }),
-      });
-
-      if (response.ok) {
-        setSelectedCardIndex(null);
-        setAvailableActions([]);
-        onActionExecuted?.();
-      } else {
-        console.error('Action failed');
-      }
-    } catch (error) {
-      console.error('Failed to execute action:', error);
-    } finally {
-      setIsLoadingActions(false);
-    }
-  }
 }

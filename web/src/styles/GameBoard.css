@@ -123,3 +123,57 @@
     font-size: 1.5rem;
   }
 }
+
+/* Human action panel */
+.main-action-panel {
+  margin: 0 0 1rem 0;
+  padding: 1rem 1.5rem;
+  background: #f0f4ff;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+}
+
+.main-action-panel h5 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.main-action-panel .context-hint {
+  color: #e74c3c;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.main-action-panel .action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.main-action-panel .action-button {
+  padding: 0.6rem 1.2rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.main-action-panel .action-button:hover:not(:disabled) {
+  background: #5568d3;
+  transform: translateY(-1px);
+}
+
+.main-action-panel .action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.main-action-panel.thinking {
+  color: #666;
+  font-weight: 600;
+  border-style: dashed;
+}

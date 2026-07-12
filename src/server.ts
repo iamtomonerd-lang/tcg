@@ -29,6 +29,7 @@ interface GameSession {
   rng: Mulberry32;
   p0Agent: any;
   p1Agent: any;
+  playerTypes: [string, string];
 }
 
 const sessions = new Map<string, GameSession>();
@@ -40,13 +41,15 @@ app.post('/api/game/new', (req, res) => {
   const { p0Type, p1Type, p0Iters, p1Iters } = req.body;
 
   const sessionId = Math.random().toString(36).substring(7);
-  const rng = new Mulberry32(42);
+  const rng = new Mulberry32(Date.now() & 0xffffffff);
   const game = new BattlSpiritsGame();
   const state = game.createInitialState(rng);
 
-  // Create AI agents
-  const p0Agent = createAgent(p0Type, p0Iters || 100, rng);
-  const p1Agent = createAgent(p1Type, p1Iters || 100, rng);
+  const playerTypes: [string, string] = [p0Type || 'human', p1Type || 'mcts'];
+
+  // Create AI agents ('human' players have no agent)
+  const p0Agent = createAgent(playerTypes[0], p0Iters || 100, rng);
+  const p1Agent = createAgent(playerTypes[1], p1Iters || 100, rng);
 
   sessions.set(sessionId, {
     game,
@@ -54,11 +57,13 @@ app.post('/api/game/new', (req, res) => {
     rng,
     p0Agent,
     p1Agent,
+    playerTypes,
   });
 
   res.json({
     sessionId,
     state: serializeState(state),
+    playerTypes,
   });
 });
 
@@ -75,6 +80,7 @@ app.get('/api/game/:sessionId/state', (req, res) => {
     state: serializeState(session.state),
     isTerminal: session.game.isTerminal(session.state),
     currentPlayer: session.game.currentPlayer(session.state),
+    playerTypes: session.playerTypes,
   });
 });
 
@@ -113,11 +119,15 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     return res.status(400).json({ error: 'Invalid action index' });
   }
 
+  const description = session.game.describeAction(session.state, action);
+  const actingPlayer = session.game.currentPlayer(session.state);
   session.state = session.game.applyAction(session.state, action, session.rng);
 
   res.json({
     state: serializeState(session.state),
     isTerminal: session.game.isTerminal(session.state),
+    currentPlayer: session.game.currentPlayer(session.state),
+    actionDescription: `P${actingPlayer}: ${description}`,
   });
 });
 
@@ -137,14 +147,20 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
   const currentPlayer = session.game.currentPlayer(session.state);
   const agent = currentPlayer === 0 ? session.p0Agent : session.p1Agent;
 
-  // Get best action from AI
-  const action = await agent.selectAction(session.state, session.game, session.rng);
+  if (!agent) {
+    return res.status(400).json({ error: 'Current player is human; use /action instead' });
+  }
+
+  // Get best action from AI (describe BEFORE applying — indices refer to the pre-action state)
+  const action = agent.chooseAction(session.game, session.state, session.rng);
+  const description = session.game.describeAction(session.state, action);
   session.state = session.game.applyAction(session.state, action, session.rng);
 
   res.json({
     state: serializeState(session.state),
     isTerminal: session.game.isTerminal(session.state),
-    actionDescription: session.game.describeAction(session.state, action),
+    currentPlayer: session.game.currentPlayer(session.state),
+    actionDescription: `P${currentPlayer}: ${description}`,
   });
 });
 
@@ -208,14 +224,17 @@ app.listen(port, '0.0.0.0', () => {
 
 function createAgent(type: string, iters: number, _rng: Mulberry32) {
   switch (type) {
+    case 'human':
+      return null; // Humans act via the /action endpoint
     case 'mcts':
       return new IsmctsAgent({ iterations: iters });
     case 'random':
     default:
       return {
-        selectAction: async (state: GameState, game: BattlSpiritsGame, rng: Mulberry32) => {
+        name: 'Random',
+        chooseAction: (game: BattlSpiritsGame, state: GameState, rng: Mulberry32) => {
           const actions = game.legalActions(state);
-          return actions[rng.int(actions.length)];
+          return actions[rng.int(actions.length)]!;
         },
       };
   }
@@ -254,5 +273,16 @@ function serializeState(state: GameState) {
     currentPlayer: state.currentPlayer,
     turnCount: state.turnCount,
     result: state.result,
+    pendingAttack: state.pendingAttack
+      ? {
+          attackerPlayer: state.pendingAttack.attackerPlayer,
+          attackerName:
+            state.players[state.pendingAttack.attackerPlayer]?.spirits[
+              state.pendingAttack.attackerSpiritIndex
+            ]?.def.name ?? '?',
+          damage: state.pendingAttack.damage,
+        }
+      : null,
+    pendingFlash: state.pendingFlash ? { trigger: state.pendingFlash.trigger } : null,
   };
 }
