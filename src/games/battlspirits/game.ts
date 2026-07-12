@@ -629,6 +629,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         // Trigger magic effects with optional target and value
         next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue);
+        // Fall through to flash checking below
         break;
       }
       case 'attack': {
@@ -682,10 +683,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
         }
 
-        // Clear pending draw and continue to refresh phase
+        // Clear pending draw and remain in current phase (main for magic card usage)
         next.pendingDraw = null;
-        next.phase = 'refresh';
-        return this.transitionPhases(next);
+        return next;
       }
       case 'pass': {
         // Handle phase transitions based on current phase

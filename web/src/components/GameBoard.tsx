@@ -155,6 +155,15 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
       if (data.actionDescription) {
         setGameHistory((prev) => [...prev, data.actionDescription]);
       }
+      // Refresh legal actions after state update (important for pending draw resolution)
+      await new Promise(resolve => setTimeout(resolve, 50));
+      if (!data.state.pendingDraw && data.currentPlayer !== undefined) {
+        const actionsResponse = await fetch(`/api/game/${sessionId}/actions`);
+        if (actionsResponse.ok) {
+          const actionsData = await actionsResponse.json();
+          setLegalActions(actionsData.actions ?? []);
+        }
+      }
     } catch (error) {
       console.error('Failed to execute action:', error);
       setError('サーバーとの通信に失敗しました。サーバー（npm start）が起動しているか確認してください。');
