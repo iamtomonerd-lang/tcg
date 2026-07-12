@@ -7,6 +7,12 @@ interface PlayerPanelProps {
   showHand: boolean;
   typeLabel: string;
   position: 'top' | 'bottom';
+  isHumanTurn: boolean;
+  legalActions: Array<{ index: number; description: string }>;
+  onDragStart?: (data: any) => void;
+  onDragEnd?: () => void;
+  onDrop?: (data: any) => void;
+  dragOverCard?: string | null;
 }
 
 function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
@@ -24,7 +30,20 @@ function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
   );
 }
 
-export default function PlayerPanel({ playerNumber, player, isCurrent, showHand, typeLabel, position }: PlayerPanelProps) {
+export default function PlayerPanel({
+  playerNumber,
+  player,
+  isCurrent,
+  showHand,
+  typeLabel,
+  position,
+  isHumanTurn,
+  legalActions,
+  onDragStart,
+  onDragEnd,
+  onDrop,
+  dragOverCard,
+}: PlayerPanelProps) {
   const statsBar = (
     <div className="player-bar">
       <span className={`pname ${isCurrent ? 'active' : ''}`}>
@@ -41,9 +60,34 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, showHand,
   );
 
   const fieldRow = (
-    <div className="field-row">
+    <div
+      className="field-row"
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (onDrop && isHumanTurn) {
+          try {
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+            onDrop({ ...data, targetPlayerNumber: playerNumber });
+          } catch (e) {
+            // Invalid drop data
+          }
+        }
+      }}
+    >
       {player.nexuses.map((nexus: any, i: number) => (
-        <div key={`n${i}`} className="fcard nexus" title={`${nexus.name}（ネクサス Lv${nexus.level}）`}>
+        <div
+          key={`n${i}`}
+          className={`fcard nexus ${dragOverCard === `nexus-${i}` ? 'drag-over' : ''}`}
+          title={`${nexus.name}（ネクサス Lv${nexus.level}）`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+          }}
+        >
           <CardImage imagePath={nexus.imagePath} name={nexus.name} />
           <div className="fcard-chips">
             <span className="chip nexus-chip">ネクサス</span>
@@ -55,8 +99,33 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, showHand,
       {player.spirits.map((spirit: any, i: number) => (
         <div
           key={`s${i}`}
-          className={`fcard spirit ${spirit.canAttack ? '' : 'tapped'}`}
+          className={`fcard spirit ${spirit.canAttack ? '' : 'tapped'} ${dragOverCard === `spirit-${i}` ? 'drag-over' : ''}`}
           title={`${spirit.name}｜Lv${spirit.level}｜BP${spirit.bp}｜コア${spirit.coreCount}${spirit.canAttack ? '' : '｜疲労'}`}
+          draggable={isHumanTurn}
+          onDragStart={(e) => {
+            if (isHumanTurn && onDragStart) {
+              const dragPayload = { type: 'spirit', spiritIndex: i, spirit };
+              onDragStart(dragPayload);
+              e.dataTransfer!.effectAllowed = 'move';
+              e.dataTransfer!.setData('text/plain', JSON.stringify(dragPayload));
+            }
+          }}
+          onDragEnd={onDragEnd}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (onDrop && isHumanTurn) {
+              try {
+                const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                onDrop({ ...data, targetPlayerNumber: playerNumber, spiritIndex: i });
+              } catch (e) {
+                // Invalid drop data
+              }
+            }
+          }}
         >
           <CardImage imagePath={spirit.imagePath} name={spirit.name} />
           <div className="fcard-chips">
@@ -80,7 +149,21 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, showHand,
       <span className="hand-label">手札</span>
       {player.handCards.length > 0 ? (
         player.handCards.map((card: any, i: number) => (
-          <div key={i} className="fcard hand" title={`${card.name}（コスト${card.cost}）`}>
+          <div
+            key={i}
+            className={`fcard hand ${dragOverCard === `hand-${i}` ? 'drag-over' : ''}`}
+            title={`${card.name}（コスト${card.cost}）`}
+            draggable={isHumanTurn}
+            onDragStart={(e) => {
+              if (isHumanTurn && onDragStart) {
+                const dragPayload = { type: 'hand-card', handIndex: i, card };
+                onDragStart(dragPayload);
+                e.dataTransfer!.effectAllowed = 'move';
+                e.dataTransfer!.setData('text/plain', JSON.stringify(dragPayload));
+              }
+            }}
+            onDragEnd={onDragEnd}
+          >
             <CardImage imagePath={card.imagePath} name={card.name} />
             <span className="cost-badge">{card.cost}</span>
             <div className="fcard-name">{card.name}</div>

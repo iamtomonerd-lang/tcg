@@ -22,6 +22,8 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const [isBusy, setIsBusy] = useState(false);
   const [gameHistory, setGameHistory] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [dragData, setDragData] = useState<any>(null);
+  const [dragOverCard, setDragOverCard] = useState<string | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
   const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
@@ -141,6 +143,49 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     }
   };
 
+  const handleDragStart = (data: any) => {
+    setDragData(data);
+    if (data.type === 'hand-card') {
+      setDragOverCard(`hand-${data.handIndex}`);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDragData(null);
+    setDragOverCard(null);
+  };
+
+  const handleDrop = (dropData: any) => {
+    if (!dragData || !isHumanTurn || isBusy) return;
+
+    setDragData(null);
+    setDragOverCard(null);
+
+    // Find matching action based on drag data
+    let matchingAction: LegalAction | undefined;
+
+    if (dragData.type === 'hand-card' && dragData.card) {
+      // Search for an action involving this card
+      const cardName = dragData.card.name;
+      matchingAction = legalActions.find((action) =>
+        action.description.includes(cardName)
+      );
+    } else if (dragData.type === 'spirit') {
+      // For spirit drags (core placement), find add_core action
+      matchingAction = legalActions.find((action) =>
+        action.description.includes('コア') ||
+        action.description.includes('add_core') ||
+        action.description.toLowerCase().includes('core')
+      );
+    }
+
+    if (matchingAction) {
+      executeAction(matchingAction.index);
+    } else {
+      setError(`ドラッグ操作は無効です。アクションボタンから実行してください。`);
+    }
+  };
+
   if (isLoading || !state) {
     return <div className="loading">ゲーム読み込み中...</div>;
   }
@@ -184,6 +229,12 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           showHand={showHand(topPlayer)}
           typeLabel={playerLabel(topPlayer)}
           position="top"
+          isHumanTurn={isHumanTurn}
+          legalActions={legalActions}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDrop={handleDrop}
+          dragOverCard={dragOverCard}
         />
 
         <div className="center-bar">
@@ -209,6 +260,12 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           showHand={showHand(bottomPlayer)}
           typeLabel={playerLabel(bottomPlayer)}
           position="bottom"
+          isHumanTurn={isHumanTurn}
+          legalActions={legalActions}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDrop={handleDrop}
+          dragOverCard={dragOverCard}
         />
       </div>
 
