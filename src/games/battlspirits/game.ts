@@ -78,6 +78,32 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     };
   }
 
+  private payCost(player: PlayerState, amount: number, coreType?: 'regular' | 'soul'): boolean {
+    const totalAvailable = player.cores + player.soulCores;
+    if (totalAvailable < amount) return false;
+
+    if (coreType === 'soul') {
+      // Use soul cores first, then regular cores
+      if (player.soulCores >= amount) {
+        player.soulCores -= amount;
+      } else {
+        const soulUsed = player.soulCores;
+        player.soulCores = 0;
+        player.cores -= amount - soulUsed;
+      }
+    } else {
+      // Default: use regular cores first, then soul cores
+      if (player.cores >= amount) {
+        player.cores -= amount;
+      } else {
+        const regularUsed = player.cores;
+        player.cores = 0;
+        player.soulCores -= amount - regularUsed;
+      }
+    }
+    return true;
+  }
+
   private startTurn(state: GameState): GameState {
     let next = cloneState(state);
     next.phase = 'start';
@@ -178,11 +204,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
   /** Does the player have a flash magic card they can actually afford? */
   private hasAffordableFlash(player: PlayerState): boolean {
+    const totalCores = player.cores + player.soulCores;
     return player.hand.some(
       (c) =>
         c.cardType === 'magic' &&
         c.effects?.some((e) => e.isFlash) &&
-        this.effectiveCost(player, c) <= player.cores,
+        this.effectiveCost(player, c) <= totalCores,
     );
   }
 
@@ -208,13 +235,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     // If there's a pending flash opportunity, only flash or skip_flash actions are legal
     if (state.pendingFlash) {
       const me = state.players[state.currentPlayer]!;
+      const totalCores = me.cores + me.soulCores;
       const actions: Action[] = [];
       // Can activate flash magic cards (only if affordable)
       for (let i = 0; i < me.hand.length; i++) {
         const card = me.hand[i]!;
         if (card.cardType === 'magic') {
           const flashEffects = card.effects?.filter(e => e.isFlash) ?? [];
-          if (flashEffects.length > 0 && this.effectiveCost(me, card) <= me.cores) {
+          if (flashEffects.length > 0 && this.effectiveCost(me, card) <= totalCores) {
             actions.push({ type: 'flash', handIndex: i });
           }
         }
@@ -238,15 +266,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   private getMainPhaseActions(state: GameState): Action[] {
     const actions: Action[] = [];
     const me = state.players[state.currentPlayer]!;
+    const totalCores = me.cores + me.soulCores;
 
     // Normal turn actions: only offer cards the player can actually pay for
     for (let i = 0; i < me.hand.length; i++) {
       const card = me.hand[i]!;
-      if (this.effectiveCost(me, card) > me.cores) continue;
+      if (this.effectiveCost(me, card) > totalCores) continue;
 
       if (card.cardType === 'spirit') {
         // Summoning also requires placing the Lv1 maintenance cores from reserve
-        if (this.effectiveCost(me, card) + card.lv1.cost > me.cores) continue;
+        if (this.effectiveCost(me, card) + card.lv1.cost > totalCores) continue;
         actions.push({ type: 'summon', handIndex: i });
       } else if (card.cardType === 'nexus') {
         actions.push({ type: 'place_nexus', handIndex: i });
@@ -276,7 +305,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
 
     // Place a core from reserve onto a spirit (level-up); only useful below Lv2
-    if (me.cores > 0) {
+    if (totalCores > 0) {
       for (let i = 0; i < me.spirits.length; i++) {
         const s = me.spirits[i]!;
         if (s.def.lv2 && s.coreCount < s.def.lv2.cost) {
@@ -324,11 +353,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const hasEXInTrash = me.trash.some((c) => c.exSymbol);
       const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
 
-      if (actualCost > me.cores) return next;
+      // Check if player has enough cores (regular + soul)
+      const totalAvailable = me.cores + me.soulCores;
+      if (actualCost > totalAvailable) return next;
 
       // Use the magic card as flash
       me.hand.splice(action.handIndex, 1);
-      me.cores -= actualCost;
+      this.payCost(me, actualCost, action.coreType);
       me.trash.push(card);
       next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue);
       checkResult(next);
@@ -452,20 +483,23 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const fieldSymbols = this.getFieldSymbols(me);
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+        const totalCost = actualCost + card.lv1.cost;
 
-        // Player must pay the summon cost AND place Lv1 cores from reserve
-        if (actualCost + card.lv1.cost > me.cores) return next;
+        // Check if player has enough cores (regular + soul)
+        const totalAvailable = me.cores + me.soulCores;
+        if (totalAvailable < totalCost) return next;
 
-        // Pay cost (to void) and move Lv1 cores from reserve onto the spirit
+        // Pay cost (to void) using regular or soul cores
         me.hand.splice(action.handIndex, 1);
-        me.cores -= actualCost + card.lv1.cost;
+        this.payCost(me, totalCost, action.coreType);
 
+        // Place Lv1 cores on the spirit (always from regular cores)
         const spirit: any = {
           def: card,
           level: 1,
           coreCount: card.lv1.cost,
           soulCoreCount: 0,
-          canAttack: true, // Newly summoned spirits are in refresh state
+          canAttack: true,
           bpBoost: 0,
         };
         updateSpiritLevel(spirit);
@@ -477,9 +511,28 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'add_core': {
         const spirit = me.spirits[action.spiritIndex];
-        if (!spirit || me.cores <= 0) return next;
-        me.cores -= 1;
-        spirit.coreCount += 1;
+        const totalCores = me.cores + me.soulCores;
+        if (!spirit || totalCores <= 0) return next;
+
+        // Place 1 core on spirit (regular or soul based on coreType)
+        if (action.coreType === 'soul') {
+          if (me.soulCores > 0) {
+            me.soulCores -= 1;
+            spirit.soulCoreCount = (spirit.soulCoreCount || 0) + 1;
+          } else if (me.cores > 0) {
+            me.cores -= 1;
+            spirit.coreCount += 1;
+          }
+        } else {
+          // Default: use regular cores first
+          if (me.cores > 0) {
+            me.cores -= 1;
+            spirit.coreCount += 1;
+          } else if (me.soulCores > 0) {
+            me.soulCores -= 1;
+            spirit.soulCoreCount = (spirit.soulCoreCount || 0) + 1;
+          }
+        }
         updateSpiritLevel(spirit);
         break;
       }
@@ -492,17 +545,18 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
 
-        // Check if player has enough cores
-        if (actualCost > me.cores) return next;
+        // Check if player has enough cores (regular + soul)
+        const totalAvailable = me.cores + me.soulCores;
+        if (actualCost > totalAvailable) return next;
 
-        // Pay cost
+        // Pay cost using regular or soul cores
         me.hand.splice(action.handIndex, 1);
-        me.cores -= actualCost;
+        this.payCost(me, actualCost, action.coreType);
 
         // Place nexus
         const nexus: Nexus = {
           def: card,
-          level: card.lv1.cost === 0 ? 1 : 1, // Normally Lv1, but needs cores if cost > 0
+          level: 1,
           coreCount: Math.max(0, card.lv1.cost),
         };
         me.nexuses.push(nexus);
@@ -520,12 +574,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
 
-        // Check if player has enough cores
-        if (actualCost > me.cores) return next;
+        // Check if player has enough cores (regular + soul)
+        const totalAvailable = me.cores + me.soulCores;
+        if (actualCost > totalAvailable) return next;
 
-        // Pay cost
+        // Pay cost using regular or soul cores
         me.hand.splice(action.handIndex, 1);
-        me.cores -= actualCost;
+        this.payCost(me, actualCost, action.coreType);
         me.trash.push(card);
 
         // Trigger magic effects with optional target and value
