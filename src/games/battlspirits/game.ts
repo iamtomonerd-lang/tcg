@@ -79,12 +79,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     let next = cloneState(state);
     next.phase = 'start';
     // Auto-transition through automatic phases until we reach Main
-    next = this.transitionPhases(next);
-    return next;
+    return this.transitionPhases(next);
   }
 
   private transitionPhases(state: GameState): GameState {
-    let next = cloneState(state);
+    let next = state;
 
     while (true) {
       switch (next.phase) {
