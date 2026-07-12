@@ -275,7 +275,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
-    imagePath: 'assets/cards/spirit_shinkoku_renshi.jpg',
+    imagePath: 'assets/cards/spirit_shinkoku_renshi.png',
     lv1: { cost: 1, bp: 6000 },
     lv2: { cost: 3, bp: 8000 },
     effects: [
@@ -342,7 +342,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
-    imagePath: 'assets/cards/nexus_ukiyo_rock.jpg',
+    imagePath: 'assets/cards/nexus_ukiyo_rock.png',
     lv1: { cost: 0, bp: 0 },
     lv2: { cost: 2, bp: 0 },
     effects: [
@@ -408,7 +408,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['風牙'],
     exSymbol: true,
-    imagePath: 'assets/cards/magic_break_claw.jpg',
+    imagePath: 'assets/cards/magic_break_claw.png',
     lv1: { cost: 0, bp: 0 },
     effects: [
       {
@@ -434,7 +434,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
-    imagePath: 'assets/cards/magic_offering_draw.jpg',
+    imagePath: 'assets/cards/magic_offering_draw.png',
     lv1: { cost: 0, bp: 0 },
     effects: [
       {
@@ -464,7 +464,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['風牙'],
     exSymbol: true,
-    imagePath: 'assets/cards/magic_flame_hurricane.jpg',
+    imagePath: 'assets/cards/magic_flame_hurricane.png',
     lv1: { cost: 0, bp: 0, coreType: 'ソウルコア' },
     effects: [
       {
