@@ -192,8 +192,8 @@ app.get('/api/cards', (req, res) => {
   res.json(CARD_DB);
 });
 
-// Catch-all: serve React app
-app.get('*', (req, res) => {
+// Catch-all: serve React app (Express 5 no longer accepts '*' as a route path)
+app.use((req, res) => {
   res.sendFile(join(__dirname, '../web/dist/index.html'));
 });
 
