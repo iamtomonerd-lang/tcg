@@ -311,8 +311,21 @@
 .draw-cards {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem;
   padding: 0.5rem 0;
+}
+
+.draw-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.draw-section-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #555;
+  margin-bottom: 0.3rem;
 }
 
 .draw-card-button {
@@ -344,6 +357,13 @@
   cursor: not-allowed;
 }
 
+.draw-card-display {
+  background: rgba(102, 126, 234, 0.15);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+}
+
 .draw-card-name {
   font-weight: 700;
   margin-bottom: 0.2rem;
@@ -352,4 +372,42 @@
 .draw-card-cost {
   font-size: 0.8rem;
   opacity: 0.9;
+}
+
+.draw-card-with-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.draw-card-with-controls .draw-card-display {
+  flex: 1;
+}
+
+.draw-card-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.draw-move-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-weight: 700;
+  min-width: 2.5rem;
+}
+
+.draw-move-btn:hover:not(:disabled) {
+  background: #5062d8;
+}
+
+.draw-move-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

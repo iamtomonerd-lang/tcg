@@ -24,6 +24,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const [error, setError] = useState<string | null>(null);
   const [dragData, setDragData] = useState<any>(null);
   const [dragOverCard, setDragOverCard] = useState<string | null>(null);
+  const [arrangedCardIndices, setArrangedCardIndices] = useState<number[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
 
   const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
@@ -87,6 +88,13 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     }
   }, [gameHistory]);
 
+  // Reset arranged cards when pending draw changes
+  useEffect(() => {
+    if (state?.pendingDraw) {
+      setArrangedCardIndices([...state.pendingDraw.toRearrangeIndices]);
+    }
+  }, [state?.pendingDraw]);
+
   const playAITurn = async () => {
     if (isBusy) return;
     setIsBusy(true);
@@ -113,14 +121,18 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     }
   };
 
-  const executeAction = async (actionIndex: number) => {
+  const executeAction = async (actionIndex: number, options?: { cardIndices?: number[] }) => {
     if (isBusy) return;
     setIsBusy(true);
     try {
+      const body: any = { actionIndex };
+      if (options?.cardIndices !== undefined) {
+        body.cardIndices = options.cardIndices;
+      }
       const response = await fetch(`/api/game/${sessionId}/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actionIndex }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
         setError('アクションの実行に失敗しました。もう一度お試しください。');
@@ -290,20 +302,80 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
         <div className="side-actions">
           {state.pendingDraw ? (
             <>
-              <div className="side-actions-title">📖 カード選択</div>
+              <div className="side-actions-title">📖 カード配置</div>
               <div className="draw-cards">
-                {state.pendingDraw.openedCards.map((card, i) => (
-                  <button
-                    key={i}
-                    className="draw-card-button"
-                    onClick={() => executeAction(i)}
-                    disabled={isBusy}
-                  >
-                    <div className="draw-card-name">{card.name}</div>
-                    <div className="draw-card-cost">コスト{card.cost}</div>
-                  </button>
-                ))}
+                {state.pendingDraw.toHandIndices.length > 0 && (
+                  <div className="draw-section">
+                    <div className="draw-section-title">手札に追加されます</div>
+                    {state.pendingDraw.toHandIndices.map((idx) => {
+                      const card = state.pendingDraw.openedCards[idx];
+                      return (
+                        <div key={`hand-${idx}`} className="draw-card-display">
+                          <div className="draw-card-name">{card.name}</div>
+                          <div className="draw-card-cost">コスト{card.cost}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {state.pendingDraw.toRearrangeIndices.length > 0 && (
+                  <div className="draw-section">
+                    <div className="draw-section-title">山札下に戻す（順序変更可能）</div>
+                    {arrangedCardIndices.map((cardIdx, order) => {
+                      const card = state.pendingDraw.openedCards[cardIdx];
+                      const isFirst = order === 0;
+                      const isLast = order === arrangedCardIndices.length - 1;
+                      return (
+                        <div key={`arrange-${cardIdx}`} className="draw-card-with-controls">
+                          <div className="draw-card-display">
+                            <div className="draw-card-name">{card.name}</div>
+                            <div className="draw-card-cost">コスト{card.cost}</div>
+                          </div>
+                          <div className="draw-card-controls">
+                            <button
+                              className="draw-move-btn"
+                              onClick={() => {
+                                if (!isFirst) {
+                                  const newArr = [...arrangedCardIndices];
+                                  [newArr[order - 1], newArr[order]] = [newArr[order], newArr[order - 1]];
+                                  setArrangedCardIndices(newArr);
+                                }
+                              }}
+                              disabled={isFirst}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              className="draw-move-btn"
+                              onClick={() => {
+                                if (!isLast) {
+                                  const newArr = [...arrangedCardIndices];
+                                  [newArr[order], newArr[order + 1]] = [newArr[order + 1], newArr[order]];
+                                  setArrangedCardIndices(newArr);
+                                }
+                              }}
+                              disabled={isLast}
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+              <button
+                className="action-button"
+                onClick={() => {
+                  if (isHumanTurn) {
+                    executeAction(0, { cardIndices: arrangedCardIndices });
+                  }
+                }}
+                disabled={isBusy}
+              >
+                確定
+              </button>
             </>
           ) : isHumanTurn ? (
             <>

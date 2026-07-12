@@ -111,12 +111,19 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
 
-  const { actionIndex } = req.body;
-  const actions = session.game.legalActions(session.state);
-  const action = actions[actionIndex];
+  const { actionIndex, cardIndices } = req.body;
+  let action: any;
+
+  if (cardIndices !== undefined) {
+    // Card arrangement for offering draw
+    action = { type: 'select_draw_arrange', cardIndices };
+  } else {
+    const actions = session.game.legalActions(session.state);
+    action = actions[actionIndex];
+  }
 
   if (!action) {
-    return res.status(400).json({ error: 'Invalid action index' });
+    return res.status(400).json({ error: 'Invalid action' });
   }
 
   const description = session.game.describeAction(session.state, action);
@@ -299,7 +306,8 @@ function serializeState(state: GameState) {
             cost: c.cost,
             imagePath: c.imagePath,
           })),
-          selectableCount: state.pendingDraw.selectableCount,
+          toHandIndices: state.pendingDraw.toHandIndices,
+          toRearrangeIndices: state.pendingDraw.toRearrangeIndices,
         }
       : null,
   };

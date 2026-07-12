@@ -127,8 +127,9 @@ export interface PendingAttack {
 export type GamePhase = 'start' | 'core' | 'draw' | 'refresh' | 'main' | 'attack' | 'main2' | 'end';
 
 export interface PendingDraw {
-  openedCards: CardDef[]; // cards opened from deck for selection
-  selectableCount: number; // how many cards can be selected (usually 1)
+  openedCards: CardDef[]; // all cards opened from deck
+  toHandIndices: number[]; // indices of cards that go to hand (風牙系統かつオファーリングドロー以外)
+  toRearrangeIndices: number[]; // indices of cards to be rearranged and put back to deck bottom
 }
 
 export interface GameState {
@@ -155,4 +156,4 @@ export type Action =
   | { type: 'pass' } // end current action phase
   | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul' } // activate a flash magic card
   | { type: 'skip_flash' } // pass on flash opportunity
-  | { type: 'select_draw'; cardIndex: number }; // select card from opened deck (offering draw)
+  | { type: 'select_draw_arrange'; cardIndices: number[] }; // arrange remaining cards and put to deck bottom (cardIndices are indices in toRearrangeIndices order)

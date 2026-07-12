@@ -148,12 +148,27 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             openedCards.push(p.deck.shift()!);
           }
 
-          // Set pending draw for player to select
+          // Determine which cards go to hand: 風牙 lineage and not オファーリングドロー
+          const toHandIndices: number[] = [];
+          const toRearrangeIndices: number[] = [];
+          for (let i = 0; i < openedCards.length; i++) {
+            const card = openedCards[i];
+            const hasWindFangLineage = card.lineage && card.lineage.includes('風牙');
+            const isNotOfferingDraw = card.id !== 'magic_offering_draw';
+            if (hasWindFangLineage && isNotOfferingDraw) {
+              toHandIndices.push(i);
+            } else {
+              toRearrangeIndices.push(i);
+            }
+          }
+
+          // Set pending draw for player to arrange remaining cards
           next.pendingDraw = {
             openedCards,
-            selectableCount: 1,
+            toHandIndices,
+            toRearrangeIndices,
           };
-          return next; // Stop here, player must select from opened cards
+          return next; // Stop here, player must arrange cards to put back to deck
         }
         case 'refresh': {
           // Refresh all spirits (can attack this turn)
@@ -227,11 +242,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
     // If there are opened cards from draw phase, must select one
     if (state.pendingDraw) {
-      const actions: Action[] = [];
-      for (let i = 0; i < state.pendingDraw.openedCards.length; i++) {
-        actions.push({ type: 'select_draw', cardIndex: i });
-      }
-      return actions;
+      // Return arrangement action marker
+      // UI will determine actual arrangement and send with filled cardIndices
+      return [{ type: 'select_draw_arrange', cardIndices: state.pendingDraw.toRearrangeIndices }];
     }
 
     // If there's a pending attack, defend or take damage
@@ -631,19 +644,26 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         next = triggerEffects(next, 'block', spirit.def, next.currentPlayer, spirit);
         break;
       }
-      case 'select_draw': {
+      case 'select_draw_arrange': {
         if (!next.pendingDraw) return next;
 
-        const selectedCard = next.pendingDraw.openedCards[action.cardIndex];
-        if (!selectedCard) return next;
+        const pd = next.pendingDraw;
 
-        // Add selected card to hand
-        me.hand.push(selectedCard);
+        // Add cards in toHandIndices to hand (風牙系統かつオファーリングドロー以外)
+        for (const idx of pd.toHandIndices) {
+          me.hand.push(pd.openedCards[idx]!);
+        }
 
-        // Discard remaining opened cards to trash
-        for (let i = 0; i < next.pendingDraw.openedCards.length; i++) {
-          if (i !== action.cardIndex) {
-            me.trash.push(next.pendingDraw.openedCards[i]!);
+        // Put rearranged cards back to deck bottom in order specified by cardIndices
+        for (const idx of action.cardIndices) {
+          me.deck.push(pd.openedCards[idx]!);
+        }
+
+        // Remaining cards go to trash
+        const usedIndices = new Set([...pd.toHandIndices, ...action.cardIndices]);
+        for (let i = 0; i < pd.openedCards.length; i++) {
+          if (!usedIndices.has(i)) {
+            me.trash.push(pd.openedCards[i]!);
           }
         }
 
@@ -836,6 +856,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         return desc;
       }
       case 'skip_flash': return 'フラッシュを使わない';
+      case 'select_draw_arrange': {
+        if (!state.pendingDraw) return 'オファーリングドロー';
+        const handCards = state.pendingDraw.toHandIndices.map(idx => state.pendingDraw!.openedCards[idx]!.name).join(', ');
+        return `オファーリングドロー: ${handCards}を手札に加える`;
+      }
       default: return '?';
     }
   }
@@ -857,7 +882,11 @@ function cloneState(state: GameState): GameState {
     pendingFlash: state.pendingFlash ? { ...state.pendingFlash } : null,
     pendingAttack: state.pendingAttack ? { ...state.pendingAttack } : null,
     pendingDraw: state.pendingDraw
-      ? { openedCards: state.pendingDraw.openedCards.slice(), selectableCount: state.pendingDraw.selectableCount }
+      ? {
+          openedCards: state.pendingDraw.openedCards.slice(),
+          toHandIndices: state.pendingDraw.toHandIndices.slice(),
+          toRearrangeIndices: state.pendingDraw.toRearrangeIndices.slice(),
+        }
       : null,
   };
 }
