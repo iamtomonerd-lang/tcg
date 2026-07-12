@@ -65,8 +65,6 @@ export interface Spirit {
   def: CardDef;
   level: 1 | 2;
   coreCount: number;
-  /** number of soul cores placed on this spirit */
-  soulCoreCount: number;
   /** true = ready to attack, false = fatigued */
   canAttack: boolean;
   /** temporary BP boost from effects */

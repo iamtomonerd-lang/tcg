@@ -61,8 +61,7 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, showHand,
           <div className="fcard-chips">
             <span className="chip">Lv{spirit.level}</span>
             <span className="chip bp">BP{spirit.bp}</span>
-            {spirit.coreCount > 0 && <span className="chip core">コア{spirit.coreCount}</span>}
-            {spirit.soulCoreCount > 0 && <span className="chip soul">⭐{spirit.soulCoreCount}</span>}
+            <span className="chip core">コア{spirit.coreCount}</span>
           </div>
           <div className="fcard-name">{spirit.name}</div>
           {!spirit.canAttack && <div className="tap-overlay">疲労</div>}
