@@ -103,6 +103,27 @@ app.get('/api/game/:sessionId/actions', (req, res) => {
 });
 
 /**
+ * Get the cost (cores needed) for an action
+ */
+app.post('/api/game/:sessionId/action-cost', (req, res) => {
+  const session = sessions.get(req.params.sessionId);
+  if (!session) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+
+  const { actionIndex } = req.body;
+  const actions = session.game.legalActions(session.state);
+  const action = actions[actionIndex];
+
+  if (!action) {
+    return res.status(400).json({ error: 'Invalid action' });
+  }
+
+  const cost = (session.game as any).actionCost(session.state, action);
+  res.json({ cost });
+});
+
+/**
  * Play an action
  */
 app.post('/api/game/:sessionId/action', (req, res) => {

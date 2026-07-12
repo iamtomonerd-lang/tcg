@@ -202,6 +202,39 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     return state.currentPlayer;
   }
 
+  /** Calculate the core cost required for an action. Used by UI for cost estimation. */
+  actionCost(state: GameState, action: Action): number {
+    const player = state.players[state.currentPlayer]!;
+
+    switch (action.type) {
+      case 'summon': {
+        const card = player.hand[action.handIndex];
+        if (!card || card.cardType !== 'spirit') return 0;
+        return this.effectiveCost(player, card) + card.lv1.cost;
+      }
+      case 'place_nexus': {
+        const card = player.hand[action.handIndex];
+        if (!card || card.cardType !== 'nexus') return 0;
+        return this.effectiveCost(player, card);
+      }
+      case 'use_magic': {
+        const card = player.hand[action.handIndex];
+        if (!card || card.cardType !== 'magic') return 0;
+        return this.effectiveCost(player, card);
+      }
+      case 'flash': {
+        const card = player.hand[action.handIndex];
+        if (!card || card.cardType !== 'magic') return 0;
+        return this.effectiveCost(player, card);
+      }
+      case 'add_core': {
+        return 1; // add_core costs 1 core
+      }
+      default:
+        return 0;
+    }
+  }
+
   /** Cost the player would actually pay for this card right now. */
   private effectiveCost(player: PlayerState, card: any): number {
     const fieldSymbols = this.getFieldSymbols(player);

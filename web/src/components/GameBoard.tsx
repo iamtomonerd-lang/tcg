@@ -27,6 +27,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const [selectedCoreType, setSelectedCoreType] = useState<'regular' | 'soul' | null>(null);
   const [arrangedCardIndices, setArrangedCardIndices] = useState<number[]>([]);
   const [selectedHandIndices, setSelectedHandIndices] = useState<Set<number>>(new Set());
+  const [pendingCoreCost, setPendingCoreCost] = useState<{ actionIndex: number; requiredCores: number; paidCores: number; paidCoreType: 'regular' | 'soul' | null } | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
   const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
@@ -100,6 +101,11 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
       setSelectedHandIndices(new Set());
     }
   }, [state?.pendingDraw]);
+
+  // Reset pending core cost when game state changes
+  useEffect(() => {
+    setPendingCoreCost(null);
+  }, [state]);
 
   const playAITurn = async () => {
     if (isBusy) return;
@@ -189,6 +195,41 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const handleDrop = (dropData: any) => {
     if (!dragData || !isHumanTurn || isBusy) return;
 
+    // If we're waiting for core payment, handle core drop
+    if (pendingCoreCost && dragData.type === 'core') {
+      const coreAmount = 1; // Each core is 1
+      const newPaid = pendingCoreCost.paidCores + coreAmount;
+      const coreType = dragData.coreType as 'regular' | 'soul';
+
+      if (newPaid <= pendingCoreCost.requiredCores) {
+        setPendingCoreCost({
+          ...pendingCoreCost,
+          paidCores: newPaid,
+          paidCoreType: coreType,
+        });
+
+        // If we've paid enough cores, execute the action
+        if (newPaid >= pendingCoreCost.requiredCores) {
+          const actionIndex = pendingCoreCost.actionIndex;
+          setPendingCoreCost(null);
+          setDragData(null);
+          setDragOverCard(null);
+          setSelectedCoreType(null);
+
+          // Execute the action with the core type
+          setTimeout(() => {
+            executeAction(actionIndex, { coreType });
+          }, 50);
+        }
+      } else {
+        setError(`必要なコアは${pendingCoreCost.requiredCores}個です。すでに${pendingCoreCost.paidCores}個支払っています。`);
+      }
+
+      setDragData(null);
+      setSelectedCoreType(null);
+      return;
+    }
+
     setDragData(null);
     setDragOverCard(null);
 
@@ -202,6 +243,40 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
       matchingAction = legalActions.find((action) =>
         action.description.includes(cardName)
       );
+
+      // If found, check the cost and potentially enter core payment waiting mode
+      if (matchingAction) {
+        const checkCost = async () => {
+          try {
+            const response = await fetch(`/api/game/${sessionId}/action-cost`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ actionIndex: matchingAction.index }),
+            });
+            const data = await response.json();
+            const cost = data.cost ?? 0;
+
+            if (cost > 0) {
+              // Enter core payment waiting mode
+              setPendingCoreCost({
+                actionIndex: matchingAction.index,
+                requiredCores: cost,
+                paidCores: 0,
+                paidCoreType: null,
+              });
+              setError(`${cost}個のコアが必要です。コアをドラッグして支払ってください。`);
+            } else {
+              // No cost, execute immediately
+              executeAction(matchingAction.index, { coreType });
+            }
+          } catch (err) {
+            console.error('Failed to get action cost:', err);
+            executeAction(matchingAction.index, { coreType });
+          }
+        };
+        checkCost();
+        return;
+      }
     } else if (dragData.type === 'spirit') {
       // For spirit drags (core placement), find add_core action
       matchingAction = legalActions.find((action) =>
@@ -228,7 +303,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
 
     if (matchingAction) {
       executeAction(matchingAction.index, { coreType });
-    } else {
+    } else if (!pendingCoreCost) {
       setError(`ドラッグ操作は無効です。アクションボタンから実行してください。`);
     }
     setSelectedCoreType(null);
@@ -325,6 +400,24 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
         </div>
 
         {error && <div className="error-banner side-error">⚠️ {error}</div>}
+
+        {pendingCoreCost && (
+          <div style={{
+            padding: '0.8rem',
+            backgroundColor: '#e8eaf0',
+            borderRadius: '6px',
+            marginBottom: '0.8rem',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontWeight: 700, marginBottom: '0.4rem' }}>💎 コア支払い中</div>
+            <div style={{ fontSize: '0.9rem', marginBottom: '0.4rem' }}>
+              {pendingCoreCost.requiredCores}個中 {pendingCoreCost.paidCores}個を支払いました
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#666' }}>
+              残り {pendingCoreCost.requiredCores - pendingCoreCost.paidCores}個をドラッグしてください
+            </div>
+          </div>
+        )}
 
         <div className="side-actions">
           {state.pendingDraw ? (
