@@ -42,6 +42,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 1,
     symbols: ['red'],
+    imagePath: 'assets/cards/spirit_recruit.jpg',
     lv1: { cost: 0, bp: 2 },
     lv2: { cost: 1, bp: 4 },
     effects: [
@@ -55,6 +56,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 2,
     symbols: ['red', 'red'],
+    imagePath: 'assets/cards/spirit_soldier.jpg',
     lv1: { cost: 0, bp: 3 },
     lv2: { cost: 2, bp: 5 },
     effects: [
@@ -68,6 +70,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 3,
     symbols: ['red', 'red', 'red'],
+    imagePath: 'assets/cards/spirit_knight.jpg',
     lv1: { cost: 0, bp: 4 },
     lv2: { cost: 2, bp: 6 },
   },
@@ -78,6 +81,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 4,
     symbols: ['red', 'red', 'red', 'red'],
+    imagePath: 'assets/cards/spirit_warrior.jpg',
     lv1: { cost: 1, bp: 5 },
     lv2: { cost: 3, bp: 8 },
   },
@@ -88,6 +92,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 3,
     symbols: ['blue', 'blue', 'blue'],
+    imagePath: 'assets/cards/spirit_mage.jpg',
     lv1: { cost: 0, bp: 2 },
     lv2: { cost: 1, bp: 4 },
     effects: [
@@ -101,6 +106,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 3,
     symbols: ['red', 'red', 'red'],
+    imagePath: 'assets/cards/spirit_moon_shacco.jpg',
     lv1: { cost: 1, bp: 2 },
     lv2: { cost: 2, bp: 3 },
     effects: [
@@ -114,6 +120,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 3,
     symbols: ['red', 'red', 'red'],
+    imagePath: 'assets/cards/spirit_genie_bow.jpg',
     lv1: { cost: 0, bp: 3 },
     lv2: { cost: 1, bp: 5 },
     effects: [
@@ -127,6 +134,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 3,
     symbols: ['red', 'red', 'red'],
+    imagePath: 'assets/cards/spirit_ro_meek.jpg',
     lv1: { cost: 0, bp: 3 },
     lv2: { cost: 1, bp: 5 },
     effects: [
@@ -140,6 +148,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 4,
     symbols: ['white', 'white', 'white', 'white'],
+    imagePath: 'assets/cards/spirit_haria.jpg',
     lv1: { cost: 1, bp: 4 },
     lv2: { cost: 2, bp: 6 },
     effects: [
@@ -153,6 +162,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 4,
     symbols: ['red', 'red', 'red', 'red'],
+    imagePath: 'assets/cards/spirit_gun_gata.jpg',
     lv1: { cost: 1, bp: 5 },
     lv2: { cost: 2, bp: 8 },
   },
@@ -163,6 +173,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 5,
     symbols: ['red', 'red', 'red', 'red', 'red'],
+    imagePath: 'assets/cards/spirit_graipher.jpg',
     lv1: { cost: 1, bp: 5 },
     lv2: { cost: 2, bp: 7 },
     effects: [
@@ -178,6 +189,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 6,
     symbols: ['white', 'white', 'white', 'white', 'white', 'white'],
+    imagePath: 'assets/cards/spirit_seldalius.jpg',
     lv1: { cost: 1, bp: 6 },
     lv2: { cost: 2, bp: 7 },
     effects: [
@@ -192,6 +204,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 6,
     symbols: ['white', 'white', 'white', 'white', 'white', 'white'],
+    imagePath: 'assets/cards/spirit_lev_falus.jpg',
     lv1: { cost: 1, bp: 6 },
     lv2: { cost: 2, bp: 8 },
     effects: [
@@ -206,6 +219,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'spirit',
     cost: 5,
     symbols: ['purple', 'purple', 'purple', 'purple', 'purple'],
+    imagePath: 'assets/cards/spirit_cubel.jpg',
     lv1: { cost: 1, bp: 4 },
     lv2: { cost: 2, bp: 7 },
     effects: [
@@ -221,6 +235,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'nexus',
     cost: 2,
     symbols: ['red', 'red'],
+    imagePath: 'assets/cards/nexus_shrine.jpg',
     lv1: { cost: 0, bp: 0 },
     lv2: { cost: 1, bp: 0 },
     effects: [
@@ -234,6 +249,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'nexus',
     cost: 1,
     symbols: ['blue'],
+    imagePath: 'assets/cards/nexus_stone.jpg',
     lv1: { cost: 0, bp: 0 },
     lv2: { cost: 2, bp: 0 },
   },
@@ -244,6 +260,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'nexus',
     cost: 3,
     symbols: ['purple', 'purple', 'purple'],
+    imagePath: 'assets/cards/nexus_wind_fang_rock.jpg',
     lv1: { cost: 1, bp: 0 },
     lv2: { cost: 2, bp: 0 },
     effects: [
@@ -260,6 +277,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'magic',
     cost: 2,
     symbols: ['red', 'red'],
+    imagePath: 'assets/cards/magic_slash.jpg',
     lv1: { cost: 0, bp: 0 },
     effects: [
       { trigger: 'immediate', action: 'damage', value: 3, target: 'opponent_hero' },
@@ -272,6 +290,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'magic',
     cost: 2,
     symbols: ['white', 'white'],
+    imagePath: 'assets/cards/magic_heal.jpg',
     lv1: { cost: 0, bp: 0 },
     effects: [
       { trigger: 'immediate', action: 'heal', value: 5, target: 'self' },
@@ -284,6 +303,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cardType: 'magic',
     cost: 2,
     symbols: ['blue', 'blue'],
+    imagePath: 'assets/cards/magic_draw.jpg',
     lv1: { cost: 0, bp: 0 },
     effects: [
       { trigger: 'immediate', action: 'draw', value: 2 },

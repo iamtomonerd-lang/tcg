@@ -39,6 +39,7 @@ export interface CardDef {
   cost: number;
   symbols: string[]; // symbol colors for cost reduction
   exSymbol?: boolean; // has decoration on symbol (EX symbol)
+  imagePath?: string; // path to card image file
   // For spirits and nexuses: Lv1 and Lv2
   lv1: LvStats;
   lv2?: LvStats;
