@@ -111,7 +111,7 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
 
-  const { actionIndex, cardIndices, selectedCardIndices, arrangedCardIndices } = req.body;
+  const { actionIndex, cardIndices, selectedCardIndices, arrangedCardIndices, coreType } = req.body;
   let action: any;
 
   if (selectedCardIndices !== undefined || arrangedCardIndices !== undefined) {
@@ -127,6 +127,10 @@ app.post('/api/game/:sessionId/action', (req, res) => {
   } else {
     const actions = session.game.legalActions(session.state);
     action = actions[actionIndex];
+    // Attach coreType if provided (for card payment via core drag)
+    if (action && coreType) {
+      action.coreType = coreType;
+    }
   }
 
   if (!action) {

@@ -24,6 +24,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const [error, setError] = useState<string | null>(null);
   const [dragData, setDragData] = useState<any>(null);
   const [dragOverCard, setDragOverCard] = useState<string | null>(null);
+  const [selectedCoreType, setSelectedCoreType] = useState<'regular' | 'soul' | null>(null);
   const [arrangedCardIndices, setArrangedCardIndices] = useState<number[]>([]);
   const [selectedHandIndices, setSelectedHandIndices] = useState<Set<number>>(new Set());
   const historyRef = useRef<HTMLDivElement>(null);
@@ -126,7 +127,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     }
   };
 
-  const executeAction = async (actionIndex: number, options?: { cardIndices?: number[]; selectedCardIndices?: number[]; arrangedCardIndices?: number[] }) => {
+  const executeAction = async (actionIndex: number, options?: { cardIndices?: number[]; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; coreType?: 'regular' | 'soul' }) => {
     if (isBusy) return;
     setIsBusy(true);
     try {
@@ -139,6 +140,9 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
       }
       if (options?.arrangedCardIndices !== undefined) {
         body.arrangedCardIndices = options.arrangedCardIndices;
+      }
+      if (options?.coreType !== undefined) {
+        body.coreType = options.coreType;
       }
       const response = await fetch(`/api/game/${sessionId}/action`, {
         method: 'POST',
@@ -170,12 +174,16 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     setDragData(data);
     if (data.type === 'hand-card') {
       setDragOverCard(`hand-${data.handIndex}`);
+    } else if (data.type === 'core') {
+      // Core drag: select the core type for payment
+      setSelectedCoreType(data.coreType);
     }
   };
 
   const handleDragEnd = () => {
     setDragData(null);
     setDragOverCard(null);
+    setSelectedCoreType(null);
   };
 
   const handleDrop = (dropData: any) => {
@@ -186,6 +194,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
 
     // Find matching action based on drag data
     let matchingAction: LegalAction | undefined;
+    let coreType: 'regular' | 'soul' | undefined = selectedCoreType ?? undefined;
 
     if (dragData.type === 'hand-card' && dragData.card) {
       // Search for an action involving this card
@@ -201,9 +210,15 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
         action.description.toLowerCase().includes('core')
       );
     } else if (dragData.type === 'core') {
-      // Core dragged onto spirit: find add_core action
-      // dropData should have spiritIndex
-      if (dropData.spiritIndex !== undefined) {
+      // Core dragged onto hand card: use magic with specified core type
+      if (dropData.handIndex !== undefined) {
+        const card = state?.players[currentPlayer]?.handCards?.[dropData.handIndex];
+        const cardName = card?.name;
+        matchingAction = legalActions.find((action) =>
+          cardName && action.description.includes(cardName)
+        );
+      } else if (dropData.spiritIndex !== undefined) {
+        // Core dragged onto spirit: find add_core action
         matchingAction = legalActions.find((action) =>
           action.description.includes('コア') ||
           action.description.toLowerCase().includes('core')
@@ -212,10 +227,11 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     }
 
     if (matchingAction) {
-      executeAction(matchingAction.index);
+      executeAction(matchingAction.index, { coreType });
     } else {
       setError(`ドラッグ操作は無効です。アクションボタンから実行してください。`);
     }
+    setSelectedCoreType(null);
   };
 
   if (isLoading || !state) {

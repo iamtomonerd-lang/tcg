@@ -86,19 +86,27 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       // Use soul cores first, then regular cores
       if (player.soulCores >= amount) {
         player.soulCores -= amount;
+        player.trashSoulCores += amount;
       } else {
         const soulUsed = player.soulCores;
+        const regularUsed = amount - soulUsed;
         player.soulCores = 0;
-        player.cores -= amount - soulUsed;
+        player.cores -= regularUsed;
+        player.trashSoulCores += soulUsed;
+        player.trashCores += regularUsed;
       }
     } else {
       // Default: use regular cores first, then soul cores
       if (player.cores >= amount) {
         player.cores -= amount;
+        player.trashCores += amount;
       } else {
         const regularUsed = player.cores;
+        const soulUsed = amount - regularUsed;
         player.cores = 0;
-        player.soulCores -= amount - regularUsed;
+        player.soulCores -= soulUsed;
+        player.trashCores += regularUsed;
+        player.trashSoulCores += soulUsed;
       }
     }
     return true;
