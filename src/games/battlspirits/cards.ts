@@ -307,7 +307,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
-    imagePath: 'assets/cards/spirit_hibutsu_akurai.jpg',
+    imagePath: 'assets/cards/spirit_hibutsu_akurai.png',
     lv1: { cost: 1, bp: 7000 },
     lv2: { cost: 4, bp: 10000, coreType: 'ソウルコア' },
     effects: [
