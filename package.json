@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "play": "tsx src/cli.ts",
-    "server": "tsx src/server.ts",
+    "web": "npm run web:build && tsx src/server.ts",
     "web:dev": "cd web && npm run dev",
     "web:build": "cd web && npm run build",
     "test": "vitest run",
