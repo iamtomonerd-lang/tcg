@@ -197,7 +197,7 @@ app.get('*', (req, res) => {
   res.sendFile(join(__dirname, '../web/dist/index.html'));
 });
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`🎮 Battle Spirits AI Web UI running at http://localhost:${port}`);
 });
 
