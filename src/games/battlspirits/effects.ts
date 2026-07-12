@@ -33,15 +33,15 @@ export function applyEffect(
     }
     if (effect.condition.requiresFatiguedRed) {
       // Check if there's a fatigued (canAttack: false) red spirit
-      const hasFatiguedRed = me.spirits.some((s: any) => !s.canAttack && s.def.symbols.includes('red'));
+      const hasFatiguedRed = me.spirits.some((s: any) => !s.canAttack && s.def.symbolColors?.includes('red'));
       if (!hasFatiguedRed) {
         return next;
       }
     }
     if (effect.condition.requiresAdjacentSymbol) {
-      // Check if there's an adjacent spirit with matching symbol
-      const symbol = effect.condition.requiresAdjacentSymbol;
-      const hasAdjacent = me.spirits.some((s: any) => s.def.symbols.includes(symbol));
+      // Check if there's an adjacent spirit with matching lineage
+      const lineage = effect.condition.requiresAdjacentSymbol;
+      const hasAdjacent = me.spirits.some((s: any) => s.def.lineage?.includes(lineage));
       if (!hasAdjacent) {
         return next;
       }
@@ -78,15 +78,15 @@ export function applyEffect(
       break;
     }
     case 'search_deck': {
-      // Open top X cards, find 1 with matching symbol, add to hand, discard rest
+      // Open top X cards, find 1 with matching lineage, add to hand, discard rest
       const openCount = effect.value ?? 2; // Open top X cards
-      const targetSymbol = effect.symbol;
+      const targetLineage = effect.symbol; // Symbol field contains lineage for search_deck
       const opened = me.deck.splice(0, Math.min(openCount, me.deck.length));
 
       let found = false;
       for (let i = 0; i < opened.length; i++) {
         const card = opened[i]!;
-        if (!found && (!targetSymbol || card.symbolColors.includes(targetSymbol))) {
+        if (!found && (!targetLineage || card.lineage?.includes(targetLineage))) {
           me.hand.push(card);
           opened.splice(i, 1);
           found = true;
@@ -116,12 +116,12 @@ export function applyEffect(
     }
     case 'trash_to_hand': {
       // Move card from trash to hand
-      const targetSymbol = effect.symbol;
+      const targetLineage = effect.symbol;
       const excludeId = effect.excludeId;
       const excludeEXSymbol = effect.condition?.excludeEXSymbol ?? false;
       for (let i = 0; i < me.trash.length; i++) {
         const card = me.trash[i]!;
-        if ((!targetSymbol || card.symbolColors.includes(targetSymbol)) &&
+        if ((!targetLineage || card.lineage?.includes(targetLineage)) &&
             (!excludeId || card.id !== excludeId) &&
             (!excludeEXSymbol || !card.exSymbol) &&
             card.cardType === 'spirit') {
@@ -133,9 +133,14 @@ export function applyEffect(
       break;
     }
     case 'place_core': {
-      // Place core on this spirit
+      // Place core on this spirit and check for level-up
       if (spirit) {
         spirit.placedCores = (spirit.placedCores ?? 0) + (effect.value ?? 1);
+        // Check if spirit can level up to Lv2
+        if (spirit.level === 1 && spirit.def.lv2 && spirit.placedCores >= spirit.def.lv2.cost) {
+          spirit.level = 2;
+          spirit.placedCores -= spirit.def.lv2.cost;
+        }
       }
       break;
     }
