@@ -1,7 +1,7 @@
 import type { Game, Rng } from '../../core/game.js';
 import { CARD_DB, getStarterDeck } from './cards.js';
 import type { Action, GameState, Nexus, Spirit, PlayerState } from './types.js';
-import { applyEffect, triggerEffects } from './effects.js';
+import { applyEffect, triggerEffects, destroySpirit, updateSpiritLevel } from './effects.js';
 
 /**
  * Battle Spirits Phase 1: simplified rules.
@@ -175,6 +175,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       if (this.effectiveCost(me, card) > me.cores) continue;
 
       if (card.cardType === 'spirit') {
+        // Summoning also requires placing the Lv1 maintenance cores from reserve
+        if (this.effectiveCost(me, card) + card.lv1.cost > me.cores) continue;
         actions.push({ type: 'summon', handIndex: i });
       } else if (card.cardType === 'nexus') {
         actions.push({ type: 'place_nexus', handIndex: i });
@@ -199,6 +201,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         } else {
           // No targeting or variable values needed
           actions.push({ type: 'use_magic', handIndex: i });
+        }
+      }
+    }
+
+    // Place a core from reserve onto a spirit (level-up); only useful below Lv2
+    if (me.cores > 0) {
+      for (let i = 0; i < me.spirits.length; i++) {
+        const s = me.spirits[i]!;
+        if (s.def.lv2 && s.coreCount < s.def.lv2.cost) {
+          actions.push({ type: 'add_core', spiritIndex: i });
         }
       }
     }
@@ -302,20 +314,20 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       defender.canAttack = false;
       attacker.canAttack = false;
 
-      // Resolve battle
+      // Resolve battle (destroyed spirits go to trash; their cores return to reserve)
       if (attackBP > defendBP) {
         // Attacker wins: destroy defender
-        me.spirits.splice(action.spiritIndex, 1);
+        destroySpirit(me, action.spiritIndex);
         next = triggerEffects(next, 'destroy', defender.def, next.currentPlayer);
       } else if (attackBP < defendBP) {
         // Defender wins: destroy attacker
         const attackerPlayer = next.players[next.pendingAttack.attackerPlayer]!;
-        attackerPlayer.spirits.splice(next.pendingAttack.attackerSpiritIndex, 1);
+        destroySpirit(attackerPlayer, next.pendingAttack.attackerSpiritIndex);
         next = triggerEffects(next, 'destroy', attacker.def, 1 - next.currentPlayer);
       } else {
         // Equal BP: both destroyed
-        me.spirits.splice(action.spiritIndex, 1);
-        next.players[next.pendingAttack.attackerPlayer]!.spirits.splice(next.pendingAttack.attackerSpiritIndex, 1);
+        destroySpirit(me, action.spiritIndex);
+        destroySpirit(next.players[next.pendingAttack.attackerPlayer]!, next.pendingAttack.attackerSpiritIndex);
         next = triggerEffects(next, 'destroy', defender.def, next.currentPlayer);
         next = triggerEffects(next, 'destroy', attacker.def, 1 - next.currentPlayer);
       }
@@ -361,14 +373,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
 
-        // Check if player has enough cores
-        if (actualCost > me.cores) return next;
+        // Player must pay the summon cost AND place Lv1 cores from reserve
+        if (actualCost + card.lv1.cost > me.cores) return next;
 
-        // Pay cost
+        // Pay cost (to void) and move Lv1 cores from reserve onto the spirit
         me.hand.splice(action.handIndex, 1);
-        me.cores -= actualCost;
+        me.cores -= actualCost + card.lv1.cost;
 
-        // Place spirit with required Lv1 cores
         const spirit: any = {
           def: card,
           level: 1,
@@ -376,10 +387,19 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           canAttack: false, // Newly summoned spirits can't attack this turn
           bpBoost: 0,
         };
+        updateSpiritLevel(spirit);
         me.spirits.push(spirit);
 
         // Trigger summon effects
         next = triggerEffects(next, 'summon', card, next.currentPlayer, spirit);
+        break;
+      }
+      case 'add_core': {
+        const spirit = me.spirits[action.spiritIndex];
+        if (!spirit || me.cores <= 0) return next;
+        me.cores -= 1;
+        spirit.coreCount += 1;
+        updateSpiritLevel(spirit);
         break;
       }
       case 'place_nexus': {
@@ -469,6 +489,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         checkResult(next);
         if (next.result) return next;
 
+        // Temporary BP boosts ("this turn only") expire at end of turn
+        for (const p of next.players) {
+          for (const s of p.spirits) {
+            s.bpBoost = 0;
+          }
+        }
+
         // Move to next turn
         next.currentPlayer = 1 - next.currentPlayer;
         next.turnCount++;
@@ -531,6 +558,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   actionKey(action: Action): string {
     switch (action.type) {
       case 'summon': return `S${action.handIndex}`;
+      case 'add_core': return `C${action.spiritIndex}`;
       case 'place_nexus': return `N${action.handIndex}`;
       case 'use_magic': {
         let key = `M${action.handIndex}`;
@@ -559,7 +587,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     switch (action.type) {
       case 'summon': {
         const card = me.hand[action.handIndex];
-        return `${card?.name ?? '?'}を召喚`;
+        const total = card ? this.effectiveCost(me, card) + card.lv1.cost : 0;
+        return `${card?.name ?? '?'}を召喚（コア${total}個）`;
+      }
+      case 'add_core': {
+        const spirit = me.spirits[action.spiritIndex];
+        if (!spirit) return '?にコア配置';
+        const need = spirit.def.lv2 ? spirit.def.lv2.cost - spirit.coreCount : 0;
+        return `${spirit.def.name}にコア配置（Lv2まであと${need}個）`;
       }
       case 'place_nexus': {
         const card = me.hand[action.handIndex];
@@ -634,7 +669,7 @@ function clonePlayer(p: any) {
     cores: p.cores,
     hand: p.hand.slice(),
     deck: p.deck.slice(),
-    spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0, placedCores: s.placedCores ?? 0 })),
+    spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0 })),
     nexuses: p.nexuses.map((n: any) => ({ ...n, placedCores: n.placedCores ?? 0 })),
     trash: p.trash.slice(),
   };

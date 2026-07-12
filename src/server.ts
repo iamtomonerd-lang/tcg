@@ -258,6 +258,7 @@ function serializeState(state: GameState) {
         name: s.def.name,
         level: s.level,
         coreCount: s.coreCount,
+        coresForLv2: s.def.lv2 ? s.def.lv2.cost : null,
         canAttack: s.canAttack,
         imagePath: s.def.imagePath,
         bp: (s.level === 1 ? s.def.lv1 : s.def.lv2 || s.def.lv1).bp + (s.bpBoost ?? 0),

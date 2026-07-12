@@ -177,3 +177,26 @@
   font-weight: 600;
   border-style: dashed;
 }
+
+/* Error banner */
+.error-banner {
+  margin: 0 0 1rem 0;
+  padding: 1rem 1.5rem;
+  background: #fdecea;
+  border: 2px solid #e74c3c;
+  border-radius: 8px;
+  color: #c0392b;
+  font-weight: 600;
+}
+
+/* Spirit core display */
+.spirit-cores {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.spirit-cores .lv2-hint {
+  color: #999;
+  font-size: 0.72rem;
+}

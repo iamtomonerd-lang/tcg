@@ -130,6 +130,7 @@ export interface GameState {
 
 export type Action =
   | { type: 'summon'; handIndex: number; targetNexusIndex?: number }
+  | { type: 'add_core'; spiritIndex: number } // move 1 core from reserve onto a spirit (level-up)
   | { type: 'place_nexus'; handIndex: number }
   | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number }
   | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number }

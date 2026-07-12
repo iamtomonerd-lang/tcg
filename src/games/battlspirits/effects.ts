@@ -2,7 +2,32 @@
  * Battle Spirits effect engine. Processes all card effects from data.
  */
 
-import type { CardDef, CardEffect, GameState, PlayerState } from './types.js';
+import type { CardDef, CardEffect, GameState, PlayerState, Spirit } from './types.js';
+
+/**
+ * Recompute a spirit's level from the cores placed on it.
+ * lv2.cost is the total number of cores required to be at Lv2.
+ */
+export function updateSpiritLevel(spirit: Spirit): void {
+  if (spirit.def.lv2 && spirit.coreCount >= spirit.def.lv2.cost) {
+    spirit.level = 2;
+  } else {
+    spirit.level = 1;
+  }
+}
+
+/**
+ * Destroy a spirit: its card goes to the owner's trash and the cores on it
+ * return to the owner's reserve (official Battle Spirits rule).
+ */
+export function destroySpirit(owner: PlayerState, spiritIndex: number): Spirit | undefined {
+  const spirit = owner.spirits[spiritIndex];
+  if (!spirit) return undefined;
+  owner.spirits.splice(spiritIndex, 1);
+  owner.trash.push(spirit.def);
+  owner.cores += spirit.coreCount;
+  return spirit;
+}
 
 /**
  * Apply a single effect to the game state. Pure function; state is cloned.
@@ -126,20 +151,22 @@ export function applyEffect(
       break;
     }
     case 'destroy_creature': {
-      // Destroy opponent's spirit at targetSpiritIndex, or weakest one with BP <= 3
+      // Destroy opponent's spirit at targetSpiritIndex, or weakest destroyable one
+      const bpLimit = effect.value; // e.g. 3000 = "BP3000以下"
       let targetIndex = targetSpiritIndex ?? -1;
       if (targetIndex === -1) {
         for (let i = 0; i < opponent.spirits.length; i++) {
-          const spiritDef = opponent.spirits[i]!;
-          const stats = spiritDef.level === 1 ? spiritDef.def.lv1 : spiritDef.def.lv2 || spiritDef.def.lv1;
-          if (stats.bp <= 3) {
+          const sp = opponent.spirits[i]!;
+          const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
+          if (bpLimit === undefined || stats.bp + (sp.bpBoost ?? 0) <= bpLimit) {
             targetIndex = i;
             break;
           }
         }
       }
       if (targetIndex >= 0 && targetIndex < opponent.spirits.length) {
-        opponent.spirits.splice(targetIndex, 1);
+        // Card to trash, cores back to reserve (official rule)
+        destroySpirit(opponent, targetIndex);
       }
       break;
     }
@@ -162,15 +189,11 @@ export function applyEffect(
       break;
     }
     case 'place_core': {
-      // Place core on this spirit and check for level-up
+      // Place cores on this spirit (from the void) and recompute level
       const coreValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       if (spirit) {
-        spirit.placedCores = (spirit.placedCores ?? 0) + coreValue;
-        // Check if spirit can level up to Lv2
-        if (spirit.level === 1 && spirit.def.lv2 && spirit.placedCores >= spirit.def.lv2.cost) {
-          spirit.level = 2;
-          spirit.placedCores -= spirit.def.lv2.cost;
-        }
+        spirit.coreCount += coreValue;
+        updateSpiritLevel(spirit);
       }
       break;
     }

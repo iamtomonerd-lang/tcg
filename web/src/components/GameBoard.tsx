@@ -22,19 +22,23 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [gameHistory, setGameHistory] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
 
   const fetchGameState = useCallback(async () => {
     try {
       const response = await fetch(`/api/game/${sessionId}/state`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       setState(data.state);
       setIsTerminal(data.isTerminal);
       setCurrentPlayer(data.currentPlayer);
       if (data.playerTypes) setPlayerTypes(data.playerTypes);
+      setError(null);
     } catch (error) {
       console.error('Failed to fetch game state:', error);
+      setError('ゲーム状態の取得に失敗しました。サーバー（npm start）が起動しているか確認してください。');
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +85,11 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
       const response = await fetch(`/api/game/${sessionId}/ai-turn`, {
         method: 'POST',
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        // Turn may have passed to a human between renders; resync state
+        await fetchGameState();
+        return;
+      }
       const data = await response.json();
       setState(data.state);
       setIsTerminal(data.isTerminal);
@@ -106,18 +114,21 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
         body: JSON.stringify({ actionIndex }),
       });
       if (!response.ok) {
-        console.error('Action failed');
+        setError('アクションの実行に失敗しました。もう一度お試しください。');
+        await fetchGameState();
         return;
       }
       const data = await response.json();
       setState(data.state);
       setIsTerminal(data.isTerminal);
       setCurrentPlayer(data.currentPlayer ?? data.state.currentPlayer);
+      setError(null);
       if (data.actionDescription) {
         setGameHistory((prev) => [...prev, data.actionDescription]);
       }
     } catch (error) {
       console.error('Failed to execute action:', error);
+      setError('サーバーとの通信に失敗しました。サーバー（npm start）が起動しているか確認してください。');
     } finally {
       setIsBusy(false);
     }
@@ -149,6 +160,8 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           </button>
         </div>
       </div>
+
+      {error && <div className="error-banner">⚠️ {error}</div>}
 
       {/* Action panel for the human player's turn */}
       {isHumanTurn && (

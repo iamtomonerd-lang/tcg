@@ -70,6 +70,12 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, showHand,
                   <span className="level">Lv{spirit.level}</span>
                   <span className="bp">BP {spirit.bp}</span>
                 </div>
+                <div className="spirit-cores">
+                  🔵×{spirit.coreCount}
+                  {spirit.coresForLv2 && spirit.level === 1 && (
+                    <span className="lv2-hint">（Lv2まであと{spirit.coresForLv2 - spirit.coreCount}）</span>
+                  )}
+                </div>
                 {!spirit.canAttack && <div className="fatigue-badge">疲労</div>}
               </div>
             ))
