@@ -1,13 +1,42 @@
 import type { Game, Rng } from '../../core/game.js';
 import { CARD_DB, getStarterDeck } from './cards.js';
-import type { Action, GameState, Nexus, Spirit } from './types.js';
+import type { Action, GameState, Nexus, Spirit, PlayerState } from './types.js';
 import { applyEffect, triggerEffects } from './effects.js';
 
 /**
  * Battle Spirits Phase 1: simplified rules.
- * Tur: Start (draw) → Main (summon/place/use) → Attack → End
- * (First turn skips core step; simplified for now)
+ * Turn: Start (draw) → Main (summon/place/use) → Attack → End
+ * (First turn skips core step and attack step)
  */
+
+function calculateCostAfterReduction(
+  card: any,
+  fieldSymbols: { color: string; count: number }[],
+  hasEXSymbolsInTrash: boolean,
+  hasInheritance: boolean,
+): number {
+  let cost = card.cost;
+  let reductionRemaining = card.reductionCost;
+
+  // Reduce cost from field symbols
+  for (const sym of fieldSymbols) {
+    if (reductionRemaining <= 0) break;
+    const canReduce = card.reductionCost > 0 && card.symbolColors?.includes(sym.color);
+    if (canReduce) {
+      const reduce = Math.min(sym.count, reductionRemaining);
+      cost = Math.max(0, cost - reduce);
+      reductionRemaining -= reduce;
+    }
+  }
+
+  // If card has inheritance, can use EX symbols from trash
+  if (hasInheritance && reductionRemaining > 0 && hasEXSymbolsInTrash) {
+    cost = Math.max(0, cost - reductionRemaining);
+  }
+
+  return Math.max(0, cost);
+}
+
 export class BattlSpiritsGame implements Game<GameState, Action> {
   readonly playerCount = 2;
 
@@ -53,7 +82,25 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const card = p.deck.shift()!;
       p.hand.push(card);
     }
+    // Refresh all ready spirits (can attack next turn)
+    for (const spirit of p.spirits) {
+      spirit.canAttack = true;
+    }
     return next;
+  }
+
+  private getFieldSymbols(player: PlayerState): { color: string; count: number }[] {
+    const symbolMap = new Map<string, number>();
+
+    // Count symbols from spirits on field
+    for (const spirit of player.spirits) {
+      for (const color of spirit.def.symbolColors) {
+        symbolMap.set(color, (symbolMap.get(color) ?? 0) + spirit.def.symbolCount);
+      }
+    }
+
+    // Convert to array format
+    return Array.from(symbolMap.entries()).map(([color, count]) => ({ color, count }));
   }
 
   currentPlayer(state: GameState): number {
@@ -109,59 +156,129 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   applyAction(state: GameState, action: Action, _rng: Rng): GameState {
     let next = cloneState(state);
     const me = next.players[next.currentPlayer]!;
+    const opponent = next.players[1 - next.currentPlayer]!;
 
     switch (action.type) {
       case 'summon': {
         const card = me.hand[action.handIndex];
         if (!card || card.cardType !== 'spirit') return next;
-        if (card.cost > me.cores) return next;
+
+        // Calculate cost after reductions
+        const fieldSymbols = this.getFieldSymbols(me);
+        const hasEXInTrash = me.trash.some((c) => c.exSymbol);
+        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+
+        // Check if player has enough cores
+        if (actualCost > me.cores) return next;
+
+        // Pay cost
         me.hand.splice(action.handIndex, 1);
-        me.cores -= card.cost;
+        me.cores -= actualCost;
+
+        // Place spirit with required Lv1 cores
         const spirit: any = {
           def: card,
           level: 1,
           coreCount: card.lv1.cost,
-          canAttack: true,
+          canAttack: false, // Newly summoned spirits can't attack this turn
           bpBoost: 0,
         };
         me.spirits.push(spirit);
+
+        // Trigger summon effects
         next = triggerEffects(next, 'summon', card, next.currentPlayer, spirit);
         break;
       }
       case 'place_nexus': {
         const card = me.hand[action.handIndex];
         if (!card || card.cardType !== 'nexus') return next;
-        if (card.cost > me.cores) return next;
+
+        // Calculate cost after reductions
+        const fieldSymbols = this.getFieldSymbols(me);
+        const hasEXInTrash = me.trash.some((c) => c.exSymbol);
+        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+
+        // Check if player has enough cores
+        if (actualCost > me.cores) return next;
+
+        // Pay cost
         me.hand.splice(action.handIndex, 1);
-        me.cores -= card.cost;
+        me.cores -= actualCost;
+
+        // Place nexus
         const nexus: Nexus = {
           def: card,
-          level: 1,
-          coreCount: card.lv1.cost,
+          level: card.lv1.cost === 0 ? 1 : 1, // Normally Lv1, but needs cores if cost > 0
+          coreCount: Math.max(0, card.lv1.cost),
         };
         me.nexuses.push(nexus);
+
+        // Trigger deployment effects
         next = triggerEffects(next, 'summon', card, next.currentPlayer);
         break;
       }
       case 'use_magic': {
         const card = me.hand[action.handIndex];
         if (!card || card.cardType !== 'magic') return next;
-        if (card.cost > me.cores) return next;
+
+        // Calculate cost after reductions
+        const fieldSymbols = this.getFieldSymbols(me);
+        const hasEXInTrash = me.trash.some((c) => c.exSymbol);
+        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+
+        // Check if player has enough cores
+        if (actualCost > me.cores) return next;
+
+        // Pay cost
         me.hand.splice(action.handIndex, 1);
-        me.cores -= card.cost;
+        me.cores -= actualCost;
+
+        // Trigger magic effects
         next = triggerEffects(next, 'immediate', card, next.currentPlayer);
         break;
       }
       case 'attack': {
         const spirit = me.spirits[action.spiritIndex];
         if (!spirit || !spirit.canAttack) return next;
-        spirit.canAttack = false;
-        // Trigger attack effects first (may boost BP)
+
+        spirit.canAttack = false; // Spirit becomes fatigued
+
+        // Trigger attack effects (may boost BP)
         next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, spirit);
-        // Phase 1 simplified: direct damage equal to spirit's BP + any boost
+
+        // Get attacking spirit's BP
         const stats = spirit.level === 1 ? spirit.def.lv1 : spirit.def.lv2 || spirit.def.lv1;
-        const totalBP = stats.bp + (spirit.bpBoost ?? 0);
-        next.players[1 - next.currentPlayer]!.life -= totalBP;
+        const attackBP = stats.bp + (spirit.bpBoost ?? 0);
+
+        // Check if opponent blocks
+        const defendingSpirit = action.defendingSpiritIndex !== undefined
+          ? opponent.spirits[action.defendingSpiritIndex]
+          : null;
+
+        if (defendingSpirit && defendingSpirit.canAttack) {
+          // Battle: compare BP
+          defendingSpirit.canAttack = false; // Blocking spirit becomes fatigued
+          const defendBP = (defendingSpirit.level === 1
+            ? defendingSpirit.def.lv1
+            : defendingSpirit.def.lv2 || defendingSpirit.def.lv1).bp + (defendingSpirit.bpBoost ?? 0);
+
+          if (attackBP > defendBP) {
+            // Attacking spirit wins: destroy defending spirit
+            const idx = opponent.spirits.indexOf(defendingSpirit);
+            if (idx >= 0) opponent.spirits.splice(idx, 1);
+          } else if (attackBP < defendBP) {
+            // Defending spirit wins: destroy attacking spirit
+            const idx = me.spirits.indexOf(spirit);
+            if (idx >= 0) me.spirits.splice(idx, 1);
+          } else {
+            // Equal BP: both destroyed
+            opponent.spirits.splice(opponent.spirits.indexOf(defendingSpirit), 1);
+            me.spirits.splice(me.spirits.indexOf(spirit), 1);
+          }
+        } else {
+          // No block: damage = symbol count
+          opponent.life -= spirit.def.symbolCount;
+        }
         break;
       }
       case 'block': {
