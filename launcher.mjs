@@ -13,16 +13,13 @@ function openBrowser() {
   const isWindows = platform() === 'win32';
   const isMac = platform() === 'darwin';
 
-  let command;
   if (isWindows) {
-    command = `start ${URL}`;
+    spawn('cmd', ['/c', `start "" "${URL}"`], { stdio: 'ignore' });
   } else if (isMac) {
-    command = `open ${URL}`;
+    spawn('open', [URL], { stdio: 'ignore' });
   } else {
-    command = `xdg-open ${URL}`;
+    spawn('xdg-open', [URL], { stdio: 'ignore' });
   }
-
-  spawn(command, { shell: true, stdio: 'ignore' });
 }
 
 function checkServerReady() {
@@ -62,7 +59,6 @@ async function main() {
   // Start the server
   const server = spawn('npm', ['run', 'web'], {
     stdio: 'pipe',
-    shell: true,
   });
 
   let hasError = false;
