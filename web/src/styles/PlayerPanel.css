@@ -173,6 +173,13 @@
   font-size: 0.7rem;
 }
 
+.chip.soul {
+  background: #6b46c1;
+  color: #fbbf24;
+  font-weight: 800;
+  font-size: 0.7rem;
+}
+
 .chip.nexus-chip {
   background: #5e3a75;
 }

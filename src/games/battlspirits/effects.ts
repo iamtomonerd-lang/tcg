@@ -7,12 +7,29 @@ import type { CardDef, CardEffect, GameState, PlayerState, Spirit } from './type
 /**
  * Recompute a spirit's level from the cores placed on it.
  * lv2.cost is the total number of cores required to be at Lv2.
+ * If lv2.coreType is 'ソウルコア', requires that many soul cores instead.
  */
 export function updateSpiritLevel(spirit: Spirit): void {
-  if (spirit.def.lv2 && spirit.coreCount >= spirit.def.lv2.cost) {
-    spirit.level = 2;
-  } else {
+  if (!spirit.def.lv2) {
     spirit.level = 1;
+    return;
+  }
+
+  // Check if Lv2 requires soul cores or regular cores
+  if (spirit.def.lv2.coreType === 'ソウルコア') {
+    // Lv2 requires soul cores
+    if (spirit.soulCoreCount >= spirit.def.lv2.cost) {
+      spirit.level = 2;
+    } else {
+      spirit.level = 1;
+    }
+  } else {
+    // Lv2 requires regular cores
+    if (spirit.coreCount >= spirit.def.lv2.cost) {
+      spirit.level = 2;
+    } else {
+      spirit.level = 1;
+    }
   }
 }
 
