@@ -134,17 +134,26 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           break;
         }
         case 'draw': {
-          // Draw 1 card; if the deck is empty, the player loses (deck-out)
+          // Open 3 cards from deck; if deck is empty, player loses (deck-out)
           const p = next.players[next.currentPlayer]!;
-          if (p.deck.length > 0) {
-            const card = p.deck.shift()!;
-            p.hand.push(card);
-          } else {
+          if (p.deck.length === 0) {
             next.result = { winner: 1 - next.currentPlayer };
             return next;
           }
-          next.phase = 'refresh';
-          break;
+
+          // Open up to 3 cards from top of deck
+          const openCount = Math.min(3, p.deck.length);
+          const openedCards: any[] = [];
+          for (let i = 0; i < openCount; i++) {
+            openedCards.push(p.deck.shift()!);
+          }
+
+          // Set pending draw for player to select
+          next.pendingDraw = {
+            openedCards,
+            selectableCount: 1,
+          };
+          return next; // Stop here, player must select from opened cards
         }
         case 'refresh': {
           // Refresh all spirits (can attack this turn)
@@ -215,6 +224,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
   legalActions(state: GameState): Action[] {
     if (state.result) return [];
+
+    // If there are opened cards from draw phase, must select one
+    if (state.pendingDraw) {
+      const actions: Action[] = [];
+      for (let i = 0; i < state.pendingDraw.openedCards.length; i++) {
+        actions.push({ type: 'select_draw', cardIndex: i });
+      }
+      return actions;
+    }
 
     // If there's a pending attack, defend or take damage
     if (state.pendingAttack) {
@@ -613,6 +631,27 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         next = triggerEffects(next, 'block', spirit.def, next.currentPlayer, spirit);
         break;
       }
+      case 'select_draw': {
+        if (!next.pendingDraw) return next;
+
+        const selectedCard = next.pendingDraw.openedCards[action.cardIndex];
+        if (!selectedCard) return next;
+
+        // Add selected card to hand
+        me.hand.push(selectedCard);
+
+        // Discard remaining opened cards to trash
+        for (let i = 0; i < next.pendingDraw.openedCards.length; i++) {
+          if (i !== action.cardIndex) {
+            me.trash.push(next.pendingDraw.openedCards[i]!);
+          }
+        }
+
+        // Clear pending draw and continue to refresh phase
+        next.pendingDraw = null;
+        next.phase = 'refresh';
+        return this.transitionPhases(next);
+      }
       case 'pass': {
         // Handle phase transitions based on current phase
         if (next.phase === 'main') {
@@ -817,6 +856,9 @@ function cloneState(state: GameState): GameState {
     result: state.result ? { ...state.result } : null,
     pendingFlash: state.pendingFlash ? { ...state.pendingFlash } : null,
     pendingAttack: state.pendingAttack ? { ...state.pendingAttack } : null,
+    pendingDraw: state.pendingDraw
+      ? { openedCards: state.pendingDraw.openedCards.slice(), selectableCount: state.pendingDraw.selectableCount }
+      : null,
   };
 }
 

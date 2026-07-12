@@ -291,5 +291,16 @@ function serializeState(state: GameState) {
         }
       : null,
     pendingFlash: state.pendingFlash ? { trigger: state.pendingFlash.trigger } : null,
+    pendingDraw: state.pendingDraw
+      ? {
+          openedCards: state.pendingDraw.openedCards.map((c) => ({
+            id: c.id,
+            name: c.name,
+            cost: c.cost,
+            imagePath: c.imagePath,
+          })),
+          selectableCount: state.pendingDraw.selectableCount,
+        }
+      : null,
   };
 }

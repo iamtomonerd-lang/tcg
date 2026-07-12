@@ -126,6 +126,11 @@ export interface PendingAttack {
 
 export type GamePhase = 'start' | 'core' | 'draw' | 'refresh' | 'main' | 'attack' | 'main2' | 'end';
 
+export interface PendingDraw {
+  openedCards: CardDef[]; // cards opened from deck for selection
+  selectableCount: number; // how many cards can be selected (usually 1)
+}
+
 export interface GameState {
   players: [PlayerState, PlayerState];
   currentPlayer: number;
@@ -135,6 +140,7 @@ export interface GameState {
   result: { winner: number | null } | null;
   pendingFlash?: PendingFlash | null; // if set, opponent has a flash opportunity
   pendingAttack?: PendingAttack | null; // if set, defending player can choose to block
+  pendingDraw?: PendingDraw | null; // if set, player must select card(s) from opened deck
 }
 
 export type Action =
@@ -148,4 +154,5 @@ export type Action =
   | { type: 'take_damage' } // accept attack damage without defending
   | { type: 'pass' } // end current action phase
   | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul' } // activate a flash magic card
-  | { type: 'skip_flash' }; // pass on flash opportunity
+  | { type: 'skip_flash' } // pass on flash opportunity
+  | { type: 'select_draw'; cardIndex: number }; // select card from opened deck (offering draw)

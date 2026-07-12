@@ -288,7 +288,24 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
         {error && <div className="error-banner side-error">⚠️ {error}</div>}
 
         <div className="side-actions">
-          {isHumanTurn ? (
+          {state.pendingDraw ? (
+            <>
+              <div className="side-actions-title">📖 カード選択</div>
+              <div className="draw-cards">
+                {state.pendingDraw.openedCards.map((card, i) => (
+                  <button
+                    key={i}
+                    className="draw-card-button"
+                    onClick={() => executeAction(i)}
+                    disabled={isBusy}
+                  >
+                    <div className="draw-card-name">{card.name}</div>
+                    <div className="draw-card-cost">コスト{card.cost}</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : isHumanTurn ? (
             <>
               <div className="side-actions-title">
                 🎯 あなたの番です
