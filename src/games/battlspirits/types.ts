@@ -4,7 +4,8 @@
 
 export type CardType = 'spirit' | 'nexus' | 'magic';
 export type EffectAction = 'damage' | 'heal' | 'draw' | 'boost_bp' | 'search_deck' | 'destroy_creature' | 'trash_to_hand' | 'place_core' | 'discard_hand' | 'destroy_nexus';
-export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate' | 'battle_end' | 'end_step';
+export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate' | 'battle_end' | 'end_step' | 'opponent_summon' | 'opponent_attack' | 'opponent_magic';
+export type FlashTrigger = 'opponent_summon' | 'opponent_attack' | 'opponent_magic' | 'opponent_destroy';
 
 export interface CardEffect {
   trigger: EffectTrigger; // when it activates
@@ -13,6 +14,7 @@ export interface CardEffect {
   target?: string; // "opponent_hero" | "opponent_creature" | "any" | "self" | "trash"
   level?: (1 | 2)[]; // which levels this effect activates on (e.g. [1,2] for Lv1-2, [2] for Lv2 only)
   skill?: string; // skill keyword (e.g., "真界放", "継召", "ソウルマジック：赤")
+  isFlash?: boolean; // can be activated as flash timing (during opponent's actions)
   condition?: {
     minHandSize?: number;
     maxHandSize?: number; // maximum hand size for effect to activate
@@ -91,12 +93,19 @@ export interface BattleState {
   defenderFatigue: boolean;
 }
 
+export interface PendingFlash {
+  trigger: FlashTrigger; // what triggered the flash opportunity
+  cardId: string; // which card triggered it
+  actionIndex?: number; // the action that triggered this flash window
+}
+
 export interface GameState {
   players: [PlayerState, PlayerState];
   currentPlayer: number;
   turnCount: number;
   battle: BattleState | null;
   result: { winner: number | null } | null;
+  pendingFlash?: PendingFlash | null; // if set, opponent has a flash opportunity
 }
 
 export type Action =
@@ -105,4 +114,6 @@ export type Action =
   | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number }
   | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number }
   | { type: 'block'; spiritIndex: number }
-  | { type: 'pass' }; // end current action phase
+  | { type: 'pass' } // end current action phase
+  | { type: 'flash'; handIndex: number; targetCard?: string } // activate a flash magic card
+  | { type: 'skip_flash' }; // pass on flash opportunity

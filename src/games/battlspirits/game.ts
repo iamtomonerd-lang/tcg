@@ -112,11 +112,27 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
   legalActions(state: GameState): Action[] {
     if (state.result) return [];
-    // In phase 1, keep it simple: can summon, place nexus, use magic, attack, or pass.
-    // For now: return all possible actions; actual validation in applyAction.
     const actions: Action[] = [];
     const me = state.players[state.currentPlayer]!;
 
+    // If there's a pending flash opportunity, only flash or skip_flash actions are legal
+    if (state.pendingFlash) {
+      // Can activate flash magic cards
+      for (let i = 0; i < me.hand.length; i++) {
+        const card = me.hand[i]!;
+        if (card.cardType === 'magic') {
+          const flashEffects = card.effects?.filter(e => e.isFlash) ?? [];
+          if (flashEffects.length > 0) {
+            actions.push({ type: 'flash', handIndex: i });
+          }
+        }
+      }
+      // Always can skip flash
+      actions.push({ type: 'skip_flash' });
+      return actions;
+    }
+
+    // Normal turn actions
     // Summon spirits (any card in hand that is spirit)
     for (let i = 0; i < me.hand.length; i++) {
       if (me.hand[i]!.cardType === 'spirit') {
@@ -160,6 +176,32 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     let next = cloneState(state);
     const me = next.players[next.currentPlayer]!;
     const opponent = next.players[1 - next.currentPlayer]!;
+
+    // Handle flash actions and flash skipping
+    if (action.type === 'flash') {
+      const card = me.hand[action.handIndex];
+      if (!card || card.cardType !== 'magic') return next;
+
+      // Calculate cost
+      const fieldSymbols = this.getFieldSymbols(me);
+      const hasEXInTrash = me.trash.some((c) => c.exSymbol);
+      const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+
+      if (actualCost > me.cores) return next;
+
+      // Use the magic card as flash
+      me.hand.splice(action.handIndex, 1);
+      me.cores -= actualCost;
+      next = triggerEffects(next, 'immediate', card, next.currentPlayer);
+      next.pendingFlash = null; // Clear flash opportunity after resolving
+      return next;
+    }
+
+    if (action.type === 'skip_flash') {
+      // Just clear the pending flash and continue
+      next.pendingFlash = null;
+      return next;
+    }
 
     switch (action.type) {
       case 'summon': {
@@ -299,6 +341,37 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
     }
 
+    // Create flash opportunity for opponent (unless pass or already have pending flash)
+    const actionTypeStr = (action as any).type;
+    if (!next.pendingFlash && actionTypeStr !== 'pass' && actionTypeStr !== 'flash' && actionTypeStr !== 'skip_flash') {
+      const flashTriggerMap: { [key: string]: any } = {
+        'summon': 'opponent_summon',
+        'place_nexus': 'opponent_summon',
+        'use_magic': 'opponent_magic',
+        'attack': 'opponent_attack',
+        'block': undefined, // block doesn't trigger flash
+      };
+
+      const trigger = flashTriggerMap[actionTypeStr];
+      if (trigger) {
+        // Check if opponent has any flash cards
+        const opponentHasFlash = opponent.hand.some(
+          (c) => c.cardType === 'magic' && c.effects?.some((e) => e.isFlash)
+        );
+
+        if (opponentHasFlash) {
+          // Give opponent flash opportunity
+          next.pendingFlash = {
+            trigger: trigger as any,
+            cardId: '', // Not tracking specific card here
+          };
+          // Switch to opponent for flash opportunity
+          next.currentPlayer = 1 - next.currentPlayer;
+          return next;
+        }
+      }
+    }
+
     checkResult(next);
     return next;
   }
@@ -328,6 +401,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'attack': return `A${action.spiritIndex}`;
       case 'block': return `B${action.spiritIndex}`;
       case 'pass': return 'P';
+      case 'flash': return `F${action.handIndex}`;
+      case 'skip_flash': return 'SF';
       default: return '?';
     }
   }
@@ -356,6 +431,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         return `${spirit?.def.name ?? '?'} blocks`;
       }
       case 'pass': return 'End turn';
+      case 'flash': {
+        const card = me.hand[action.handIndex];
+        return `Flash: ${card?.name ?? '?'}`;
+      }
+      case 'skip_flash': return 'Skip flash';
       default: return '?';
     }
   }
@@ -373,6 +453,7 @@ function cloneState(state: GameState): GameState {
     turnCount: state.turnCount,
     battle: state.battle ? { ...state.battle } : null,
     result: state.result ? { ...state.result } : null,
+    pendingFlash: state.pendingFlash ? { ...state.pendingFlash } : null,
   };
 }
 
