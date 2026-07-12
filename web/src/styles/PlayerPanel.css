@@ -1,0 +1,211 @@
+.player-panel {
+  padding: 1.5rem;
+  border: 2px solid #e0e0e0;
+  background: #fafafa;
+  flex: 1;
+}
+
+.player-panel.opponent {
+  border-top: 4px solid #667eea;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.player-panel.self {
+  border-bottom: 4px solid #764ba2;
+  border-top: 1px solid #e0e0e0;
+}
+
+.player-panel.current {
+  background: linear-gradient(to bottom, rgba(102, 126, 234, 0.05), transparent);
+  border-color: #667eea;
+}
+
+.player-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.player-name {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.current-indicator {
+  background: #ffd700;
+  color: #333;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.player-stats {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stat .label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.stat .value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #667eea;
+}
+
+.stat .value.low-life {
+  color: #e74c3c;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.field-section {
+  margin-bottom: 1.5rem;
+}
+
+.field-section h4 {
+  font-size: 1rem;
+  color: #333;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.spirits-container,
+.nexuses-container,
+.hand-container {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.spirit-card,
+.nexus-card,
+.hand-card {
+  background: white;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  padding: 0.75rem;
+  min-width: 120px;
+  transition: all 0.3s;
+}
+
+.spirit-card:hover,
+.nexus-card:hover,
+.hand-card:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.spirit-card.fatigued {
+  opacity: 0.6;
+  background: #f0f0f0;
+}
+
+.spirit-card.ready {
+  border-color: #27ae60;
+  background: #f0fff4;
+}
+
+.spirit-name,
+.nexus-name,
+.card-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  word-break: break-word;
+}
+
+.spirit-stats {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.level,
+.bp {
+  background: #f0f0f0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.fatigue-badge {
+  margin-top: 0.5rem;
+  background: #e74c3c;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.nexus-level {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 600;
+}
+
+.card-cost {
+  font-size: 0.8rem;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.empty {
+  color: #999;
+  font-style: italic;
+  padding: 1rem;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .player-info {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .player-stats {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .spirits-container,
+  .nexuses-container,
+  .hand-container {
+    justify-content: center;
+  }
+}

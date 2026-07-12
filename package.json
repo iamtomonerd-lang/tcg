@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "play": "tsx src/cli.ts",
+    "server": "tsx src/server.ts",
+    "web:dev": "cd web && npm run dev",
+    "web:build": "cd web && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
@@ -18,9 +21,17 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^26.1.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   }
 }
