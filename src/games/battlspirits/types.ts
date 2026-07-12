@@ -40,11 +40,12 @@ export interface CardDef {
   name: string;
   cardType: CardType;
   cost: number;
-  reductionCost: number; // max reduction from symbols
+  reductionCost: number; // max reduction from symbols on field
   symbolCount: number; // number of symbols (damage dealt)
   symbolColors: string[]; // colors of symbols
   lineage?: string[]; // card lineage/tribe
   exSymbol?: boolean; // has decoration on symbol (EX symbol)
+  inheritance?: boolean; // can use EX symbols from trash for cost reduction
   imagePath?: string; // path to card image file
   // For spirits and nexuses: Lv1 and Lv2
   lv1: LvStats;
