@@ -115,6 +115,19 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const actions: Action[] = [];
     const me = state.players[state.currentPlayer]!;
 
+    // If there's a pending attack, defend or take damage
+    if (state.pendingAttack) {
+      // Can defend with ready spirits
+      for (let i = 0; i < me.spirits.length; i++) {
+        if (me.spirits[i]!.canAttack) {
+          actions.push({ type: 'defend', spiritIndex: i });
+        }
+      }
+      // Always can take damage
+      actions.push({ type: 'take_damage' });
+      return actions;
+    }
+
     // If there's a pending flash opportunity, only flash or skip_flash actions are legal
     if (state.pendingFlash) {
       // Can activate flash magic cards
@@ -203,6 +216,69 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       return next;
     }
 
+    // Handle attack defense
+    if (action.type === 'defend') {
+      const defender = me.spirits[action.spiritIndex];
+      if (!defender || !next.pendingAttack) return next;
+
+      const attacker = next.players[next.pendingAttack.attackerPlayer]!.spirits[next.pendingAttack.attackerSpiritIndex]!;
+      const attackerStats = attacker.level === 1 ? attacker.def.lv1 : attacker.def.lv2 || attacker.def.lv1;
+      const attackBP = attackerStats.bp + (attacker.bpBoost ?? 0);
+
+      const defenderStats = defender.level === 1 ? defender.def.lv1 : defender.def.lv2 || defender.def.lv1;
+      const defendBP = defenderStats.bp + (defender.bpBoost ?? 0);
+
+      // Both spirits become fatigued
+      defender.canAttack = false;
+      attacker.canAttack = false;
+
+      // Resolve battle
+      if (attackBP > defendBP) {
+        // Attacker wins: destroy defender
+        me.spirits.splice(action.spiritIndex, 1);
+        next = triggerEffects(next, 'destroy', defender.def, next.currentPlayer);
+      } else if (attackBP < defendBP) {
+        // Defender wins: destroy attacker
+        const attackerPlayer = next.players[next.pendingAttack.attackerPlayer]!;
+        attackerPlayer.spirits.splice(next.pendingAttack.attackerSpiritIndex, 1);
+        next = triggerEffects(next, 'destroy', attacker.def, 1 - next.currentPlayer);
+      } else {
+        // Equal BP: both destroyed
+        me.spirits.splice(action.spiritIndex, 1);
+        next.players[next.pendingAttack.attackerPlayer]!.spirits.splice(next.pendingAttack.attackerSpiritIndex, 1);
+        next = triggerEffects(next, 'destroy', defender.def, next.currentPlayer);
+        next = triggerEffects(next, 'destroy', attacker.def, 1 - next.currentPlayer);
+      }
+
+      // Trigger battle_end effects
+      next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
+      next = triggerEffects(next, 'battle_end', defender.def, next.currentPlayer);
+
+      next.pendingAttack = null;
+      next.currentPlayer = 1 - next.currentPlayer; // Return turn to original player
+      return next;
+    }
+
+    if (action.type === 'take_damage') {
+      if (!next.pendingAttack) return next;
+
+      const opponent = next.players[next.pendingAttack.attackerPlayer]!;
+      const attacker = opponent.spirits[next.pendingAttack.attackerSpiritIndex]!;
+
+      // Attacker becomes fatigued
+      attacker.canAttack = false;
+
+      // Take damage
+      me.life -= next.pendingAttack.damage;
+
+      // Trigger battle_end effects
+      next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
+
+      next.pendingAttack = null;
+      next.currentPlayer = 1 - next.currentPlayer; // Return turn to original player
+      return next;
+    }
+
     switch (action.type) {
       case 'summon': {
         const card = me.hand[action.handIndex];
@@ -286,45 +362,20 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const spirit = me.spirits[action.spiritIndex];
         if (!spirit || !spirit.canAttack) return next;
 
-        spirit.canAttack = false; // Spirit becomes fatigued
-
         // Trigger attack effects (may boost BP)
         next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, spirit);
 
-        // Get attacking spirit's BP
-        const stats = spirit.level === 1 ? spirit.def.lv1 : spirit.def.lv2 || spirit.def.lv1;
-        const attackBP = stats.bp + (spirit.bpBoost ?? 0);
+        // Create pending attack opportunity for opponent to defend
+        const damage = spirit.def.symbolCount;
+        next.pendingAttack = {
+          attackerPlayer: next.currentPlayer,
+          attackerSpiritIndex: action.spiritIndex,
+          damage: damage,
+        };
 
-        // Check if opponent blocks
-        const defendingSpirit = action.defendingSpiritIndex !== undefined
-          ? opponent.spirits[action.defendingSpiritIndex]
-          : null;
-
-        if (defendingSpirit && defendingSpirit.canAttack) {
-          // Battle: compare BP
-          defendingSpirit.canAttack = false; // Blocking spirit becomes fatigued
-          const defendBP = (defendingSpirit.level === 1
-            ? defendingSpirit.def.lv1
-            : defendingSpirit.def.lv2 || defendingSpirit.def.lv1).bp + (defendingSpirit.bpBoost ?? 0);
-
-          if (attackBP > defendBP) {
-            // Attacking spirit wins: destroy defending spirit
-            const idx = opponent.spirits.indexOf(defendingSpirit);
-            if (idx >= 0) opponent.spirits.splice(idx, 1);
-          } else if (attackBP < defendBP) {
-            // Defending spirit wins: destroy attacking spirit
-            const idx = me.spirits.indexOf(spirit);
-            if (idx >= 0) me.spirits.splice(idx, 1);
-          } else {
-            // Equal BP: both destroyed
-            opponent.spirits.splice(opponent.spirits.indexOf(defendingSpirit), 1);
-            me.spirits.splice(me.spirits.indexOf(spirit), 1);
-          }
-        } else {
-          // No block: damage = symbol count
-          opponent.life -= spirit.def.symbolCount;
-        }
-        break;
+        // Switch to opponent to handle defense
+        next.currentPlayer = 1 - next.currentPlayer;
+        return next;
       }
       case 'block': {
         const spirit = me.spirits[action.spiritIndex];
@@ -334,6 +385,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         break;
       }
       case 'pass': {
+        // Trigger end-of-turn effects for current player
+        const currentPlayer = next.players[next.currentPlayer]!;
+        for (const spirit of currentPlayer.spirits) {
+          next = triggerEffects(next, 'end_step', spirit.def, next.currentPlayer, spirit);
+        }
+        for (const nexus of currentPlayer.nexuses) {
+          next = triggerEffects(next, 'end_step', nexus.def, next.currentPlayer);
+        }
+
+        // Move to next turn
         next.currentPlayer = 1 - next.currentPlayer;
         next.turnCount++;
         next = this.startTurn(next);
@@ -400,6 +461,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'use_magic': return `M${action.handIndex}`;
       case 'attack': return `A${action.spiritIndex}`;
       case 'block': return `B${action.spiritIndex}`;
+      case 'defend': return `D${action.spiritIndex}`;
+      case 'take_damage': return 'TD';
       case 'pass': return 'P';
       case 'flash': return `F${action.handIndex}`;
       case 'skip_flash': return 'SF';
@@ -430,6 +493,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const spirit = me.spirits[action.spiritIndex];
         return `${spirit?.def.name ?? '?'} blocks`;
       }
+      case 'defend': {
+        const spirit = me.spirits[action.spiritIndex];
+        return `${spirit?.def.name ?? '?'} defends`;
+      }
+      case 'take_damage': return 'Take damage';
       case 'pass': return 'End turn';
       case 'flash': {
         const card = me.hand[action.handIndex];
@@ -454,6 +522,7 @@ function cloneState(state: GameState): GameState {
     battle: state.battle ? { ...state.battle } : null,
     result: state.result ? { ...state.result } : null,
     pendingFlash: state.pendingFlash ? { ...state.pendingFlash } : null,
+    pendingAttack: state.pendingAttack ? { ...state.pendingAttack } : null,
   };
 }
 

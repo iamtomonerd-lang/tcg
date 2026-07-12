@@ -99,6 +99,12 @@ export interface PendingFlash {
   actionIndex?: number; // the action that triggered this flash window
 }
 
+export interface PendingAttack {
+  attackerPlayer: number; // who is attacking
+  attackerSpiritIndex: number; // which spirit is attacking
+  damage: number; // base damage (symbol count if no defense)
+}
+
 export interface GameState {
   players: [PlayerState, PlayerState];
   currentPlayer: number;
@@ -106,6 +112,7 @@ export interface GameState {
   battle: BattleState | null;
   result: { winner: number | null } | null;
   pendingFlash?: PendingFlash | null; // if set, opponent has a flash opportunity
+  pendingAttack?: PendingAttack | null; // if set, defending player can choose to block
 }
 
 export type Action =
@@ -114,6 +121,8 @@ export type Action =
   | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number }
   | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number }
   | { type: 'block'; spiritIndex: number }
+  | { type: 'defend'; spiritIndex: number } // respond to pending attack with defense
+  | { type: 'take_damage' } // accept attack damage without defending
   | { type: 'pass' } // end current action phase
   | { type: 'flash'; handIndex: number; targetCard?: string } // activate a flash magic card
   | { type: 'skip_flash' }; // pass on flash opportunity
