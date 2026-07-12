@@ -1,12 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
-
-echo.
-echo 🎮 Starting Battle Spirits AI...
-echo.
-
+chcp 65001 > nul
 cd /d "%~dp0"
-
 node launcher.mjs
-
 pause

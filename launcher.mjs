@@ -59,6 +59,7 @@ async function main() {
   // Start the server
   const server = spawn('npm', ['run', 'web'], {
     stdio: 'pipe',
+    shell: true,
   });
 
   let hasError = false;
