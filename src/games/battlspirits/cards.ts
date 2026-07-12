@@ -41,7 +41,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
-    imagePath: 'assets/cards/spirit_moon_shacco.jpg',
+    imagePath: 'assets/cards/spirit_moon_shacco.png',
     lv1: { cost: 1, bp: 2000 },
     lv2: { cost: 2, bp: 3000 },
     effects: [
@@ -66,7 +66,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['紅雲', '風牙'],
     exSymbol: true,
-    imagePath: 'assets/cards/spirit_genie_bow.jpg',
+    imagePath: 'assets/cards/spirit_genie_bow.png',
     lv1: { cost: 1, bp: 3000 },
     lv2: { cost: 3, bp: 5000 },
     effects: [
@@ -139,7 +139,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     exSymbol: true,
-    imagePath: 'assets/cards/spirit_gun_gata.jpg',
+    imagePath: 'assets/cards/spirit_gun_gata.png',
     lv1: { cost: 1, bp: 5000 },
     lv2: { cost: 3, bp: 8000 },
   },
@@ -153,7 +153,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
-    imagePath: 'assets/cards/spirit_cubel.jpg',
+    imagePath: 'assets/cards/spirit_cubel.png',
     lv1: { cost: 1, bp: 4000 },
     lv2: { cost: 4, bp: 7000 },
     effects: [
@@ -177,7 +177,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
-    imagePath: 'assets/cards/spirit_graipher.jpg',
+    imagePath: 'assets/cards/spirit_graipher.png',
     lv1: { cost: 1, bp: 5000 },
     lv2: { cost: 3, bp: 7000, coreType: 'ソウルコア' },
     effects: [
@@ -217,7 +217,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
-    imagePath: 'assets/cards/spirit_seldalius.jpg',
+    imagePath: 'assets/cards/spirit_seldalius.png',
     lv1: { cost: 1, bp: 6000 },
     lv2: { cost: 2, bp: 7000 },
     effects: [
@@ -243,7 +243,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['紅雲', '風牙'],
-    imagePath: 'assets/cards/spirit_lev_falus.jpg',
+    imagePath: 'assets/cards/spirit_lev_falus.png',
     lv1: { cost: 1, bp: 6000 },
     lv2: { cost: 3, bp: 8000, coreType: 'ソウルコア' },
     effects: [
@@ -373,7 +373,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
-    imagePath: 'assets/cards/nexus_wind_fang_rock.jpg',
+    imagePath: 'assets/cards/nexus_wind_fang_rock.png',
     lv1: { cost: 0, bp: 0 },
     lv2: { cost: 2, bp: 0, coreType: 'ソウルコア' },
     effects: [
