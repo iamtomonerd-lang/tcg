@@ -128,11 +128,6 @@ describe('Battle Spirits Summon', () => {
       const coresAfterRefresh = s.players[0].cores;
       const trashAfterRefresh = s.players[0].trashCores;
 
-      console.log('After summon: cores =', coresAfterSummon, ', trash =', trashAfterSummon);
-      console.log('After refresh: cores =', coresAfterRefresh, ', trash =', trashAfterRefresh);
-      console.log('Expected cores after refresh: ', coresAfterSummon + trashAfterSummon);
-      console.log('Actual cores after refresh: ', coresAfterRefresh);
-
       // Trash cores should definitely be back in reserve
       expect(trashAfterRefresh).toBe(0);
 
