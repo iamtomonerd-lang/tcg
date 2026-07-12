@@ -118,10 +118,13 @@ export interface PendingAttack {
   damage: number; // base damage (symbol count if no defense)
 }
 
+export type GamePhase = 'start' | 'core' | 'draw' | 'refresh' | 'main' | 'attack' | 'main2' | 'end';
+
 export interface GameState {
   players: [PlayerState, PlayerState];
   currentPlayer: number;
   turnCount: number;
+  phase: GamePhase;
   battle: BattleState | null;
   result: { winner: number | null } | null;
   pendingFlash?: PendingFlash | null; // if set, opponent has a flash opportunity

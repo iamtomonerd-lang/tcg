@@ -251,6 +251,7 @@ function cloneGameState(state: GameState): GameState {
     players: [clonePlayerState(state.players[0]!), clonePlayerState(state.players[1]!)],
     currentPlayer: state.currentPlayer,
     turnCount: state.turnCount,
+    phase: state.phase,
     battle: state.battle ? { ...state.battle } : null,
     result: state.result ? { ...state.result } : null,
   };

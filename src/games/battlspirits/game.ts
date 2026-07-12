@@ -46,6 +46,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       players: players as [any, any],
       currentPlayer: 0,
       turnCount: 0,
+      phase: 'start',
       battle: null,
       result: null,
     };
@@ -75,27 +76,63 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   }
 
   private startTurn(state: GameState): GameState {
-    const next = cloneState(state);
-    const p = next.players[next.currentPlayer]!;
-    // Recover cores: 1 per nexus on field (minimum 1)
-    const coreRecover = Math.max(1, p.nexuses.length);
-    p.cores = Math.min(p.cores + coreRecover, 20); // Cap at 20
-    // Draw 1 card; if the deck is empty, the player loses (deck-out)
-    if (p.deck.length > 0) {
-      const card = p.deck.shift()!;
-      p.hand.push(card);
-    } else {
-      next.result = { winner: 1 - next.currentPlayer };
-      return next;
-    }
-    // Refresh all ready spirits (can attack next turn)
-    for (const spirit of p.spirits) {
-      spirit.canAttack = true;
-      // Clear persistent status effects
-      spirit.cannotAttackUntilNextTurn = false;
-      spirit.cannotDefendUntilNextTurn = false;
-    }
+    let next = cloneState(state);
+    next.phase = 'start';
+    // Auto-transition through automatic phases until we reach Main
+    next = this.transitionPhases(next);
     return next;
+  }
+
+  private transitionPhases(state: GameState): GameState {
+    let next = cloneState(state);
+
+    while (true) {
+      switch (next.phase) {
+        case 'start': {
+          // Transition to Core phase
+          next.phase = 'core';
+          break;
+        }
+        case 'core': {
+          // Recover cores: 1 per nexus on field (minimum 1)
+          const p = next.players[next.currentPlayer]!;
+          const coreRecover = Math.max(1, p.nexuses.length);
+          p.cores = Math.min(p.cores + coreRecover, 20); // Cap at 20
+          next.phase = 'draw';
+          break;
+        }
+        case 'draw': {
+          // Draw 1 card; if the deck is empty, the player loses (deck-out)
+          const p = next.players[next.currentPlayer]!;
+          if (p.deck.length > 0) {
+            const card = p.deck.shift()!;
+            p.hand.push(card);
+          } else {
+            next.result = { winner: 1 - next.currentPlayer };
+            return next;
+          }
+          next.phase = 'refresh';
+          break;
+        }
+        case 'refresh': {
+          // Refresh all spirits (can attack this turn)
+          const p = next.players[next.currentPlayer]!;
+          for (const spirit of p.spirits) {
+            spirit.canAttack = true;
+            // Clear persistent status effects
+            spirit.cannotAttackUntilNextTurn = false;
+            spirit.cannotDefendUntilNextTurn = false;
+          }
+          next.phase = 'main';
+          return next; // Stop here, player can now take actions
+        }
+        case 'main':
+        case 'attack':
+        case 'main2':
+        case 'end':
+          return next; // Phase requires player action or has its own handling
+      }
+    }
   }
 
   private getFieldSymbols(player: PlayerState): { color: string; count: number }[] {
@@ -135,11 +172,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
   legalActions(state: GameState): Action[] {
     if (state.result) return [];
-    const actions: Action[] = [];
-    const me = state.players[state.currentPlayer]!;
 
     // If there's a pending attack, defend or take damage
     if (state.pendingAttack) {
+      const me = state.players[state.currentPlayer]!;
+      const actions: Action[] = [];
       // Can defend with ready spirits
       for (let i = 0; i < me.spirits.length; i++) {
         const s = me.spirits[i]!;
@@ -154,6 +191,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
     // If there's a pending flash opportunity, only flash or skip_flash actions are legal
     if (state.pendingFlash) {
+      const me = state.players[state.currentPlayer]!;
+      const actions: Action[] = [];
       // Can activate flash magic cards (only if affordable)
       for (let i = 0; i < me.hand.length; i++) {
         const card = me.hand[i]!;
@@ -168,6 +207,21 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       actions.push({ type: 'skip_flash' });
       return actions;
     }
+
+    // Check if phase is a player action phase
+    if (state.phase === 'main' || state.phase === 'main2') {
+      return this.getMainPhaseActions(state);
+    } else if (state.phase === 'attack') {
+      return this.getAttackPhaseActions(state);
+    }
+
+    // Other phases (start, core, draw, refresh, end) have no player actions
+    return [];
+  }
+
+  private getMainPhaseActions(state: GameState): Action[] {
+    const actions: Action[] = [];
+    const me = state.players[state.currentPlayer]!;
 
     // Normal turn actions: only offer cards the player can actually pay for
     for (let i = 0; i < me.hand.length; i++) {
@@ -215,6 +269,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
     }
 
+    // Can pass to next phase (or end turn if Main2)
+    actions.push({ type: 'pass' });
+
+    return actions;
+  }
+
+  private getAttackPhaseActions(state: GameState): Action[] {
+    const actions: Action[] = [];
+    const me = state.players[state.currentPlayer]!;
+
     // Attack with ready (non-fatigued) spirits only
     for (let i = 0; i < me.spirits.length; i++) {
       const s = me.spirits[i]!;
@@ -223,7 +287,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
     }
 
-    // Always can pass
+    // Always can pass to Main2
     actions.push({ type: 'pass' });
 
     return actions;
@@ -478,28 +542,43 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         break;
       }
       case 'pass': {
-        // Trigger end-of-turn effects for current player
-        const currentPlayer = next.players[next.currentPlayer]!;
-        for (const spirit of currentPlayer.spirits) {
-          next = triggerEffects(next, 'end_step', spirit.def, next.currentPlayer, spirit);
-        }
-        for (const nexus of currentPlayer.nexuses) {
-          next = triggerEffects(next, 'end_step', nexus.def, next.currentPlayer);
-        }
-        checkResult(next);
-        if (next.result) return next;
+        // Handle phase transitions based on current phase
+        if (next.phase === 'main') {
+          // Transition from Main to Attack
+          next.phase = 'attack';
+          return next;
+        } else if (next.phase === 'attack') {
+          // Transition from Attack to Main2
+          next.phase = 'main2';
+          return next;
+        } else if (next.phase === 'main2') {
+          // Transition from Main2 to End
+          next.phase = 'end';
 
-        // Temporary BP boosts ("this turn only") expire at end of turn
-        for (const p of next.players) {
-          for (const s of p.spirits) {
-            s.bpBoost = 0;
+          // Trigger end-of-turn effects for current player
+          const currentPlayer = next.players[next.currentPlayer]!;
+          for (const spirit of currentPlayer.spirits) {
+            next = triggerEffects(next, 'end_step', spirit.def, next.currentPlayer, spirit);
           }
-        }
+          for (const nexus of currentPlayer.nexuses) {
+            next = triggerEffects(next, 'end_step', nexus.def, next.currentPlayer);
+          }
+          checkResult(next);
+          if (next.result) return next;
 
-        // Move to next turn
-        next.currentPlayer = 1 - next.currentPlayer;
-        next.turnCount++;
-        next = this.startTurn(next);
+          // Temporary BP boosts ("this turn only") expire at end of turn
+          for (const p of next.players) {
+            for (const s of p.spirits) {
+              s.bpBoost = 0;
+            }
+          }
+
+          // Move to next turn
+          next.currentPlayer = 1 - next.currentPlayer;
+          next.turnCount++;
+          next = this.startTurn(next);
+          return next;
+        }
         return next;
       }
     }
@@ -626,7 +705,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         return `${spirit?.def.name ?? '?'}でブロック（防御）`;
       }
       case 'take_damage': return 'ライフでダメージを受ける';
-      case 'pass': return 'ターン終了';
+      case 'pass': {
+        if (state.phase === 'main') return 'メインフェーズ終了（アタックフェーズへ）';
+        if (state.phase === 'attack') return 'アタックフェーズ終了（メイン2フェーズへ）';
+        if (state.phase === 'main2') return 'メイン2フェーズ終了（ターン終了）';
+        return 'ターン終了';
+      }
       case 'flash': {
         const card = me.hand[action.handIndex];
         let desc = `フラッシュ: ${card?.name ?? '?'}`;
@@ -656,6 +740,7 @@ function cloneState(state: GameState): GameState {
     ],
     currentPlayer: state.currentPlayer,
     turnCount: state.turnCount,
+    phase: state.phase,
     battle: state.battle ? { ...state.battle } : null,
     result: state.result ? { ...state.result } : null,
     pendingFlash: state.pendingFlash ? { ...state.pendingFlash } : null,

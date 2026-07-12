@@ -159,6 +159,20 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     return t === 'human' ? '人間' : t === 'mcts' ? 'MCTS AI' : 'ランダムAI';
   };
 
+  const getPhaseLabel = (phase: string) => {
+    const labels: { [key: string]: string } = {
+      'start': 'スタートフェーズ',
+      'core': 'コアリカバリーフェーズ',
+      'draw': 'ドローフェーズ',
+      'refresh': 'リフレッシュフェーズ',
+      'main': 'メインフェーズ',
+      'attack': 'アタックフェーズ',
+      'main2': 'メイン2フェーズ',
+      'end': 'エンドフェーズ',
+    };
+    return labels[phase] || 'フェーズ';
+  };
+
   return (
     <div className="game-screen">
       {/* ===== Battle area (left) ===== */}
@@ -181,7 +195,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           ) : state.pendingFlash ? (
             <span className="center-alert flash">⚡ フラッシュタイミング</span>
           ) : (
-            <span className="center-phase">メインステップ</span>
+            <span className="center-phase">{getPhaseLabel(state.phase)}</span>
           )}
           <span className="turn-owner">
             {isTerminal ? 'ゲーム終了' : `P${currentPlayer}（${playerLabel(currentPlayer)}）の番`}

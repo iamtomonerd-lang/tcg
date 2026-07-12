@@ -273,6 +273,7 @@ function serializeState(state: GameState) {
     })),
     currentPlayer: state.currentPlayer,
     turnCount: state.turnCount,
+    phase: state.phase,
     result: state.result,
     pendingAttack: state.pendingAttack
       ? {
