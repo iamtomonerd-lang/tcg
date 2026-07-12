@@ -116,7 +116,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         case 'refresh': {
           // Refresh all spirits (can attack this turn)
           const p = next.players[next.currentPlayer]!;
+          // Return placed cores to reserve; reset spirits to Lv1
           for (const spirit of p.spirits) {
+            p.cores += spirit.coreCount; // Return all cores to reserve
+            spirit.coreCount = 0;
+            spirit.level = 1; // Reset to Lv1
             spirit.canAttack = true;
             // Clear persistent status effects
             spirit.cannotAttackUntilNextTurn = false;
@@ -447,7 +451,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           def: card,
           level: 1,
           coreCount: card.lv1.cost,
-          canAttack: false, // Newly summoned spirits can't attack this turn
+          canAttack: true, // Newly summoned spirits are in refresh state
           bpBoost: 0,
         };
         updateSpiritLevel(spirit);

@@ -213,9 +213,9 @@ export function applyEffect(
       break;
     }
     case 'destroy_nexus': {
-      // Destroy a nexus (this is typically the card itself)
-      if (me.nexuses.length > 0) {
-        me.nexuses.pop();
+      // Destroy opponent's nexus when magic is used (immediate trigger)
+      if (opponent.nexuses.length > 0) {
+        opponent.nexuses.pop();
       }
       break;
     }

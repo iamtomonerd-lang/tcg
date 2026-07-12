@@ -167,8 +167,10 @@
 }
 
 .chip.core {
-  background: #275e46;
-  color: #9bf0c8;
+  background: #1e7e4d;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.7rem;
 }
 
 .chip.nexus-chip {
