@@ -108,14 +108,14 @@ export const CARD_DB: Record<string, CardDef> = {
 
   spirit_haria: {
     id: 'spirit_haria',
-    name: 'ハーテリア',
+    name: 'ハーリア',
     cardType: 'spirit',
     cost: 4,
     reductionCost: 2,
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
-    imagePath: 'assets/cards/spirit_haria.jpg',
+    imagePath: 'assets/cards/spirit_haria.png',
     lv1: { cost: 1, bp: 4000 },
     lv2: { cost: 3, bp: 6000 },
     effects: [
