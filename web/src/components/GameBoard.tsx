@@ -15,6 +15,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [autoPlay, setAutoPlay] = useState(true);
   const [gameHistory, setGameHistory] = useState<string[]>([]);
+  const [gameMode, setGameMode] = useState<'ai-vs-ai' | 'human-vs-ai' | 'human-vs-human'>('ai-vs-ai');
 
   useEffect(() => {
     fetchGameState();
@@ -22,12 +23,16 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
 
   useEffect(() => {
     if (autoPlay && !isTerminal && state) {
-      const timer = setTimeout(() => {
-        playAITurn();
-      }, 1000);
-      return () => clearTimeout(timer);
+      // Don't autoplay if current player is human in human vs ai mode
+      const isCurrentPlayerHuman = gameMode === 'human-vs-ai' && currentPlayer === 0;
+      if (!isCurrentPlayerHuman) {
+        const timer = setTimeout(() => {
+          playAITurn();
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [autoPlay, isTerminal, state]);
+  }, [autoPlay, isTerminal, state, gameMode, currentPlayer]);
 
   const fetchGameState = async () => {
     try {
@@ -97,6 +102,8 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           player={p1}
           isCurrent={currentPlayer === 1}
           isOpponent={false}
+          sessionId={sessionId}
+          onActionExecuted={fetchGameState}
         />
 
         {/* Game info center */}
@@ -114,6 +121,8 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           player={p0}
           isCurrent={currentPlayer === 0}
           isOpponent={true}
+          sessionId={sessionId}
+          onActionExecuted={fetchGameState}
         />
       </div>
 
