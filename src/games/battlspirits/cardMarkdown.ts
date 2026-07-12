@@ -26,7 +26,12 @@ export function renderCardMarkdown(card: CardDef): string {
   lines.push('### Stats');
   lines.push(`- **Type:** ${card.cardType}`);
   lines.push(`- **Cost:** ${card.cost}`);
-  lines.push(`- **Symbols:** ${card.symbols.join(', ')}`);
+  lines.push(`- **Reduction Cost:** ${card.reductionCost}`);
+  lines.push(`- **Symbol Count:** ${card.symbolCount}`);
+  lines.push(`- **Symbol Colors:** ${card.symbolColors.join(', ')}`);
+  if (card.lineage) {
+    lines.push(`- **Lineage:** ${card.lineage.join(', ')}`);
+  }
   if (card.exSymbol) {
     lines.push('- **EX Symbol:** Yes');
   }

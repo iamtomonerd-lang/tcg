@@ -86,7 +86,7 @@ export function applyEffect(
       let found = false;
       for (let i = 0; i < opened.length; i++) {
         const card = opened[i]!;
-        if (!found && (!targetSymbol || card.symbols.includes(targetSymbol))) {
+        if (!found && (!targetSymbol || card.symbolColors.includes(targetSymbol))) {
           me.hand.push(card);
           opened.splice(i, 1);
           found = true;
@@ -121,7 +121,7 @@ export function applyEffect(
       const excludeEXSymbol = effect.condition?.excludeEXSymbol ?? false;
       for (let i = 0; i < me.trash.length; i++) {
         const card = me.trash[i]!;
-        if ((!targetSymbol || card.symbols.includes(targetSymbol)) &&
+        if ((!targetSymbol || card.symbolColors.includes(targetSymbol)) &&
             (!excludeId || card.id !== excludeId) &&
             (!excludeEXSymbol || !card.exSymbol) &&
             card.cardType === 'spirit') {
@@ -144,7 +144,7 @@ export function applyEffect(
       const targetSymbol = effect.symbol;
       for (let i = 0; i < me.hand.length; i++) {
         const card = me.hand[i]!;
-        if (!targetSymbol || card.symbols.includes(targetSymbol)) {
+        if (!targetSymbol || card.symbolColors.includes(targetSymbol)) {
           me.trash.push(card);
           me.hand.splice(i, 1);
           break;

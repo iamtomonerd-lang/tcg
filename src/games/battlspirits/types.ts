@@ -12,6 +12,7 @@ export interface CardEffect {
   value?: number; // amount of damage/heal/draw or BP boost or deck cards to open or cores to place
   target?: string; // "opponent_hero" | "opponent_creature" | "any" | "self" | "trash"
   level?: (1 | 2)[]; // which levels this effect activates on (e.g. [1,2] for Lv1-2, [2] for Lv2 only)
+  skill?: string; // skill keyword (e.g., "真界放", "継召", "ソウルマジック：赤")
   condition?: {
     minHandSize?: number;
     maxHandSize?: number; // maximum hand size for effect to activate
@@ -30,6 +31,8 @@ export interface LvStats {
   cost: number;
   /** Battle Power at this Lv */
   bp: number;
+  /** Core type at this level (e.g., "ソウルコア") */
+  coreType?: string;
 }
 
 export interface CardDef {
@@ -37,7 +40,10 @@ export interface CardDef {
   name: string;
   cardType: CardType;
   cost: number;
-  symbols: string[]; // symbol colors for cost reduction
+  reductionCost: number; // max reduction from symbols
+  symbolCount: number; // number of symbols (damage dealt)
+  symbolColors: string[]; // colors of symbols
+  lineage?: string[]; // card lineage/tribe
   exSymbol?: boolean; // has decoration on symbol (EX symbol)
   imagePath?: string; // path to card image file
   // For spirits and nexuses: Lv1 and Lv2
