@@ -60,7 +60,10 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
 
   // Initial load
   useEffect(() => {
-    fetchGameState();
+    const initGame = async () => {
+      await fetchGameState();
+    };
+    initGame();
   }, [fetchGameState]);
 
   // Human turn: load the list of legal actions
@@ -70,7 +73,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     } else {
       setLegalActions([]);
     }
-  }, [isHumanTurn, state, fetchLegalActions]);
+  }, [isHumanTurn, state]);
 
   // AI turn: play automatically
   useEffect(() => {
