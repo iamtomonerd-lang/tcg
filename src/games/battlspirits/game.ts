@@ -77,6 +77,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   private startTurn(state: GameState): GameState {
     const next = cloneState(state);
     const p = next.players[next.currentPlayer]!;
+    // Recover cores: 1 per nexus on field (minimum 1)
+    const coreRecover = Math.max(1, p.nexuses.length);
+    p.cores = Math.min(p.cores + coreRecover, 20); // Cap at 20
     // Draw 1 card
     if (p.deck.length > 0) {
       const card = p.deck.shift()!;
