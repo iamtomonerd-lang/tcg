@@ -7,6 +7,22 @@ interface PlayerPanelProps {
   isOpponent: boolean;
 }
 
+function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
+  if (!imagePath) return null;
+  return (
+    <img
+      className="card-image"
+      src={`/${imagePath}`}
+      alt={name}
+      loading="lazy"
+      onError={(e) => {
+        // Hide the image if the file is missing; text info below still shows
+        (e.target as HTMLImageElement).style.display = 'none';
+      }}
+    />
+  );
+}
+
 export default function PlayerPanel({ playerNumber, player, isCurrent, isOpponent }: PlayerPanelProps) {
   return (
     <div className={`player-panel ${isOpponent ? 'opponent' : 'self'} ${isCurrent ? 'current' : ''}`}>
@@ -43,6 +59,7 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, isOpponen
           {player.spirits.length > 0 ? (
             player.spirits.map((spirit: any, i: number) => (
               <div key={i} className={`spirit-card ${spirit.canAttack ? 'ready' : 'fatigued'}`}>
+                <CardImage imagePath={spirit.imagePath} name={spirit.name} />
                 <div className="spirit-name">{spirit.name}</div>
                 <div className="spirit-stats">
                   <span className="level">Lv{spirit.level}</span>
@@ -64,6 +81,7 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, isOpponen
           {player.nexuses.length > 0 ? (
             player.nexuses.map((nexus: any, i: number) => (
               <div key={i} className="nexus-card">
+                <CardImage imagePath={nexus.imagePath} name={nexus.name} />
                 <div className="nexus-name">{nexus.name}</div>
                 <div className="nexus-level">Lv{nexus.level}</div>
               </div>
@@ -82,6 +100,7 @@ export default function PlayerPanel({ playerNumber, player, isCurrent, isOpponen
             {player.handCards.length > 0 ? (
               player.handCards.map((card: any, i: number) => (
                 <div key={i} className="hand-card">
+                  <CardImage imagePath={card.imagePath} name={card.name} />
                   <div className="card-name">{card.name}</div>
                   <div className="card-cost">コスト {card.cost}</div>
                 </div>

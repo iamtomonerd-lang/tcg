@@ -20,6 +20,9 @@ app.use(express.json());
 // Serve static files from web/dist
 app.use(express.static(join(__dirname, '../web/dist')));
 
+// Serve card images and other assets
+app.use('/assets', express.static(join(__dirname, '../assets')));
+
 interface GameSession {
   game: BattlSpiritsGame;
   state: GameState;

@@ -83,7 +83,7 @@ export const CARD_DB: Record<string, CardDef> = {
 
   spirit_ro_meek: {
     id: 'spirit_ro_meek',
-    name: 'ロミワーク',
+    name: 'ロワミーク',
     cardType: 'spirit',
     cost: 3,
     reductionCost: 2,
@@ -91,7 +91,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['紅雲', '風牙'],
     exSymbol: true,
-    imagePath: 'assets/cards/spirit_ro_meek.jpg',
+    imagePath: 'assets/cards/spirit_ro_meek.png',
     lv1: { cost: 1, bp: 3000 },
     lv2: { cost: 3, bp: 5000 },
     effects: [

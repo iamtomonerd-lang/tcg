@@ -116,7 +116,15 @@
   border-radius: 6px;
   padding: 0.75rem;
   min-width: 120px;
+  max-width: 140px;
   transition: all 0.3s;
+}
+
+.card-image {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
 }
 
 .spirit-card:hover,
