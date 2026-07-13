@@ -39,60 +39,6 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
 
   const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
 
-  // Helper: calculate effective cost after reduction
-  const calculateEffectiveCost = (card: any): number => {
-    if (!state) return card.cost;
-    const me = state.players[currentPlayer];
-
-    // Count field symbols
-    const symbolMap = new Map<string, number>();
-    for (const spirit of me.spirits) {
-      const symbolColors = spirit.symbolColors || [];
-      for (const color of symbolColors) {
-        symbolMap.set(color, (symbolMap.get(color) ?? 0) + (spirit.symbolCount ?? 1));
-      }
-    }
-
-    // Calculate reduction
-    let cost = card.cost;
-    let reductionRemaining = card.reductionCost || 0;
-
-    for (const [color, count] of symbolMap) {
-      if (reductionRemaining <= 0) break;
-      if (card.symbolColors?.includes(color)) {
-        const reduce = Math.min(count, reductionRemaining);
-        cost = Math.max(0, cost - reduce);
-        reductionRemaining -= reduce;
-      }
-    }
-
-    // Check for EX symbols in trash (server sends trash as { count, hasEXSymbol })
-    const hasEXInTrash = me.trash?.hasEXSymbol || false;
-    if (card.inheritance && reductionRemaining > 0 && hasEXInTrash) {
-      cost = Math.max(0, cost - reductionRemaining);
-    }
-
-    return cost;
-  };
-
-  // Helper: check if a card can be afforded (cost only, NOT including Lv1 placement cost)
-  const canAffordCard = (card: any): boolean => {
-    if (!state) return false;
-    const me = state.players[currentPlayer];
-    let totalCores = me.cores + me.soulCores;
-    // Include cores on spirits
-    for (const spirit of me.spirits) {
-      totalCores += spirit.coreCount + spirit.soulCoreCount;
-    }
-
-    // Calculate effective cost with reductions
-    const effectiveCost = calculateEffectiveCost(card);
-
-    // Check only cost (not Lv1 placement cost)
-    // Lv1 placement is a separate action (add_core) that comes AFTER summon
-    return totalCores >= effectiveCost;
-  };
-
   const fetchGameState = useCallback(async () => {
     try {
       const response = await fetch(`/api/game/${sessionId}/state`);
@@ -266,6 +212,40 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     setSelectedCoreType(null);
   };
 
+  // Move a core freely between reserve / spirit / nexus (drag & drop)
+  const executeMoveCore = async (moveCore: {
+    fromZone: 'reserve' | 'spirit' | 'nexus';
+    fromIndex?: number;
+    toZone: 'reserve' | 'spirit' | 'nexus';
+    toIndex?: number;
+    coreType: 'regular' | 'soul';
+  }) => {
+    if (isBusy) return;
+    setIsBusy(true);
+    try {
+      const response = await fetch(`/api/game/${sessionId}/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ moveCore }),
+      });
+      if (!response.ok) {
+        setError('コアの移動に失敗しました。');
+        await fetchGameState();
+        return;
+      }
+      const data = await response.json();
+      setState(data.state);
+      setIsTerminal(data.isTerminal);
+      setCurrentPlayer(data.currentPlayer ?? data.state.currentPlayer);
+      setError(null);
+    } catch (error) {
+      console.error('Failed to move core:', error);
+      setError('サーバーとの通信に失敗しました。');
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   const handleDrop = (dropData: any) => {
     if (!dragData || !isHumanTurn || isBusy) return;
 
@@ -364,21 +344,45 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
         spiritName && action.description.includes(spiritName) && action.description.includes('コア')
       );
     } else if (dragData.type === 'core') {
-      // Core dragged onto hand card: use magic with specified core type
-      if (dropData.handIndex !== undefined) {
-        const card = state?.players[currentPlayer]?.handCards?.[dropData.handIndex];
-        const cardName = card?.name;
-        matchingAction = legalActions.find((action) =>
-          cardName && action.description.includes(cardName)
-        );
-      } else if (dropData.spiritIndex !== undefined) {
-        // Core dragged onto spirit: find add_core action for THIS specific spirit
-        const targetSpirit = state?.players[currentPlayer]?.spirits[dropData.spiritIndex];
-        const spiritName = targetSpirit?.name;
-        matchingAction = legalActions.find((action) =>
-          spiritName && action.description.includes(spiritName) && action.description.includes('コア')
-        );
+      // Free core movement via drag & drop (reserve ⇄ spirit ⇄ nexus)
+      const source = dragData.source ?? { zone: 'reserve' };
+      const dragCoreType = dragData.coreType as 'regular' | 'soul';
+
+      // Only own field targets are valid destinations
+      if (dropData.targetPlayerNumber !== undefined && dropData.targetPlayerNumber !== currentPlayer) {
+        setError('相手の場にはコアを置けません。');
+        setSelectedCoreType(null);
+        return;
       }
+
+      let toZone: 'reserve' | 'spirit' | 'nexus' | null = null;
+      let toIndex: number | undefined;
+      if (dropData.targetZone === 'reserve') {
+        toZone = 'reserve';
+      } else if (dropData.targetZone === 'spirit' && dropData.spiritIndex !== undefined) {
+        toZone = 'spirit';
+        toIndex = dropData.spiritIndex;
+      } else if (dropData.targetZone === 'nexus' && dropData.nexusIndex !== undefined) {
+        toZone = 'nexus';
+        toIndex = dropData.nexusIndex;
+      }
+
+      if (toZone) {
+        // Ignore no-op drops (same place)
+        const samePlace =
+          source.zone === toZone && (toZone === 'reserve' || source.index === toIndex);
+        if (!samePlace) {
+          executeMoveCore({
+            fromZone: source.zone,
+            fromIndex: source.index,
+            toZone,
+            toIndex,
+            coreType: dragCoreType,
+          });
+        }
+      }
+      setSelectedCoreType(null);
+      return;
     }
 
     if (matchingAction) {
@@ -439,7 +443,6 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           onDrop={handleDrop}
           dragOverCard={dragOverCard}
           onCardRightClick={(imagePath, name) => setSelectedCardImage({ imagePath: imagePath || '', name })}
-          canAffordCard={canAffordCard}
         />
 
         <div className="center-bar">
@@ -472,7 +475,6 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           onDrop={handleDrop}
           dragOverCard={dragOverCard}
           onCardRightClick={(imagePath, name) => setSelectedCardImage({ imagePath: imagePath || '', name })}
-          canAffordCard={canAffordCard}
         />
       </div>
 
@@ -486,21 +488,42 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
         {error && <div className="error-banner side-error">⚠️ {error}</div>}
 
         {pendingCoreCost && (
-          <div style={{
-            padding: '1rem',
-            backgroundColor: '#f0e8f8',
-            borderRadius: '8px',
-            marginBottom: '1rem',
-            border: '2px solid #9f7aea',
-          }}>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleDrop({ paymentZone: true });
+            }}
+            style={{
+              padding: '1rem',
+              backgroundColor: '#f0e8f8',
+              borderRadius: '8px',
+              marginBottom: '1rem',
+              border: '2px solid #9f7aea',
+            }}
+          >
             <div style={{ fontWeight: 700, marginBottom: '0.4rem', textAlign: 'center', fontSize: '1rem' }}>
               💎 支払うコア: 「{pendingCoreCost.cardName}」
             </div>
-            <div style={{ fontSize: '0.75rem', marginBottom: '0.8rem', textAlign: 'center', fontWeight: 500, color: '#666' }}>
-              ※召喚のコストのみ。スピリット上への配置は後で add_core アクションで行います
-            </div>
             <div style={{ fontSize: '0.95rem', marginBottom: '0.8rem', textAlign: 'center', fontWeight: 600 }}>
               必要: {pendingCoreCost.requiredCores}個
+            </div>
+            <div style={{
+              padding: '1.2rem 0.8rem',
+              marginBottom: '0.8rem',
+              border: '3px dashed #9f7aea',
+              borderRadius: '8px',
+              textAlign: 'center',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              color: '#6b46c1',
+              backgroundColor: 'rgba(159, 122, 234, 0.08)',
+            }}>
+              🟢🟣 ここにコアをドロップして支払い
             </div>
             <div style={{
               display: 'grid',
@@ -766,8 +789,8 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
               {!state.pendingAttack && !state.pendingFlash && (
                 <div style={{ fontSize: '0.8rem', color: '#666', padding: '0.5rem 0.8rem', backgroundColor: '#f0f0f0', borderRadius: '4px', marginBottom: '0.8rem', lineHeight: '1.4' }}>
                   <div style={{ fontWeight: 600, marginBottom: '0.3rem' }}>プレイ手順:</div>
-                  <div style={{ color: '#1e7e4d', fontWeight: 500 }}>1️⃣ カードをドラッグ → 2️⃣ 支払うコアを選択</div>
-                  <div style={{ color: '#6b46c1', fontWeight: 500 }}>3️⃣ スピリットへコア配置（別アクション）</div>
+                  <div style={{ color: '#1e7e4d', fontWeight: 500 }}>1️⃣ カードをドラッグ → 2️⃣ コアをドラッグして支払い</div>
+                  <div style={{ color: '#6b46c1', fontWeight: 500 }}>3️⃣ コアはドラッグで自由に移動（リザーブ⇄スピリット⇄ネクサス）</div>
                 </div>
               )}
               <div className="action-buttons">

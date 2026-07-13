@@ -339,6 +339,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
   }
 
+  /** Remove all nexuses that have 0 cores (depleted — 消滅, no effects triggered) */
+  private removeDeadNexuses(player: PlayerState): void {
+    for (let i = player.nexuses.length - 1; i >= 0; i--) {
+      const nexus = player.nexuses[i]!;
+      if (nexus.coreCount === 0 && nexus.soulCoreCount === 0) {
+        player.nexuses.splice(i, 1);
+        player.trash.push(nexus.def);
+      }
+    }
+  }
+
   currentPlayer(state: GameState): number {
     return state.currentPlayer;
   }
@@ -464,9 +475,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       if (this.effectiveCost(me, card) > totalCores) continue;
 
       if (card.cardType === 'spirit') {
-        // Summon only needs the card's cost (Lv1 placement is a separate action)
+        // Payment covers only the card's cost, but the player must also be able to
+        // MOVE Lv1 maintenance cores onto the spirit for the summon to be legal
+        if (this.effectiveCost(me, card) + card.lv1.cost > totalCores) continue;
         actions.push({ type: 'summon', handIndex: i });
       } else if (card.cardType === 'nexus') {
+        // Must also be able to move Lv1 maintenance cores onto the nexus
+        if (this.effectiveCost(me, card) + card.lv1.cost > totalCores) continue;
         actions.push({ type: 'place_nexus', handIndex: i });
       } else if (card.cardType === 'magic') {
         // Check if card has effects with requiresTarget
@@ -713,23 +728,43 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const fieldSymbols = this.getFieldSymbols(me);
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
-        const totalCost = actualCost + card.lv1.cost;
 
-        // Check if player has enough cores (including from spirits)
+        // Need enough cores to pay the cost AND move Lv1 maintenance cores onto the spirit
         const totalAvailable = this.getTotalAvailableCores(me);
-        if (totalAvailable < totalCost) return next;
+        if (totalAvailable < actualCost + card.lv1.cost) return next;
 
-        // Pay cost (to trash) using specified regular/soul core distribution
+        // 支払うコア: pay only the summon cost (paid cores go to trash)
         me.hand.splice(action.handIndex, 1);
-        this.payCost(me, totalCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+        this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
         this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
 
-        // Place Lv1 cores on the spirit (always from regular cores)
+        // 乗せるコア: MOVE Lv1 maintenance cores from reserve onto the spirit
+        // (moved, not paid — they stay on the spirit as assets)
+        let toPlace = card.lv1.cost;
+        let placedRegular = 0;
+        let placedSoul = 0;
+        while (toPlace > 0 && (me.cores > 0 || me.soulCores > 0)) {
+          if (me.cores > 0) {
+            me.cores -= 1;
+            placedRegular += 1;
+          } else {
+            me.soulCores -= 1;
+            placedSoul += 1;
+          }
+          toPlace -= 1;
+        }
+
+        // A spirit that could not receive any maintenance core is immediately depleted (消滅)
+        if (placedRegular + placedSoul === 0 && card.lv1.cost > 0) {
+          me.trash.push(card);
+          break;
+        }
+
         const spirit: any = {
           def: card,
           level: 1,
-          coreCount: card.lv1.cost,
-          soulCoreCount: 0,
+          coreCount: placedRegular,
+          soulCoreCount: placedSoul,
           canAttack: true,
           bpBoost: 0,
         };
@@ -773,11 +808,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           const nexus = me.nexuses[action.nexusIndex];
           if (!nexus) return next;
 
-          // Place 1 core on nexus
+          // Place 1 core on nexus (track soul cores separately)
           if (action.coreType === 'soul') {
             if (me.soulCores > 0) {
               me.soulCores -= 1;
-              nexus.coreCount += 1;
+              nexus.soulCoreCount += 1;
             } else if (me.cores > 0) {
               me.cores -= 1;
               nexus.coreCount += 1;
@@ -789,11 +824,108 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               nexus.coreCount += 1;
             } else if (me.soulCores > 0) {
               me.soulCores -= 1;
-              nexus.coreCount += 1;
+              nexus.soulCoreCount += 1;
             }
           }
-          updateSpiritLevel(nexus); // Update nexus level if applicable
+          updateSpiritLevel(nexus as any); // Update nexus level if applicable
         }
+        break;
+      }
+      case 'move_core': {
+        // Free core movement via drag & drop (main steps only)
+        if (next.phase !== 'main' && next.phase !== 'main2') return next;
+        if (next.pendingAttack || next.pendingFlash || next.pendingDraw) return next;
+
+        const coreType = action.coreType;
+
+        // Take 1 core of the given type from the source zone
+        const takeCore = (): boolean => {
+          if (action.fromZone === 'reserve') {
+            if (coreType === 'soul') {
+              if (me.soulCores <= 0) return false;
+              me.soulCores -= 1;
+            } else {
+              if (me.cores <= 0) return false;
+              me.cores -= 1;
+            }
+            return true;
+          }
+          if (action.fromZone === 'spirit') {
+            const s = me.spirits[action.fromIndex ?? -1];
+            if (!s) return false;
+            if (coreType === 'soul') {
+              if (s.soulCoreCount <= 0) return false;
+              s.soulCoreCount -= 1;
+            } else {
+              if (s.coreCount <= 0) return false;
+              s.coreCount -= 1;
+            }
+            updateSpiritLevel(s);
+            return true;
+          }
+          if (action.fromZone === 'nexus') {
+            const n = me.nexuses[action.fromIndex ?? -1];
+            if (!n) return false;
+            if (coreType === 'soul') {
+              if (n.soulCoreCount <= 0) return false;
+              n.soulCoreCount -= 1;
+            } else {
+              if (n.coreCount <= 0) return false;
+              n.coreCount -= 1;
+            }
+            updateSpiritLevel(n as any);
+            return true;
+          }
+          return false;
+        };
+
+        // Put 1 core of the given type into the destination zone
+        const putCore = (): boolean => {
+          if (action.toZone === 'reserve') {
+            if (coreType === 'soul') me.soulCores += 1;
+            else me.cores += 1;
+            return true;
+          }
+          if (action.toZone === 'spirit') {
+            const s = me.spirits[action.toIndex ?? -1];
+            if (!s) return false;
+            if (coreType === 'soul') s.soulCoreCount += 1;
+            else s.coreCount += 1;
+            updateSpiritLevel(s);
+            return true;
+          }
+          if (action.toZone === 'nexus') {
+            const n = me.nexuses[action.toIndex ?? -1];
+            if (!n) return false;
+            if (coreType === 'soul') n.soulCoreCount += 1;
+            else n.coreCount += 1;
+            updateSpiritLevel(n as any);
+            return true;
+          }
+          return false;
+        };
+
+        // Validate destination exists BEFORE taking the core
+        const destValid =
+          action.toZone === 'reserve' ||
+          (action.toZone === 'spirit' && !!me.spirits[action.toIndex ?? -1]) ||
+          (action.toZone === 'nexus' && !!me.nexuses[action.toIndex ?? -1]);
+        if (!destValid) return next;
+
+        // Same-zone no-op check
+        if (
+          action.fromZone === action.toZone &&
+          (action.fromZone === 'reserve' || action.fromIndex === action.toIndex)
+        ) {
+          return next;
+        }
+
+        if (!takeCore()) return next;
+        putCore();
+
+        // Spirits/nexuses that lost their last core are depleted (消滅 — no destroy effects)
+        this.removeDeadSpirits(me);
+        this.removeDeadNexuses(me);
         break;
       }
       case 'place_nexus': {
@@ -805,20 +937,42 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
 
-        // Check if player has enough cores (including from spirits)
+        // Need enough cores to pay the cost AND move Lv1 maintenance cores onto the nexus
         const totalAvailable = this.getTotalAvailableCores(me);
-        if (actualCost > totalAvailable) return next;
+        if (totalAvailable < actualCost + card.lv1.cost) return next;
 
-        // Pay cost using specified regular/soul core distribution
+        // 支払うコア: pay only the placement cost (paid cores go to trash)
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
         this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
+
+        // 乗せるコア: MOVE Lv1 maintenance cores from reserve onto the nexus
+        let nexusToPlace = card.lv1.cost;
+        let nexusRegular = 0;
+        let nexusSoul = 0;
+        while (nexusToPlace > 0 && (me.cores > 0 || me.soulCores > 0)) {
+          if (me.cores > 0) {
+            me.cores -= 1;
+            nexusRegular += 1;
+          } else {
+            me.soulCores -= 1;
+            nexusSoul += 1;
+          }
+          nexusToPlace -= 1;
+        }
+
+        // A nexus that could not receive any maintenance core is immediately depleted (消滅)
+        if (nexusRegular + nexusSoul === 0 && card.lv1.cost > 0) {
+          me.trash.push(card);
+          break;
+        }
 
         // Place nexus
         const nexus: Nexus = {
           def: card,
           level: 1,
-          coreCount: Math.max(0, card.lv1.cost),
+          coreCount: nexusRegular,
+          soulCoreCount: nexusSoul,
         };
         me.nexuses.push(nexus);
 
@@ -1074,6 +1228,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (action.nexusIndex !== undefined) return `CN${action.nexusIndex}`;
         return 'C';
       }
+      case 'move_core':
+        return `MV${action.fromZone}${action.fromIndex ?? ''}-${action.toZone}${action.toIndex ?? ''}-${action.coreType}`;
       case 'place_nexus': return `N${action.handIndex}`;
       case 'use_magic': {
         let key = `M${action.handIndex}`;
@@ -1119,6 +1275,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           return `${nexus.def.name}にコア配置（Lv2まであと${need}個）`;
         }
         return '?にコア配置';
+      }
+      case 'move_core': {
+        const coreLabel = action.coreType === 'soul' ? 'ソウルコア' : 'コア';
+        const zoneName = (zone: string, index?: number): string => {
+          if (zone === 'reserve') return 'リザーブ';
+          if (zone === 'spirit') return me.spirits[index ?? -1]?.def.name ?? 'スピリット';
+          if (zone === 'nexus') return me.nexuses[index ?? -1]?.def.name ?? 'ネクサス';
+          return '?';
+        };
+        return `${coreLabel}を移動: ${zoneName(action.fromZone, action.fromIndex)} → ${zoneName(action.toZone, action.toIndex)}`;
       }
       case 'place_nexus': {
         const card = me.hand[action.handIndex];
@@ -1216,7 +1382,7 @@ function clonePlayer(p: any) {
     hand: p.hand.slice(),
     deck: p.deck.slice(),
     spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0, soulCoreCount: s.soulCoreCount ?? 0 })),
-    nexuses: p.nexuses.map((n: any) => ({ ...n, placedCores: n.placedCores ?? 0 })),
+    nexuses: p.nexuses.map((n: any) => ({ ...n, placedCores: n.placedCores ?? 0, soulCoreCount: n.soulCoreCount ?? 0 })),
     trash: p.trash.slice(),
   };
 }

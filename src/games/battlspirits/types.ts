@@ -86,6 +86,8 @@ export interface Nexus {
   def: CardDef;
   level: 1 | 2;
   coreCount: number;
+  /** soul cores placed on this nexus */
+  soulCoreCount: number;
   /** cores placed on this nexus */
   placedCores?: number;
 }
@@ -148,6 +150,14 @@ export interface GameState {
 export type Action =
   | { type: 'summon'; handIndex: number; targetNexusIndex?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'add_core'; spiritIndex?: number; nexusIndex?: number; coreType?: 'regular' | 'soul' } // move 1 core from reserve onto a spirit or nexus (level-up)
+  | {
+      type: 'move_core'; // freely move 1 core between reserve/spirit/nexus (main steps only, via drag & drop)
+      fromZone: 'reserve' | 'spirit' | 'nexus';
+      fromIndex?: number;
+      toZone: 'reserve' | 'spirit' | 'nexus';
+      toIndex?: number;
+      coreType: 'regular' | 'soul';
+    }
   | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number; discardCardIndex?: number } // discardCardIndex for effects requiring card selection

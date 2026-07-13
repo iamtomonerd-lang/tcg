@@ -233,14 +233,48 @@
   filter: grayscale(0.7);
 }
 
-/* Unaffordable cards */
-.fcard.unaffordable {
-  opacity: 0.5;
-  cursor: not-allowed;
+/* Draggable core dots on field cards (spirits/nexuses) */
+.fcard-cores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  justify-content: center;
+  padding: 2px 4px;
+  z-index: 3;
+  position: relative;
 }
 
-.fcard.unaffordable[draggable="false"] {
-  filter: grayscale(0.8);
+.field-core {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.field-core.regular {
+  background: radial-gradient(circle at 35% 30%, #6fe3a5, #1e7e4d);
+  border: 1px solid #0d5c3a;
+}
+
+.field-core.soul {
+  background: radial-gradient(circle at 35% 30%, #c4a7f5, #6b46c1);
+  border: 1px solid #553399;
+}
+
+.field-core.draggable {
+  cursor: grab;
+  transition: transform 0.12s ease;
+}
+
+.field-core.draggable:hover {
+  transform: scale(1.35);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.7), 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.field-core.draggable:active {
+  cursor: grabbing;
+  opacity: 0.6;
 }
 
 .tap-overlay {

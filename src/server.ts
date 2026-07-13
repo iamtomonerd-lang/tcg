@@ -132,10 +132,20 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
 
-  const { actionIndex, cardIndices, selectedCardIndices, arrangedCardIndices, coreType, paidRegularCores, paidSoulCores } = req.body;
+  const { actionIndex, cardIndices, selectedCardIndices, arrangedCardIndices, coreType, paidRegularCores, paidSoulCores, moveCore } = req.body;
   let action: any;
 
-  if (selectedCardIndices !== undefined || arrangedCardIndices !== undefined) {
+  if (moveCore !== undefined) {
+    // Direct core movement via drag & drop (not part of the enumerated action list)
+    action = {
+      type: 'move_core',
+      fromZone: moveCore.fromZone,
+      fromIndex: moveCore.fromIndex,
+      toZone: moveCore.toZone,
+      toIndex: moveCore.toIndex,
+      coreType: moveCore.coreType === 'soul' ? 'soul' : 'regular',
+    };
+  } else if (selectedCardIndices !== undefined || arrangedCardIndices !== undefined) {
     // Card arrangement for offering draw with player selection
     action = {
       type: 'select_draw_arrange',
@@ -327,6 +337,9 @@ function serializeState(state: GameState) {
         id: n.def.id,
         name: n.def.name,
         level: n.level,
+        coreCount: n.coreCount,
+        soulCoreCount: n.soulCoreCount || 0,
+        coresForLv2: n.def.lv2 ? n.def.lv2.cost : null,
         imagePath: n.def.imagePath,
       })),
       trash: {

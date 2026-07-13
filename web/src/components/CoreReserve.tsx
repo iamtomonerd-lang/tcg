@@ -9,6 +9,7 @@ interface CoreReserveProps {
   playerNumber: number;
   onDragStart?: (data: any) => void;
   onDragEnd?: () => void;
+  onDrop?: (data: any) => void;
 }
 
 export default function CoreReserve({
@@ -20,22 +21,39 @@ export default function CoreReserve({
   playerNumber,
   onDragStart,
   onDragEnd,
+  onDrop,
 }: CoreReserveProps) {
 
-  const handleCoreDragStart = (coreType: 'regular' | 'soul') => {
+  const handleCoreDragStart = (e: React.DragEvent, coreType: 'regular' | 'soul') => {
     if (isHumanTurn && onDragStart) {
       const dragPayload = {
         type: 'core',
         coreType,
         playerNumber,
+        source: { zone: 'reserve' },
       };
       onDragStart(dragPayload);
-      // Visual feedback would go here
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', JSON.stringify(dragPayload));
     }
   };
 
   return (
-    <div className="core-reserve">
+    <div
+      className="core-reserve"
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (onDrop && isHumanTurn) {
+          onDrop({ targetZone: 'reserve', targetPlayerNumber: playerNumber });
+        }
+      }}
+      title="ここにコアをドロップするとリザーブに戻ります"
+    >
       <div className="core-group regular-cores">
         <div className="core-label">コア</div>
         <div className="core-display">
@@ -44,9 +62,9 @@ export default function CoreReserve({
               key={`c-${i}`}
               className={`core regular ${isHumanTurn ? 'draggable' : ''}`}
               draggable={isHumanTurn}
-              onDragStart={() => handleCoreDragStart('regular')}
+              onDragStart={(e) => handleCoreDragStart(e, 'regular')}
               onDragEnd={onDragEnd}
-              title="通常コア（緑）- ドラッグしてコスト支払いまたはスピリットに配置"
+              title="通常コア（緑）- ドラッグしてコスト支払い・スピリット/ネクサスに配置"
             />
           ))}
           <span className="core-count">{cores}</span>
@@ -62,9 +80,9 @@ export default function CoreReserve({
                 key={`s-${i}`}
                 className={`core soul ${isHumanTurn ? 'draggable' : ''}`}
                 draggable={isHumanTurn}
-                onDragStart={() => handleCoreDragStart('soul')}
+                onDragStart={(e) => handleCoreDragStart(e, 'soul')}
                 onDragEnd={onDragEnd}
-                title="ソウルコア（紫）- ドラッグしてコスト支払いまたはスピリットに配置"
+                title="ソウルコア（紫）- ドラッグしてコスト支払い・スピリット/ネクサスに配置"
               />
             ))}
             <span className="core-count">{soulCores}</span>

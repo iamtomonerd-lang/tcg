@@ -15,7 +15,6 @@ interface PlayerPanelProps {
   onDrop?: (data: any) => void;
   dragOverCard?: string | null;
   onCardRightClick?: (imagePath: string | undefined, name: string) => void;
-  canAffordCard: (card: any) => boolean;
 }
 
 function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
@@ -33,6 +32,66 @@ function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
   );
 }
 
+/** Draggable core dots displayed on a field card (spirit or nexus) */
+function FieldCores({
+  zone,
+  index,
+  coreCount,
+  soulCoreCount,
+  canDrag,
+  onDragStart,
+  onDragEnd,
+}: {
+  zone: 'spirit' | 'nexus';
+  index: number;
+  coreCount: number;
+  soulCoreCount: number;
+  canDrag: boolean;
+  onDragStart?: (data: any) => void;
+  onDragEnd?: () => void;
+}) {
+  const startDrag = (e: React.DragEvent, coreType: 'regular' | 'soul') => {
+    e.stopPropagation(); // don't trigger the card's own drag
+    if (canDrag && onDragStart) {
+      const dragPayload = {
+        type: 'core',
+        coreType,
+        source: { zone, index },
+      };
+      onDragStart(dragPayload);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', JSON.stringify(dragPayload));
+    }
+  };
+
+  if (coreCount <= 0 && soulCoreCount <= 0) return null;
+
+  return (
+    <div className="fcard-cores" onDragOver={(e) => e.preventDefault()}>
+      {Array.from({ length: coreCount }).map((_, i) => (
+        <div
+          key={`fc-${i}`}
+          className={`field-core regular ${canDrag ? 'draggable' : ''}`}
+          draggable={canDrag}
+          onDragStart={(e) => startDrag(e, 'regular')}
+          onDragEnd={onDragEnd}
+          title="通常コア - ドラッグで移動・支払い"
+        />
+      ))}
+      {Array.from({ length: soulCoreCount }).map((_, i) => (
+        <div
+          key={`fs-${i}`}
+          className={`field-core soul ${canDrag ? 'draggable' : ''}`}
+          draggable={canDrag}
+          onDragStart={(e) => startDrag(e, 'soul')}
+          onDragEnd={onDragEnd}
+          title="ソウルコア - ドラッグで移動・支払い"
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function PlayerPanel({
   playerNumber,
   player,
@@ -41,14 +100,16 @@ export default function PlayerPanel({
   typeLabel,
   position,
   isHumanTurn,
-  legalActions,
+  legalActions: _legalActions,
   onDragStart,
   onDragEnd,
   onDrop,
   dragOverCard,
   onCardRightClick,
-  canAffordCard,
 }: PlayerPanelProps) {
+  // Cores can be manipulated only on the human player's own panel during their turn
+  const canMoveCores = isHumanTurn && isCurrent;
+
   const statsBar = (
     <div className="player-stats-section">
       <div className="player-bar">
@@ -66,10 +127,11 @@ export default function PlayerPanel({
         soulCores={player.soulCores}
         trashCores={player.trashCores}
         trashSoulCores={player.trashSoulCores}
-        isHumanTurn={isHumanTurn}
+        isHumanTurn={canMoveCores}
         playerNumber={playerNumber}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
+        onDrop={onDrop}
       />
     </div>
   );
@@ -84,12 +146,7 @@ export default function PlayerPanel({
       onDrop={(e) => {
         e.preventDefault();
         if (onDrop && isHumanTurn) {
-          try {
-            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-            onDrop({ ...data, targetPlayerNumber: playerNumber });
-          } catch (e) {
-            // Invalid drop data
-          }
+          onDrop({ targetPlayerNumber: playerNumber });
         }
       }}
     >
@@ -97,10 +154,17 @@ export default function PlayerPanel({
         <div
           key={`n${i}`}
           className={`fcard nexus ${dragOverCard === `nexus-${i}` ? 'drag-over' : ''}`}
-          title={`${nexus.name}（ネクサス Lv${nexus.level}）`}
+          title={`${nexus.name}（ネクサス Lv${nexus.level}｜コア${nexus.coreCount ?? 0}）`}
           onDragOver={(e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (onDrop && isHumanTurn) {
+              onDrop({ targetPlayerNumber: playerNumber, nexusIndex: i, targetZone: 'nexus' });
+            }
           }}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -112,6 +176,15 @@ export default function PlayerPanel({
             <span className="chip nexus-chip">ネクサス</span>
             <span className="chip">Lv{nexus.level}</span>
           </div>
+          <FieldCores
+            zone="nexus"
+            index={i}
+            coreCount={nexus.coreCount ?? 0}
+            soulCoreCount={nexus.soulCoreCount ?? 0}
+            canDrag={canMoveCores}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+          />
           <div className="fcard-name">{nexus.name}</div>
         </div>
       ))}
@@ -136,13 +209,9 @@ export default function PlayerPanel({
           }}
           onDrop={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             if (onDrop && isHumanTurn) {
-              try {
-                const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-                onDrop({ ...data, targetPlayerNumber: playerNumber, spiritIndex: i });
-              } catch (e) {
-                // Invalid drop data
-              }
+              onDrop({ targetPlayerNumber: playerNumber, spiritIndex: i, targetZone: 'spirit' });
             }
           }}
           onContextMenu={(e) => {
@@ -154,9 +223,16 @@ export default function PlayerPanel({
           <div className="fcard-chips">
             <span className="chip">Lv{spirit.level}</span>
             <span className="chip bp">BP{spirit.bp}</span>
-            {spirit.coreCount > 0 && <span className="chip core">コア{spirit.coreCount}</span>}
-            {spirit.soulCoreCount > 0 && <span className="chip soul">⭐{spirit.soulCoreCount}</span>}
           </div>
+          <FieldCores
+            zone="spirit"
+            index={i}
+            coreCount={spirit.coreCount ?? 0}
+            soulCoreCount={spirit.soulCoreCount ?? 0}
+            canDrag={canMoveCores}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+          />
           <div className="fcard-name">{spirit.name}</div>
           {!spirit.canAttack && <div className="tap-overlay">疲労</div>}
         </div>
@@ -171,16 +247,14 @@ export default function PlayerPanel({
     <div className="hand-row">
       <span className="hand-label">手札</span>
       {player.handCards.length > 0 ? (
-        player.handCards.map((card: any, i: number) => {
-          const canAfford = canAffordCard(card);
-          return (
+        player.handCards.map((card: any, i: number) => (
           <div
             key={i}
-            className={`fcard hand ${dragOverCard === `hand-${i}` ? 'drag-over' : ''} ${!canAfford ? 'unaffordable' : ''}`}
+            className={`fcard hand ${dragOverCard === `hand-${i}` ? 'drag-over' : ''}`}
             title={`${card.name}（コスト${card.cost}）`}
-            draggable={isHumanTurn && canAfford}
+            draggable={isHumanTurn}
             onDragStart={(e) => {
-              if (isHumanTurn && canAfford && onDragStart) {
+              if (isHumanTurn && onDragStart) {
                 const dragPayload = { type: 'hand-card', handIndex: i, card };
                 onDragStart(dragPayload);
                 e.dataTransfer!.effectAllowed = 'move';
@@ -197,8 +271,7 @@ export default function PlayerPanel({
             <span className="cost-badge">{card.cost}</span>
             <div className="fcard-name">{card.name}</div>
           </div>
-        );
-        })
+        ))
       ) : (
         <div className="field-empty">手札なし</div>
       )}
