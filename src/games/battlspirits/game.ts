@@ -375,7 +375,35 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     for (let i = 0; i < me.spirits.length; i++) {
       const s = me.spirits[i]!;
       if (s.canAttack && !s.cannotAttackUntilNextTurn) {
-        actions.push({ type: 'attack', spiritIndex: i });
+        // Check if this spirit has a discard_hand effect that requires card selection
+        const discardEffect = s.def.effects?.find(
+          (e) => e.trigger === 'attack' && e.action === 'discard_hand' && e.level?.includes(s.level)
+        );
+
+        if (discardEffect) {
+          // Find cards in hand that match the discard effect symbol
+          const targetSymbol = discardEffect.symbol;
+          const validCardIndices: number[] = [];
+          for (let j = 0; j < me.hand.length; j++) {
+            const card = me.hand[j]!;
+            if (!targetSymbol || card.symbolColors.includes(targetSymbol)) {
+              validCardIndices.push(j);
+            }
+          }
+
+          if (validCardIndices.length > 0) {
+            // Generate one attack action for each valid card choice
+            for (const cardIndex of validCardIndices) {
+              actions.push({ type: 'attack', spiritIndex: i, discardCardIndex: cardIndex });
+            }
+          } else {
+            // No valid cards to discard - can still attack but effect won't trigger
+            actions.push({ type: 'attack', spiritIndex: i });
+          }
+        } else {
+          // No discard requirement - normal attack
+          actions.push({ type: 'attack', spiritIndex: i });
+        }
       }
     }
 
@@ -677,8 +705,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const spirit = me.spirits[action.spiritIndex];
         if (!spirit || !spirit.canAttack) return next;
 
-        // Trigger attack effects (may boost BP)
-        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, spirit);
+        // Trigger attack effects (may boost BP), passing discardCardIndex if provided
+        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, spirit, undefined, undefined, action.discardCardIndex);
 
         // Create pending attack opportunity for opponent to defend
         const damage = spirit.def.symbolCount;

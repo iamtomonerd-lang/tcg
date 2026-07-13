@@ -149,7 +149,7 @@ export type Action =
   | { type: 'add_core'; spiritIndex: number; coreType?: 'regular' | 'soul' } // move 1 core from reserve onto a spirit (level-up)
   | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul' }
   | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul' }
-  | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number }
+  | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number; discardCardIndex?: number } // discardCardIndex for effects requiring card selection
   | { type: 'block'; spiritIndex: number }
   | { type: 'defend'; spiritIndex: number } // respond to pending attack with defense
   | { type: 'take_damage' } // accept attack damage without defending

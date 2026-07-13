@@ -218,15 +218,27 @@ export function applyEffect(
     }
     case 'discard_hand': {
       // Discard card from hand with specific symbol, or up to effectValue cards
+      // If targetSpiritIndex is provided, use it as discardCardIndex for the selected card
       const targetSymbol = effect.symbol;
       const discardCount = effect.variableValue && effectValue !== undefined ? effectValue : 1;
-      let discarded = 0;
-      for (let i = me.hand.length - 1; i >= 0 && discarded < discardCount; i--) {
-        const card = me.hand[i]!;
-        if (!targetSymbol || card.symbolColors.includes(targetSymbol)) {
+
+      if (targetSpiritIndex !== undefined && targetSpiritIndex >= 0) {
+        // Discard specific card at index
+        const card = me.hand[targetSpiritIndex];
+        if (card && (!targetSymbol || card.symbolColors.includes(targetSymbol))) {
           me.trash.push(card);
-          me.hand.splice(i, 1);
-          discarded++;
+          me.hand.splice(targetSpiritIndex, 1);
+        }
+      } else {
+        // Auto-discard from end if no specific card selected
+        let discarded = 0;
+        for (let i = me.hand.length - 1; i >= 0 && discarded < discardCount; i--) {
+          const card = me.hand[i]!;
+          if (!targetSymbol || card.symbolColors.includes(targetSymbol)) {
+            me.trash.push(card);
+            me.hand.splice(i, 1);
+            discarded++;
+          }
         }
       }
       break;
@@ -254,11 +266,14 @@ export function triggerEffects(
   spirit?: any,
   targetSpiritIndex?: number,
   effectValue?: number,
+  discardCardIndex?: number,
 ): GameState {
   let next = state;
   const effects = card.effects?.filter((e) => e.trigger === trigger) ?? [];
   for (const effect of effects) {
-    next = applyEffect(next, effect, sourcePlayer, undefined, spirit, targetSpiritIndex, effectValue);
+    // For discard_hand effects, use discardCardIndex as targetSpiritIndex if provided
+    const targetIdx = effect.action === 'discard_hand' && discardCardIndex !== undefined ? discardCardIndex : targetSpiritIndex;
+    next = applyEffect(next, effect, sourcePlayer, undefined, spirit, targetIdx, effectValue);
   }
   return next;
 }
