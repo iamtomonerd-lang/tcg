@@ -65,7 +65,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const deck = getStarterDeck();
     rng.shuffle(deck);
     return {
-      life: 20,
+      life: 5,
       cores: 3, // starting regular cores
       soulCores: 1, // starting soul core
       trashCores: 0, // cores in trash
@@ -79,34 +79,100 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   }
 
   private payCost(player: PlayerState, amount: number, coreType?: 'regular' | 'soul'): boolean {
-    const totalAvailable = player.cores + player.soulCores;
+    // Calculate total available cores (reserve + spirits)
+    let totalAvailable = player.cores + player.soulCores;
+    for (const spirit of player.spirits) {
+      totalAvailable += spirit.coreCount + spirit.soulCoreCount;
+    }
     if (totalAvailable < amount) return false;
 
+    let remaining = amount;
+
     if (coreType === 'soul') {
-      // Use soul cores first, then regular cores
-      if (player.soulCores >= amount) {
-        player.soulCores -= amount;
-        player.trashSoulCores += amount;
+      // Use soul cores first (from reserve, then spirits), then regular cores
+      if (player.soulCores >= remaining) {
+        player.soulCores -= remaining;
+        player.trashSoulCores += remaining;
+        remaining = 0;
       } else {
-        const soulUsed = player.soulCores;
-        const regularUsed = amount - soulUsed;
+        player.trashSoulCores += player.soulCores;
+        remaining -= player.soulCores;
         player.soulCores = 0;
-        player.cores -= regularUsed;
-        player.trashSoulCores += soulUsed;
-        player.trashCores += regularUsed;
+
+        // Take regular cores from reserve
+        if (player.cores >= remaining) {
+          player.cores -= remaining;
+          player.trashCores += remaining;
+          remaining = 0;
+        } else {
+          player.trashCores += player.cores;
+          remaining -= player.cores;
+          player.cores = 0;
+
+          // Take cores from spirits (regular first, then soul)
+          for (const spirit of player.spirits) {
+            if (remaining <= 0) break;
+            const spiritRegularCores = spirit.coreCount;
+            const take = Math.min(spiritRegularCores, remaining);
+            spirit.coreCount -= take;
+            player.trashCores += take;
+            remaining -= take;
+            updateSpiritLevel(spirit);
+          }
+          for (const spirit of player.spirits) {
+            if (remaining <= 0) break;
+            const spiritSoulCores = spirit.soulCoreCount;
+            const take = Math.min(spiritSoulCores, remaining);
+            spirit.soulCoreCount -= take;
+            player.trashSoulCores += take;
+            remaining -= take;
+            updateSpiritLevel(spirit);
+          }
+        }
       }
     } else {
-      // Default: use regular cores first, then soul cores
-      if (player.cores >= amount) {
-        player.cores -= amount;
-        player.trashCores += amount;
+      // Default: use regular cores first (from reserve, then spirits), then soul cores
+      if (player.cores >= remaining) {
+        player.cores -= remaining;
+        player.trashCores += remaining;
+        remaining = 0;
       } else {
-        const regularUsed = player.cores;
-        const soulUsed = amount - regularUsed;
+        player.trashCores += player.cores;
+        remaining -= player.cores;
         player.cores = 0;
-        player.soulCores -= soulUsed;
-        player.trashCores += regularUsed;
-        player.trashSoulCores += soulUsed;
+
+        // Take regular cores from spirits
+        for (const spirit of player.spirits) {
+          if (remaining <= 0) break;
+          const spiritRegularCores = spirit.coreCount;
+          const take = Math.min(spiritRegularCores, remaining);
+          spirit.coreCount -= take;
+          player.trashCores += take;
+          remaining -= take;
+          updateSpiritLevel(spirit);
+        }
+
+        // Take soul cores from reserve
+        if (remaining > 0 && player.soulCores >= remaining) {
+          player.soulCores -= remaining;
+          player.trashSoulCores += remaining;
+          remaining = 0;
+        } else if (remaining > 0) {
+          player.trashSoulCores += player.soulCores;
+          remaining -= player.soulCores;
+          player.soulCores = 0;
+
+          // Take soul cores from spirits
+          for (const spirit of player.spirits) {
+            if (remaining <= 0) break;
+            const spiritSoulCores = spirit.soulCoreCount;
+            const take = Math.min(spiritSoulCores, remaining);
+            spirit.soulCoreCount -= take;
+            player.trashSoulCores += take;
+            remaining -= take;
+            updateSpiritLevel(spirit);
+          }
+        }
       }
     }
     return true;
@@ -198,6 +264,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     return Array.from(symbolMap.entries()).map(([color, count]) => ({ color, count }));
   }
 
+  private getTotalAvailableCores(player: PlayerState): number {
+    let total = player.cores + player.soulCores;
+    for (const spirit of player.spirits) {
+      total += spirit.coreCount + spirit.soulCoreCount;
+    }
+    return total;
+  }
+
   currentPlayer(state: GameState): number {
     return state.currentPlayer;
   }
@@ -244,7 +318,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
   /** Does the player have a flash magic card they can actually afford? */
   private hasAffordableFlash(player: PlayerState): boolean {
-    const totalCores = player.cores + player.soulCores;
+    const totalCores = this.getTotalAvailableCores(player);
     return player.hand.some(
       (c) =>
         c.cardType === 'magic' &&
@@ -282,7 +356,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     // If there's a pending flash opportunity, only flash or skip_flash actions are legal
     if (state.pendingFlash) {
       const me = state.players[state.currentPlayer]!;
-      const totalCores = me.cores + me.soulCores;
+      const totalCores = this.getTotalAvailableCores(me);
       const actions: Action[] = [];
       // Can activate flash magic cards (only if affordable)
       for (let i = 0; i < me.hand.length; i++) {
@@ -313,7 +387,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   private getMainPhaseActions(state: GameState): Action[] {
     const actions: Action[] = [];
     const me = state.players[state.currentPlayer]!;
-    const totalCores = me.cores + me.soulCores;
+    const totalCores = this.getTotalAvailableCores(me);
 
     // Normal turn actions: only offer cards the player can actually pay for
     for (let i = 0; i < me.hand.length; i++) {
@@ -428,8 +502,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const hasEXInTrash = me.trash.some((c) => c.exSymbol);
       const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
 
-      // Check if player has enough cores (regular + soul)
-      const totalAvailable = me.cores + me.soulCores;
+      // Check if player has enough cores (including from spirits)
+      const totalAvailable = this.getTotalAvailableCores(me);
       if (actualCost > totalAvailable) return next;
 
       // Use the magic card as flash
@@ -537,8 +611,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       // Attacker becomes fatigued
       attacker.canAttack = false;
 
-      // Take damage
-      me.life -= next.pendingAttack.damage;
+      // Take damage and place cores in reserve
+      const damage = next.pendingAttack.damage;
+      me.life -= damage;
+      me.cores += damage; // Add cores to reserve when taking damage
 
       // Trigger battle_end effects
       next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
@@ -560,8 +636,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
         const totalCost = actualCost + card.lv1.cost;
 
-        // Check if player has enough cores (regular + soul)
-        const totalAvailable = me.cores + me.soulCores;
+        // Check if player has enough cores (including from spirits)
+        const totalAvailable = this.getTotalAvailableCores(me);
         if (totalAvailable < totalCost) return next;
 
         // Pay cost (to void) using regular or soul cores
@@ -586,7 +662,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'add_core': {
         const spirit = me.spirits[action.spiritIndex];
-        const totalCores = me.cores + me.soulCores;
+        const totalCores = this.getTotalAvailableCores(me);
         if (!spirit || totalCores <= 0) return next;
 
         // Place 1 core on spirit (regular or soul based on coreType)
@@ -620,8 +696,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
 
-        // Check if player has enough cores (regular + soul)
-        const totalAvailable = me.cores + me.soulCores;
+        // Check if player has enough cores (including from spirits)
+        const totalAvailable = this.getTotalAvailableCores(me);
         if (actualCost > totalAvailable) return next;
 
         // Pay cost using regular or soul cores
@@ -649,8 +725,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
 
-        // Check if player has enough cores (regular + soul)
-        const totalAvailable = me.cores + me.soulCores;
+        // Check if player has enough cores (including from spirits)
+        const totalAvailable = this.getTotalAvailableCores(me);
         if (actualCost > totalAvailable) return next;
 
         // Pay cost using regular or soul cores

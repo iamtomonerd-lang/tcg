@@ -37,7 +37,11 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const canAffordCard = (card: any): boolean => {
     if (!state) return false;
     const me = state.players[currentPlayer];
-    const totalCores = me.cores + me.soulCores;
+    let totalCores = me.cores + me.soulCores;
+    // Include cores on spirits
+    for (const spirit of me.spirits) {
+      totalCores += spirit.coreCount + spirit.soulCoreCount;
+    }
 
     if (card.cardType === 'spirit') {
       // Spirit requires cost + Lv1 cost
