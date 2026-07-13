@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { homedir } from 'os';
 import { promises as fs } from 'fs';
 import { BattlSpiritsGame } from './games/battlspirits/game.js';
 import { CARD_DB } from './games/battlspirits/cards.js';
@@ -268,19 +269,41 @@ app.get('/api/cards', (req, res) => {
   res.json(CARD_DB);
 });
 
+// Training data lives OUTSIDE the app folder so it survives deleting or
+// re-downloading the game (e.g. C:\Users\<name>\BattleSpiritsAI\training-stats.json).
+// Override with the BS_DATA_DIR environment variable if needed.
+const TRAINING_DATA_DIR = process.env.BS_DATA_DIR || join(homedir(), 'BattleSpiritsAI');
+const TRAINING_STATS_PATH = join(TRAINING_DATA_DIR, 'training-stats.json');
+// Location used by older versions (inside the app folder) — migrated on first read
+const LEGACY_STATS_PATH = join(__dirname, '../data/training-stats.json');
+
+async function readTrainingStats(): Promise<{ sessions: any[] }> {
+  try {
+    return JSON.parse(await fs.readFile(TRAINING_STATS_PATH, 'utf-8'));
+  } catch {
+    // Fall back to the legacy in-app file and migrate it out
+    try {
+      const legacy = JSON.parse(await fs.readFile(LEGACY_STATS_PATH, 'utf-8'));
+      await writeTrainingStats(legacy);
+      console.log(`📦 学習データを移行しました: ${LEGACY_STATS_PATH} → ${TRAINING_STATS_PATH}`);
+      return legacy;
+    } catch {
+      return { sessions: [] };
+    }
+  }
+}
+
+async function writeTrainingStats(stats: { sessions: any[] }): Promise<void> {
+  await fs.mkdir(TRAINING_DATA_DIR, { recursive: true });
+  await fs.writeFile(TRAINING_STATS_PATH, JSON.stringify(stats, null, 2), 'utf-8');
+}
+
 /**
  * Get training statistics
  */
 app.get('/api/training/stats', async (req, res) => {
-  try {
-    const statsPath = join(__dirname, '../data/training-stats.json');
-    const data = await fs.readFile(statsPath, 'utf-8');
-    const stats = JSON.parse(data);
-    res.json(stats);
-  } catch (error) {
-    // File doesn't exist or is invalid; return empty stats
-    res.json({ sessions: [] });
-  }
+  const stats = await readTrainingStats();
+  res.json({ ...stats, storagePath: TRAINING_STATS_PATH });
 });
 
 /**
@@ -326,24 +349,8 @@ app.post('/api/cloud/dropbox/upload', async (req, res) => {
  */
 app.post('/api/training/stats', async (req, res) => {
   try {
-    const statsPath = join(__dirname, '../data/training-stats.json');
-
-    // Ensure data directory exists
-    const dataDir = dirname(statsPath);
-    try {
-      await fs.mkdir(dataDir, { recursive: true });
-    } catch (err) {
-      // Directory might already exist
-    }
-
-    // Get existing stats or create new
-    let allStats: any = { sessions: [] };
-    try {
-      const existing = await fs.readFile(statsPath, 'utf-8');
-      allStats = JSON.parse(existing);
-    } catch (err) {
-      // File doesn't exist, use empty stats
-    }
+    // Read current stats (migrates from the legacy in-app location if needed)
+    const allStats = await readTrainingStats();
 
     // Add or update session stats
     const { sessionId, stats } = req.body;
@@ -356,9 +363,8 @@ app.post('/api/training/stats', async (req, res) => {
       }
     }
 
-    // Write back to file
-    await fs.writeFile(statsPath, JSON.stringify(allStats, null, 2), 'utf-8');
-    res.json({ success: true, stats: allStats });
+    await writeTrainingStats(allStats);
+    res.json({ success: true, stats: allStats, storagePath: TRAINING_STATS_PATH });
   } catch (error) {
     console.error('Error saving training stats:', error);
     res.status(500).json({ error: 'Failed to save training stats' });

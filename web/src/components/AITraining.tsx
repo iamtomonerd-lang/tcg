@@ -60,6 +60,7 @@ export default function AITraining({ onBack }: AITrainingProps) {
   const [localFolderHandle, setLocalFolderHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [localFolderPath, setLocalFolderPath] = useState<string>('');
   const [autoSaveToLocal, setAutoSaveToLocal] = useState(false);
+  const [serverStoragePath, setServerStoragePath] = useState<string>('');
   const trainingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -450,6 +451,9 @@ export default function AITraining({ onBack }: AITrainingProps) {
         const data = await response.json();
         const sessions = data.sessions || [];
         setHistory(sessions);
+        if (data.storagePath) {
+          setServerStoragePath(data.storagePath);
+        }
 
         // Calculate total stats
         const totalGames = sessions.reduce((sum: number, s: TrainingHistory) => sum + s.gamesPlayed, 0);
@@ -1018,6 +1022,16 @@ export default function AITraining({ onBack }: AITrainingProps) {
         <div className="modal-overlay">
           <div className="modal data-modal">
             <h3>📊 学習データ管理</h3>
+
+            {serverStoragePath && (
+              <div className="storage-path-info">
+                <span className="storage-path-label">📍 保存場所（ゲームフォルダの外）:</span>
+                <code className="storage-path-value">{serverStoragePath}</code>
+                <p className="storage-path-note">
+                  ゲームフォルダを削除して新バージョンに入れ替えても、このファイルは残るため学習データは引き継がれます。
+                </p>
+              </div>
+            )}
 
             <div className="data-stats">
               <div className="stat-item">
