@@ -2,6 +2,7 @@ import { useState } from 'react';
 import GameBoard from './components/GameBoard';
 import GameSetup from './components/GameSetup';
 import HomeScreen from './components/HomeScreen';
+import DeckBuilder from './components/DeckBuilder';
 import './App.css';
 
 interface GameSession {
@@ -9,7 +10,12 @@ interface GameSession {
   state: any;
 }
 
-type AppScreen = 'home' | 'setup' | 'game';
+interface DeckCard {
+  cardId: string;
+  count: number;
+}
+
+type AppScreen = 'home' | 'setup' | 'deck-build' | 'game';
 
 export default function App() {
   const [screen, setScreen] = useState<AppScreen>('home');
@@ -20,9 +26,14 @@ export default function App() {
     if (mode === 'free-battle') {
       setScreen('setup');
     } else if (mode === 'deck-build') {
-      // TODO: デッキ構築画面を実装
-      console.log('Deck building not yet implemented');
+      setScreen('deck-build');
     }
+  };
+
+  const handleSaveDeck = (deck: DeckCard[]) => {
+    console.log('Deck saved:', deck);
+    // TODO: デッキ保存処理を実装
+    setScreen('home');
   };
 
   const handleStartGame = async (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number) => {
@@ -75,6 +86,10 @@ export default function App() {
             <GameSetup onStartGame={handleStartGame} onBack={handleBackToHome} />
           </main>
         </>
+      )}
+
+      {screen === 'deck-build' && (
+        <DeckBuilder onBack={handleBackToHome} onSaveDeck={handleSaveDeck} />
       )}
 
       {screen === 'game' && (
