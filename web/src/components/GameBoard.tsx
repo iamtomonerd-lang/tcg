@@ -27,7 +27,13 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const [selectedCoreType, setSelectedCoreType] = useState<'regular' | 'soul' | null>(null);
   const [arrangedCardIndices, setArrangedCardIndices] = useState<number[]>([]);
   const [selectedHandIndices, setSelectedHandIndices] = useState<Set<number>>(new Set());
-  const [pendingCoreCost, setPendingCoreCost] = useState<{ actionIndex: number; requiredCores: number; paidCores: number; paidCoreType: 'regular' | 'soul' | null } | null>(null);
+  const [pendingCoreCost, setPendingCoreCost] = useState<{
+    actionIndex: number;
+    requiredCores: number;
+    paidRegular: number;
+    paidSoul: number;
+    cardName: string;
+  } | null>(null);
   const [selectedCardImage, setSelectedCardImage] = useState<{ imagePath: string; name: string } | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
@@ -233,31 +239,35 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     // If we're waiting for core payment, handle core drop
     if (pendingCoreCost && dragData.type === 'core') {
       const coreAmount = 1; // Each core is 1
-      const newPaid = pendingCoreCost.paidCores + coreAmount;
       const coreType = dragData.coreType as 'regular' | 'soul';
+      const newPaidRegular = coreType === 'regular' ? pendingCoreCost.paidRegular + coreAmount : pendingCoreCost.paidRegular;
+      const newPaidSoul = coreType === 'soul' ? pendingCoreCost.paidSoul + coreAmount : pendingCoreCost.paidSoul;
+      const totalPaid = newPaidRegular + newPaidSoul;
 
-      if (newPaid <= pendingCoreCost.requiredCores) {
+      if (totalPaid <= pendingCoreCost.requiredCores) {
         setPendingCoreCost({
           ...pendingCoreCost,
-          paidCores: newPaid,
-          paidCoreType: coreType,
+          paidRegular: newPaidRegular,
+          paidSoul: newPaidSoul,
         });
 
         // If we've paid enough cores, execute the action
-        if (newPaid >= pendingCoreCost.requiredCores) {
+        if (totalPaid >= pendingCoreCost.requiredCores) {
           const actionIndex = pendingCoreCost.actionIndex;
           setPendingCoreCost(null);
           setDragData(null);
           setDragOverCard(null);
           setSelectedCoreType(null);
 
+          // Determine which core type to report (prefer regular if both paid)
+          const selectedType = newPaidRegular >= newPaidSoul ? 'regular' : 'soul';
           // Execute the action with the core type
           setTimeout(() => {
-            executeAction(actionIndex, { coreType });
+            executeAction(actionIndex, { coreType: selectedType });
           }, 50);
         }
       } else {
-        setError(`必要なコアは${pendingCoreCost.requiredCores}個です。すでに${pendingCoreCost.paidCores}個支払っています。`);
+        setError(`必要なコアは${pendingCoreCost.requiredCores}個です。すでに${totalPaid}個支払っています。`);
       }
 
       setDragData(null);
@@ -296,10 +306,11 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
               setPendingCoreCost({
                 actionIndex: matchingAction.index,
                 requiredCores: cost,
-                paidCores: 0,
-                paidCoreType: null,
+                paidRegular: 0,
+                paidSoul: 0,
+                cardName: dragData.card.name,
               });
-              setError(`${cost}個のコアが必要です。コアをドラッグして支払ってください。`);
+              setError(`「${dragData.card.name}」のコスト${cost}個を支払ってください。通常コア（緑）またはソウルコア（紫）をドラッグします。`);
             } else {
               // No cost, execute immediately
               executeAction(matchingAction.index, { coreType });
@@ -442,77 +453,172 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
 
         {pendingCoreCost && (
           <div style={{
-            padding: '0.8rem',
-            backgroundColor: '#e8eaf0',
-            borderRadius: '6px',
-            marginBottom: '0.8rem',
+            padding: '1rem',
+            backgroundColor: '#f0e8f8',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            border: '2px solid #9f7aea',
           }}>
-            <div style={{ fontWeight: 700, marginBottom: '0.4rem', textAlign: 'center' }}>💎 コア支払い中</div>
-            <div style={{ fontSize: '0.9rem', marginBottom: '0.4rem', textAlign: 'center' }}>
-              {pendingCoreCost.requiredCores}個中 {pendingCoreCost.paidCores}個を支払いました
+            <div style={{ fontWeight: 700, marginBottom: '0.6rem', textAlign: 'center', fontSize: '1rem' }}>
+              💎 コア支払い: 「{pendingCoreCost.cardName}」
             </div>
-            <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.6rem', textAlign: 'center' }}>
-              残り {pendingCoreCost.requiredCores - pendingCoreCost.paidCores}個
+            <div style={{ fontSize: '0.95rem', marginBottom: '0.8rem', textAlign: 'center', fontWeight: 600 }}>
+              必要: {pendingCoreCost.requiredCores}個
             </div>
-            <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', marginBottom: '0.4rem' }}>
-              <button
-                onClick={() => {
-                  if (pendingCoreCost.paidCores < pendingCoreCost.requiredCores) {
-                    const newPaid = pendingCoreCost.paidCores + 1;
-                    setPendingCoreCost({
-                      ...pendingCoreCost,
-                      paidCores: newPaid,
-                      paidCoreType: 'regular',
-                    });
-                    if (newPaid >= pendingCoreCost.requiredCores) {
-                      const actionIndex = pendingCoreCost.actionIndex;
-                      setTimeout(() => {
-                        executeAction(actionIndex, { coreType: 'regular' });
-                        setPendingCoreCost(null);
-                      }, 50);
-                    }
-                  }
-                }}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#1e7e4d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: '0.9rem',
-                }}
-              >
-                🟢 +1
-              </button>
-              {pendingCoreCost.paidCores > 0 && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '0.8rem',
+              marginBottom: '0.8rem',
+            }}>
+              <div style={{
+                padding: '0.6rem',
+                backgroundColor: 'rgba(30, 126, 77, 0.15)',
+                borderRadius: '6px',
+                textAlign: 'center',
+                border: '2px solid #3eb876',
+              }}>
+                <div style={{ fontSize: '0.8rem', color: '#1e7e4d', marginBottom: '0.3rem', fontWeight: 600 }}>通常コア</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1e7e4d' }}>{pendingCoreCost.paidRegular}</div>
+              </div>
+              <div style={{
+                padding: '0.6rem',
+                backgroundColor: 'rgba(107, 70, 193, 0.15)',
+                borderRadius: '6px',
+                textAlign: 'center',
+                border: '2px solid #9f7aea',
+              }}>
+                <div style={{ fontSize: '0.8rem', color: '#6b46c1', marginBottom: '0.3rem', fontWeight: 600 }}>ソウルコア</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#6b46c1' }}>{pendingCoreCost.paidSoul}</div>
+              </div>
+            </div>
+            <div style={{
+              fontSize: '0.9rem',
+              marginBottom: '0.6rem',
+              textAlign: 'center',
+              padding: '0.6rem',
+              backgroundColor: '#fff5f7',
+              borderRadius: '4px',
+              fontWeight: 500,
+            }}>
+              残り {Math.max(0, pendingCoreCost.requiredCores - pendingCoreCost.paidRegular - pendingCoreCost.paidSoul)}個
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.8rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 <button
                   onClick={() => {
-                    if (pendingCoreCost.paidCores > 0) {
+                    const totalPaid = pendingCoreCost.paidRegular + pendingCoreCost.paidSoul;
+                    if (totalPaid < pendingCoreCost.requiredCores) {
+                      const newPaid = pendingCoreCost.paidRegular + 1;
+                      const newTotal = newPaid + pendingCoreCost.paidSoul;
                       setPendingCoreCost({
                         ...pendingCoreCost,
-                        paidCores: pendingCoreCost.paidCores - 1,
+                        paidRegular: newPaid,
                       });
+                      if (newTotal >= pendingCoreCost.requiredCores) {
+                        const actionIndex = pendingCoreCost.actionIndex;
+                        setTimeout(() => {
+                          executeAction(actionIndex, { coreType: 'regular' });
+                          setPendingCoreCost(null);
+                        }, 50);
+                      }
                     }
                   }}
                   style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#8b5555',
+                    padding: '0.5rem',
+                    backgroundColor: '#1e7e4d',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '6px',
+                    borderRadius: '4px',
                     cursor: 'pointer',
                     fontWeight: 700,
-                    fontSize: '0.9rem',
+                    fontSize: '0.85rem',
                   }}
                 >
-                  🗑️ -1
+                  🟢 通常 +1
                 </button>
-              )}
+                {pendingCoreCost.paidRegular > 0 && (
+                  <button
+                    onClick={() => {
+                      setPendingCoreCost({
+                        ...pendingCoreCost,
+                        paidRegular: Math.max(0, pendingCoreCost.paidRegular - 1),
+                      });
+                    }}
+                    style={{
+                      padding: '0.4rem',
+                      backgroundColor: '#8b5555',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    -1
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <button
+                  onClick={() => {
+                    const totalPaid = pendingCoreCost.paidRegular + pendingCoreCost.paidSoul;
+                    if (totalPaid < pendingCoreCost.requiredCores) {
+                      const newPaid = pendingCoreCost.paidSoul + 1;
+                      const newTotal = pendingCoreCost.paidRegular + newPaid;
+                      setPendingCoreCost({
+                        ...pendingCoreCost,
+                        paidSoul: newPaid,
+                      });
+                      if (newTotal >= pendingCoreCost.requiredCores) {
+                        const actionIndex = pendingCoreCost.actionIndex;
+                        setTimeout(() => {
+                          executeAction(actionIndex, { coreType: 'soul' });
+                          setPendingCoreCost(null);
+                        }, 50);
+                      }
+                    }
+                  }}
+                  style={{
+                    padding: '0.5rem',
+                    backgroundColor: '#6b46c1',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  🟣 ソウル +1
+                </button>
+                {pendingCoreCost.paidSoul > 0 && (
+                  <button
+                    onClick={() => {
+                      setPendingCoreCost({
+                        ...pendingCoreCost,
+                        paidSoul: Math.max(0, pendingCoreCost.paidSoul - 1),
+                      });
+                    }}
+                    style={{
+                      padding: '0.4rem',
+                      backgroundColor: '#8b5555',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    -1
+                  </button>
+                )}
+              </div>
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
-              ドラッグまたはボタンで支払い
+            <div style={{ fontSize: '0.8rem', color: '#666', textAlign: 'center', padding: '0.6rem', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+              ドラッグまたはボタンで支払い（キャンセルは「リセット」ボタン）
             </div>
           </div>
         )}

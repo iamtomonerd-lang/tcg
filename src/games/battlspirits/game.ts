@@ -222,12 +222,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         case 'refresh': {
           // Refresh all spirits (can attack this turn)
           const p = next.players[next.currentPlayer]!;
-          // Return regular cores to reserve; keep soul cores on spirits
+          // Keep cores on spirits; only refresh attack status
           for (const spirit of p.spirits) {
-            p.cores += spirit.coreCount; // Return regular cores to reserve
-            spirit.coreCount = 0;
-            // Don't reset level - it's determined by soul cores now
-            updateSpiritLevel(spirit);
+            // Cores placed on spirits stay there (not returned to reserve)
             spirit.canAttack = true;
             // Clear persistent status effects
             spirit.cannotAttackUntilNextTurn = false;

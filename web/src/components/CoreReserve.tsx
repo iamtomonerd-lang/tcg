@@ -46,7 +46,7 @@ export default function CoreReserve({
               draggable={isHumanTurn}
               onDragStart={() => handleCoreDragStart('regular')}
               onDragEnd={onDragEnd}
-              title="通常コア - ドラッグしてスピリットに配置"
+              title="通常コア（緑）- ドラッグしてコスト支払いまたはスピリットに配置"
             />
           ))}
           <span className="core-count">{cores}</span>
@@ -64,7 +64,7 @@ export default function CoreReserve({
                 draggable={isHumanTurn}
                 onDragStart={() => handleCoreDragStart('soul')}
                 onDragEnd={onDragEnd}
-                title="ソウルコア - ドラッグしてスピリットに配置"
+                title="ソウルコア（紫）- ドラッグしてコスト支払いまたはスピリットに配置"
               />
             ))}
             <span className="core-count">{soulCores}</span>
