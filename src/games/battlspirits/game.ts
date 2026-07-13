@@ -748,25 +748,24 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
           // Identify 風牙 lineage cards (excluding オファーリングドロー) as selectable (max 2)
           const selectableIndices: number[] = [];
-          const toRearrangeIndices: number[] = [];
           for (let i = 0; i < openedCards.length; i++) {
             const c = openedCards[i];
             const hasWindFangLineage = c.lineage && c.lineage.includes('風牙');
             const isNotOfferingDraw = c.id !== 'magic_offering_draw';
-            if (hasWindFangLineage && isNotOfferingDraw && selectableIndices.length < 2) {
+            if (hasWindFangLineage && isNotOfferingDraw) {
               selectableIndices.push(i);
-            } else {
-              toRearrangeIndices.push(i);
             }
           }
 
           // Set pending draw for player to select and arrange cards
+          // Player can select up to 2 from selectableIndices
           next.pendingDraw = {
             openedCards,
-            toHandIndices: selectableIndices, // Can select up to 2
-            toRearrangeIndices,
+            toHandIndices: [], // Will be filled by player selection
+            toRearrangeIndices: [], // Will be filled by player selection
+            selectableIndices, // Cards that can be selected for hand (風牙 lineage)
           };
-          return next; // Stop here, player must arrange cards
+          return next; // Stop here, player must select cards
         }
 
         // Trigger magic effects with optional target and value

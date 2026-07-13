@@ -291,7 +291,14 @@ function serializeState(state: GameState) {
       handCards: p.hand.map((c) => ({
         id: c.id,
         name: c.name,
+        cardType: c.cardType,
         cost: c.cost,
+        reductionCost: c.reductionCost,
+        symbolColors: c.symbolColors || [],
+        lv1: c.lv1,
+        lv2: c.lv2,
+        exSymbol: c.exSymbol,
+        inheritance: c.inheritance,
         imagePath: c.imagePath,
       })),
       deck: { count: p.deck.length },
@@ -340,6 +347,7 @@ function serializeState(state: GameState) {
           })),
           toHandIndices: state.pendingDraw.toHandIndices,
           toRearrangeIndices: state.pendingDraw.toRearrangeIndices,
+          selectableIndices: state.pendingDraw.selectableIndices || [],
         }
       : null,
   };

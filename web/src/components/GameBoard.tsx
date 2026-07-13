@@ -39,6 +39,43 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
 
   const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
 
+  // Helper: calculate effective cost after reduction
+  const calculateEffectiveCost = (card: any): number => {
+    if (!state) return card.cost;
+    const me = state.players[currentPlayer];
+
+    // Count field symbols
+    const symbolMap = new Map<string, number>();
+    for (const spirit of me.spirits) {
+      const def = spirit;
+      const symbolColors = def.symbolColors || [];
+      for (const color of symbolColors) {
+        symbolMap.set(color, (symbolMap.get(color) ?? 0) + (def.bp > 0 ? 1 : 0));
+      }
+    }
+
+    // Calculate reduction
+    let cost = card.cost;
+    let reductionRemaining = card.reductionCost || 0;
+
+    for (const [color, count] of symbolMap) {
+      if (reductionRemaining <= 0) break;
+      if (card.symbolColors?.includes(color)) {
+        const reduce = Math.min(count, reductionRemaining);
+        cost = Math.max(0, cost - reduce);
+        reductionRemaining -= reduce;
+      }
+    }
+
+    // Check for EX symbols in trash
+    const hasEXInTrash = me.trash?.some((c: any) => c.exSymbol) || false;
+    if (card.inheritance && reductionRemaining > 0 && hasEXInTrash) {
+      cost = Math.max(0, cost - reductionRemaining);
+    }
+
+    return cost;
+  };
+
   // Helper: check if a card can be afforded
   const canAffordCard = (card: any): boolean => {
     if (!state) return false;
@@ -49,13 +86,16 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
       totalCores += spirit.coreCount + spirit.soulCoreCount;
     }
 
+    // Calculate effective cost with reductions
+    const effectiveCost = calculateEffectiveCost(card);
+
     if (card.cardType === 'spirit') {
-      // Spirit requires cost + Lv1 cost
-      return totalCores >= card.cost + (card.lv1?.cost || 0);
+      // Spirit requires effective cost + Lv1 cost
+      return totalCores >= effectiveCost + (card.lv1?.cost || 0);
     } else if (card.cardType === 'nexus') {
-      return totalCores >= card.cost;
+      return totalCores >= effectiveCost;
     } else if (card.cardType === 'magic') {
-      return totalCores >= card.cost;
+      return totalCores >= effectiveCost;
     }
     return true;
   };

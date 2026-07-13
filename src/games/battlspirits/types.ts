@@ -128,8 +128,9 @@ export type GamePhase = 'start' | 'core' | 'draw' | 'refresh' | 'main' | 'attack
 
 export interface PendingDraw {
   openedCards: CardDef[]; // all cards opened from deck
-  toHandIndices: number[]; // indices of cards that go to hand (風牙系統かつオファーリングドロー以外)
+  toHandIndices: number[]; // indices of cards that go to hand (player selects from selectableIndices)
   toRearrangeIndices: number[]; // indices of cards to be rearranged and put back to deck bottom
+  selectableIndices?: number[]; // indices of cards that can be selected for hand (風牙系統かつオファーリングドロー以外)
 }
 
 export interface GameState {
