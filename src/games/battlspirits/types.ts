@@ -17,6 +17,11 @@ export interface CardEffect {
   isFlash?: boolean; // can be activated as flash timing (during opponent's actions)
   requiresTarget?: boolean; // effect requires target selection (e.g., destroy_creature)
   variableValue?: boolean; // effect value is player-selected (e.g., discard count)
+  source?: 'trash' | 'void'; // source for place_core: trash or void (default)
+  count?: number; // for search_deck: how many cards to add to hand (default 1)
+  mode?: 'main' | 'flash'; // for immediate triggers: 'main' (Main phase) or 'flash' (Flash timing)
+  multiTarget?: boolean; // effect applies to multiple creatures/spirits
+  targetType?: 'inheritance' | 'fatigued' | 'attacking'; // specific target selection criteria
   condition?: {
     minHandSize?: number;
     maxHandSize?: number; // maximum hand size for effect to activate
@@ -28,6 +33,7 @@ export interface CardEffect {
     requiresNexus?: boolean; // requires at least one nexus on field
     requiresSpirit?: { lineage?: string; count?: number }; // requires specific spirit(s)
     opponentHasNexus?: boolean; // opponent must have nexus
+    requiresSkill?: string; // requires card with specific skill (e.g., "継召")
   };
   symbol?: string; // for search_deck/trash_to_hand: symbol to search for
   excludeId?: string; // for trash_to_hand: exclude this card ID

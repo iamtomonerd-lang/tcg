@@ -442,7 +442,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       for (let i = 0; i < me.hand.length; i++) {
         const card = me.hand[i]!;
         if (card.cardType === 'magic') {
-          const flashEffects = card.effects?.filter(e => e.isFlash) ?? [];
+          // Filter effects by mode: either mode 'flash' or no mode specified (for backward compatibility)
+          const flashEffects = card.effects?.filter(e => (e.isFlash || !e.mode || e.mode === 'flash')) ?? [];
           if (flashEffects.length > 0 && this.effectiveCost(me, card) <= totalCores) {
             actions.push({ type: 'flash', handIndex: i });
           }
@@ -484,10 +485,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (this.effectiveCost(me, card) + card.lv1.cost > totalCores) continue;
         actions.push({ type: 'place_nexus', handIndex: i });
       } else if (card.cardType === 'magic') {
+        // Filter effects by mode (main phase effects only: mode 'main' or no mode specified)
+        const mainEffects = card.effects?.filter(e => !e.mode || e.mode === 'main') ?? [];
+        if (mainEffects.length === 0) continue; // No main-phase effects for this card
+
         // Check if card has effects with requiresTarget
-        const hasTargetEffect = card.effects?.some((e) => e.requiresTarget) ?? false;
+        const hasTargetEffect = mainEffects.some((e) => e.requiresTarget) ?? false;
         // Check if card has effects with variableValue
-        const hasVariableEffect = card.effects?.some((e) => e.variableValue) ?? false;
+        const hasVariableEffect = mainEffects.some((e) => e.variableValue) ?? false;
 
         if (hasTargetEffect) {
           // Generate targeting actions for opponent spirits

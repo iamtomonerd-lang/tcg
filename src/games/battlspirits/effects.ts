@@ -162,19 +162,19 @@ export function applyEffect(
       break;
     }
     case 'search_deck': {
-      // Open top X cards, find 1 with matching lineage, add to hand, discard rest
+      // Open top X cards, find N with matching lineage, add to hand, discard rest
       const openCount = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 2);
       const targetLineage = effect.symbol; // Symbol field contains lineage for search_deck
+      const countToAdd = effect.count ?? 1; // how many cards to add (default 1)
       const opened = me.deck.splice(0, Math.min(openCount, me.deck.length));
 
-      let found = false;
-      for (let i = 0; i < opened.length; i++) {
+      let foundCount = 0;
+      for (let i = opened.length - 1; i >= 0 && foundCount < countToAdd; i--) {
         const card = opened[i]!;
-        if (!found && (!targetLineage || card.lineage?.includes(targetLineage))) {
+        if (!targetLineage || card.lineage?.includes(targetLineage)) {
           me.hand.push(card);
           opened.splice(i, 1);
-          found = true;
-          break;
+          foundCount++;
         }
       }
 
@@ -221,10 +221,31 @@ export function applyEffect(
       break;
     }
     case 'place_core': {
-      // Place cores on this spirit (from the void) and recompute level
+      // Place cores on this spirit and recompute level
+      // Source can be 'trash' or 'void' (default)
       const coreValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
+      const source = effect.source ?? 'void';
+      const excludeSoulCore = effect.condition?.excludeSoulCore ?? false;
+
       if (spirit) {
-        spirit.coreCount += coreValue;
+        if (source === 'trash') {
+          // Take cores from trash (prefer regular cores if not excluding)
+          let taken = 0;
+          if (!excludeSoulCore && me.trashSoulCores > 0) {
+            const soulTake = Math.min(me.trashSoulCores, coreValue);
+            spirit.soulCoreCount = (spirit.soulCoreCount || 0) + soulTake;
+            me.trashSoulCores -= soulTake;
+            taken += soulTake;
+          }
+          if (taken < coreValue && me.trashCores > 0) {
+            const regularTake = Math.min(me.trashCores, coreValue - taken);
+            spirit.coreCount += regularTake;
+            me.trashCores -= regularTake;
+          }
+        } else {
+          // From void (infinite source)
+          spirit.coreCount += coreValue;
+        }
         updateSpiritLevel(spirit);
       }
       break;
@@ -283,10 +304,31 @@ export function triggerEffects(
 ): GameState {
   let next = state;
   const effects = card.effects?.filter((e) => e.trigger === trigger) ?? [];
+  const me = next.players[sourcePlayer]!;
+
   for (const effect of effects) {
     // For discard_hand effects, use discardCardIndex as targetSpiritIndex if provided
     const targetIdx = effect.action === 'discard_hand' && discardCardIndex !== undefined ? discardCardIndex : targetSpiritIndex;
-    next = applyEffect(next, effect, sourcePlayer, undefined, spirit, targetIdx, effectValue);
+
+    // Handle multiTarget effects (apply to multiple spirits)
+    if (effect.multiTarget && effect.action === 'boost_bp') {
+      // Find all spirits matching the condition
+      const targetSpirits: any[] = [];
+      if (effect.condition?.requiresSkill === '継召') {
+        // Find all spirits with inheritance (継召)
+        for (const s of me.spirits) {
+          if (s.def.inheritance) {
+            targetSpirits.push(s);
+          }
+        }
+      }
+      // Apply effect to all matching spirits
+      for (const targetSpirit of targetSpirits) {
+        next = applyEffect(next, effect, sourcePlayer, undefined, targetSpirit, targetIdx, effectValue);
+      }
+    } else {
+      next = applyEffect(next, effect, sourcePlayer, undefined, spirit, targetIdx, effectValue);
+    }
   }
   return next;
 }
