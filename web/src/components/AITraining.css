@@ -808,6 +808,56 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+/* ローカルフォルダ管理セクション */
+.local-folder-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f5f7fa;
+  border-radius: 8px;
+  border-left: 4px solid #4caf50;
+}
+
+.local-folder-section h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.folder-status {
+  padding: 1rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.folder-path {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.folder-info {
+  margin: 0 0 1rem 0;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.folder-info-text {
+  margin: 1rem 0 0 0;
+  color: #999;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.folder-info-text code {
+  background: #f0f0f0;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  color: #c62828;
+}
+
 /* リソース設定モーダル */
 .settings-info {
   background: #e3f2fd;

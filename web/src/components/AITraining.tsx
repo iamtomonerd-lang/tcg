@@ -57,6 +57,9 @@ export default function AITraining({ onBack }: AITrainingProps) {
   const [googleDriveConnected, setGoogleDriveConnected] = useState(false);
   const [dropboxConnected, setDropboxConnected] = useState(false);
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
+  const [localFolderHandle, setLocalFolderHandle] = useState<FileSystemDirectoryHandle | null>(null);
+  const [localFolderPath, setLocalFolderPath] = useState<string>('');
+  const [autoSaveToLocal, setAutoSaveToLocal] = useState(false);
   const trainingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -69,6 +72,7 @@ export default function AITraining({ onBack }: AITrainingProps) {
     calculateRecommendedLimits();
     loadAutoExportSettings();
     loadCloudSettings();
+    loadLocalFolderSettings();
   }, []);
 
   const loadAutoExportSettings = () => {
@@ -96,6 +100,108 @@ export default function AITraining({ onBack }: AITrainingProps) {
       } catch (e) {
         console.error('Failed to load cloud settings:', e);
       }
+    }
+  };
+
+  const loadLocalFolderSettings = async () => {
+    const saved = localStorage.getItem('ai-training-local-folder');
+    if (saved) {
+      try {
+        const settings = JSON.parse(saved);
+        if (settings.folderName) {
+          setLocalFolderPath(settings.folderName);
+          setAutoSaveToLocal(settings.autoSaveToLocal || false);
+
+          // ローカルフォルダからデータを読み込み
+          if (settings.autoSaveToLocal) {
+            await loadFromLocalFolder(settings.folderName);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load local folder settings:', e);
+      }
+    }
+  };
+
+  const selectLocalFolder = async () => {
+    try {
+      const dirHandle = await (window as any).showDirectoryPicker();
+      setLocalFolderHandle(dirHandle);
+      setLocalFolderPath(dirHandle.name || 'ダウンロード');
+
+      // 設定を保存
+      localStorage.setItem('ai-training-local-folder', JSON.stringify({
+        folderName: dirHandle.name,
+        autoSaveToLocal: true,
+      }));
+      setAutoSaveToLocal(true);
+
+      alert(`✅ ${dirHandle.name} を選択しました。データはこのフォルダに保存されます。`);
+
+      // フォルダからデータを読み込み
+      await loadFromLocalFolder(dirHandle);
+    } catch (error) {
+      console.error('Failed to select folder:', error);
+      alert('❌ フォルダの選択に失敗しました');
+    }
+  };
+
+  const loadFromLocalFolder = async (dirHandle?: FileSystemDirectoryHandle) => {
+    try {
+      const handle = dirHandle || localFolderHandle;
+      if (!handle) return;
+
+      const fileHandle = await (handle as any).getFileHandle('ai-training-data.json', { create: false }).catch(() => null);
+      if (!fileHandle) {
+        console.log('ローカルフォルダにデータファイルが見つかりません');
+        return;
+      }
+
+      const file = await (fileHandle as any).getFile();
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      // データを読み込み
+      if (data.sessions) {
+        setHistory(data.sessions);
+        const totalGames = data.sessions.reduce((sum: number, s: TrainingHistory) => sum + s.gamesPlayed, 0);
+        const totalSeconds = data.sessions.reduce((sum: number, s: TrainingHistory) => sum + s.totalElapsedSeconds, 0);
+        setTotalStats({
+          totalGames,
+          totalHours: totalSeconds / 3600,
+        });
+        console.log('✅ ローカルフォルダからデータを読み込みました:', data.sessions.length, 'セッション');
+      }
+    } catch (error) {
+      console.error('Failed to load from local folder:', error);
+    }
+  };
+
+  const saveToLocalFolder = async () => {
+    try {
+      const handle = localFolderHandle;
+      if (!handle) {
+        alert('❌ ローカルフォルダが選択されていません');
+        return;
+      }
+
+      const data = {
+        exportDate: new Date().toISOString(),
+        totalStats: {
+          totalGames: totalStats.totalGames,
+          totalHours: totalStats.totalHours.toFixed(1),
+        },
+        sessions: history,
+      };
+
+      const fileHandle = await (handle as any).getFileHandle('ai-training-data.json', { create: true });
+      const writable = await (fileHandle as any).createWritable();
+      await writable.write(JSON.stringify(data, null, 2));
+      await writable.close();
+
+      console.log('✅ ローカルフォルダにデータを保存しました');
+    } catch (error) {
+      console.error('Failed to save to local folder:', error);
     }
   };
 
@@ -232,7 +338,7 @@ export default function AITraining({ onBack }: AITrainingProps) {
     setState('running');
   };
 
-  const stopTraining = () => {
+  const stopTraining = async () => {
     setState('completed');
     if (trainingIntervalRef.current) clearInterval(trainingIntervalRef.current);
     if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
@@ -283,6 +389,11 @@ export default function AITraining({ onBack }: AITrainingProps) {
 
     // Save to localStorage
     localStorage.setItem('ai-training-stats', JSON.stringify({ sessions: updatedHistory }));
+
+    // Save to local folder if enabled
+    if (autoSaveToLocal && localFolderHandle) {
+      await saveToLocalFolder();
+    }
   };
 
   const handleSetEndTime = () => {
@@ -393,6 +504,15 @@ export default function AITraining({ onBack }: AITrainingProps) {
       });
     } catch (error) {
       console.error('Failed to save to server:', error);
+    }
+
+    // Save to local folder if enabled
+    if (autoSaveToLocal && localFolderHandle) {
+      try {
+        await saveToLocalFolder();
+      } catch (error) {
+        console.error('Failed to save to local folder:', error);
+      }
     }
   };
 
@@ -944,6 +1064,53 @@ export default function AITraining({ onBack }: AITrainingProps) {
                   style={{ display: 'none' }}
                 />
               </label>
+            </div>
+
+            <div className="local-folder-section">
+              <h4>💾 ローカルフォルダ管理</h4>
+              <div className="folder-status">
+                {localFolderPath ? (
+                  <>
+                    <p className="folder-path">
+                      ✅ 接続済み: <strong>{localFolderPath}</strong>
+                    </p>
+                    <p className="folder-info">
+                      データは自動でこのフォルダに保存されます
+                    </p>
+                    <button
+                      className="modal-button primary"
+                      onClick={() => loadFromLocalFolder()}
+                      style={{ marginBottom: '0.5rem' }}
+                    >
+                      📂 フォルダから読み込み
+                    </button>
+                    <button
+                      className="modal-button secondary"
+                      onClick={() => {
+                        setLocalFolderHandle(null);
+                        setLocalFolderPath('');
+                        setAutoSaveToLocal(false);
+                        localStorage.removeItem('ai-training-local-folder');
+                      }}
+                    >
+                      ❌ フォルダ接続を解除
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p>ローカルフォルダが選択されていません</p>
+                    <button
+                      className="modal-button primary"
+                      onClick={selectLocalFolder}
+                    >
+                      📁 ダウンロードフォルダを選択
+                    </button>
+                    <p className="folder-info-text">
+                      💡 フォルダを選択すると、学習データが <code>ai-training-data.json</code> として自動保存されます。
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="cloud-settings-section">
