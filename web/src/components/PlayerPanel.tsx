@@ -179,7 +179,7 @@ export default function PlayerPanel({
         <div key={`n${i}`} className="fcard-wrap">
           <div
             className={`fcard nexus ${dragOverCard === `nexus-${i}` ? 'drag-over' : ''}`}
-            title={`${nexus.name}（ネクサス Lv${nexus.level}｜コア${nexus.coreCount ?? 0}）`}
+            title={`${nexus.name}（ネクサス Lv${nexus.level}｜コア${(nexus.coreCount ?? 0) + (nexus.soulCoreCount ?? 0)}）`}
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
@@ -220,7 +220,7 @@ export default function PlayerPanel({
         <div key={`s${i}`} className="fcard-wrap">
           <div
             className={`fcard spirit ${spirit.canAttack ? '' : 'tapped'} ${dragOverCard === `spirit-${i}` ? 'drag-over' : ''}`}
-            title={`${spirit.name}｜Lv${spirit.level}｜BP${spirit.bp}｜コア${spirit.coreCount}${spirit.canAttack ? '' : '｜疲労'}`}
+            title={`${spirit.name}｜Lv${spirit.level}｜BP${spirit.bp}｜コア${spirit.coreCount + (spirit.soulCoreCount ?? 0)}${spirit.canAttack ? '' : '｜疲労'}`}
             draggable={isHumanTurn}
             onDragStart={(e) => {
               if (isHumanTurn && onDragStart) {
