@@ -4,17 +4,21 @@
   display: flex;
   gap: 1rem;
   align-items: center;
-  padding: 0.5rem 0;
+  padding: 0.6rem 0.5rem;
   font-size: 0.85rem;
+  margin-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
 }
 
 .core-group {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.3rem 0.6rem;
-  border-radius: 4px;
+  gap: 0.4rem;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .core-label {
@@ -33,11 +37,12 @@
 }
 
 .core {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   border: 2px solid;
   flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .core.regular {
@@ -82,18 +87,18 @@
 .core-trash-section {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.3rem 0.6rem;
-  background: rgba(100, 50, 50, 0.2);
-  border-radius: 4px;
-  border: 1px solid rgba(139, 69, 69, 0.3);
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  background: rgba(80, 40, 40, 0.3);
+  border-radius: 6px;
+  border: 1px solid rgba(139, 69, 69, 0.4);
 }
 
 .trash-label {
   font-weight: 700;
-  color: #9aa3b8;
+  color: #a89a8a;
   white-space: nowrap;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   letter-spacing: 0.1em;
 }
 
