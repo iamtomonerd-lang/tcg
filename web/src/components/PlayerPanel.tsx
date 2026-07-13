@@ -15,6 +15,7 @@ interface PlayerPanelProps {
   onDrop?: (data: any) => void;
   dragOverCard?: string | null;
   onCardRightClick?: (imagePath: string | undefined, name: string) => void;
+  canAffordCard: (card: any) => boolean;
 }
 
 function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
@@ -46,6 +47,7 @@ export default function PlayerPanel({
   onDrop,
   dragOverCard,
   onCardRightClick,
+  canAffordCard,
 }: PlayerPanelProps) {
   const statsBar = (
     <div className="player-stats-section">
@@ -167,14 +169,16 @@ export default function PlayerPanel({
     <div className="hand-row">
       <span className="hand-label">手札</span>
       {player.handCards.length > 0 ? (
-        player.handCards.map((card: any, i: number) => (
+        player.handCards.map((card: any, i: number) => {
+          const canAfford = canAffordCard(card);
+          return (
           <div
             key={i}
-            className={`fcard hand ${dragOverCard === `hand-${i}` ? 'drag-over' : ''}`}
+            className={`fcard hand ${dragOverCard === `hand-${i}` ? 'drag-over' : ''} ${!canAfford ? 'unaffordable' : ''}`}
             title={`${card.name}（コスト${card.cost}）`}
-            draggable={isHumanTurn}
+            draggable={isHumanTurn && canAfford}
             onDragStart={(e) => {
-              if (isHumanTurn && onDragStart) {
+              if (isHumanTurn && canAfford && onDragStart) {
                 const dragPayload = { type: 'hand-card', handIndex: i, card };
                 onDragStart(dragPayload);
                 e.dataTransfer!.effectAllowed = 'move';
@@ -191,7 +195,8 @@ export default function PlayerPanel({
             <span className="cost-badge">{card.cost}</span>
             <div className="fcard-name">{card.name}</div>
           </div>
-        ))
+        );
+        })
       ) : (
         <div className="field-empty">手札なし</div>
       )}

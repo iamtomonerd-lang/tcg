@@ -33,6 +33,23 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
 
   const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
 
+  // Helper: check if a card can be afforded
+  const canAffordCard = (card: any): boolean => {
+    if (!state) return false;
+    const me = state.players[currentPlayer];
+    const totalCores = me.cores + me.soulCores;
+
+    if (card.cardType === 'spirit') {
+      // Spirit requires cost + Lv1 cost
+      return totalCores >= card.cost + (card.lv1?.cost || 0);
+    } else if (card.cardType === 'nexus') {
+      return totalCores >= card.cost;
+    } else if (card.cardType === 'magic') {
+      return totalCores >= card.cost;
+    }
+    return true;
+  };
+
   const fetchGameState = useCallback(async () => {
     try {
       const response = await fetch(`/api/game/${sessionId}/state`);
@@ -373,6 +390,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           onDrop={handleDrop}
           dragOverCard={dragOverCard}
           onCardRightClick={(imagePath, name) => setSelectedCardImage({ imagePath: imagePath || '', name })}
+          canAffordCard={canAffordCard}
         />
 
         <div className="center-bar">
@@ -405,6 +423,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           onDrop={handleDrop}
           dragOverCard={dragOverCard}
           onCardRightClick={(imagePath, name) => setSelectedCardImage({ imagePath: imagePath || '', name })}
+          canAffordCard={canAffordCard}
         />
       </div>
 

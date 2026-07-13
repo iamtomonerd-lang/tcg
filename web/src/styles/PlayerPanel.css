@@ -233,6 +233,16 @@
   filter: grayscale(0.7);
 }
 
+/* Unaffordable cards */
+.fcard.unaffordable {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fcard.unaffordable[draggable="false"] {
+  filter: grayscale(0.8);
+}
+
 .tap-overlay {
   position: absolute;
   top: 30%;
