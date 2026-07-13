@@ -13,11 +13,6 @@ interface GameSession {
   state: any;
 }
 
-interface DeckCard {
-  cardId: string;
-  count: number;
-}
-
 type AppScreen = 'home' | 'setup' | 'deck-build' | 'ai-training' | 'rank-match' | 'achievements' | 'game';
 
 export default function App() {
@@ -37,12 +32,6 @@ export default function App() {
     } else if (mode === 'achievements') {
       setScreen('achievements');
     }
-  };
-
-  const handleSaveDeck = (deck: DeckCard[]) => {
-    console.log('Deck saved:', deck);
-    // TODO: デッキ保存処理を実装
-    setScreen('home');
   };
 
   const handleStartGame = async (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number) => {
@@ -98,7 +87,7 @@ export default function App() {
       )}
 
       {screen === 'deck-build' && (
-        <DeckBuilder onBack={handleBackToHome} onSaveDeck={handleSaveDeck} />
+        <DeckBuilder onBack={handleBackToHome} />
       )}
 
       {screen === 'ai-training' && (

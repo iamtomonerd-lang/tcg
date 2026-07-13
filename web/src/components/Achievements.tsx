@@ -16,22 +16,21 @@ interface AchievementsProps {
 export default function Achievements({ onBack }: AchievementsProps) {
   const [achievements, setAchievements] = useState<CardAchievement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'rating' | 'streak'>('rating');
 
   useEffect(() => {
     const fetchAchievements = async () => {
       try {
         const response = await fetch('/api/achievements/stats');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        setAchievements(data.achievements || []);
-        setLoading(false);
+        if (response.ok) {
+          const data = await response.json();
+          setAchievements(data.achievements || []);
+        }
       } catch (err) {
+        // サーバー未接続時はエラーではなく空状態を表示
         console.error('Failed to load achievements:', err);
-        setError(`実績を読み込めませんでした: ${err instanceof Error ? err.message : '不明なエラー'}`);
-        setLoading(false);
       }
+      setLoading(false);
     };
     fetchAchievements();
   }, []);
@@ -48,15 +47,20 @@ export default function Achievements({ onBack }: AchievementsProps) {
     return <div className="achievements loading">読み込み中...</div>;
   }
 
-  if (error) {
-    return <div className="achievements error">{error}</div>;
-  }
-
   return (
     <div className="achievements">
       <div className="achievements-header">
-        <h2>実績</h2>
-        <p>カードごとの最高成績を確認できます</p>
+        <div className="header-row">
+          {onBack && (
+            <button className="header-back-button" onClick={onBack}>
+              ← 戻る
+            </button>
+          )}
+          <div>
+            <h2>⭐ 実績</h2>
+            <p>カードごとの最高成績を確認できます</p>
+          </div>
+        </div>
       </div>
 
       <div className="achievements-content">
@@ -77,8 +81,8 @@ export default function Achievements({ onBack }: AchievementsProps) {
 
         {sortedAchievements.length === 0 ? (
           <div className="empty-achievements">
-            <p>実績がまだありません</p>
-            <p className="hint">ランクマッチに参加してカードを使用してください</p>
+            <p>実績はまだありません</p>
+            <p className="hint">ランクマッチで対戦すると、カードごとの最高レートと最大連勝数がここに記録されます</p>
           </div>
         ) : (
           <div className="achievements-list">
@@ -111,12 +115,6 @@ export default function Achievements({ onBack }: AchievementsProps) {
           </div>
         )}
       </div>
-
-      {onBack && (
-        <button className="back-button" onClick={onBack}>
-          ← 戻る
-        </button>
-      )}
     </div>
   );
 }

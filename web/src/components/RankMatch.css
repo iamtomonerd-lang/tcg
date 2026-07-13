@@ -20,23 +20,46 @@
 }
 
 .rank-match-header {
-  background: linear-gradient(to bottom, rgba(255, 215, 0, 0.15), transparent);
-  padding: 2rem;
-  text-align: center;
-  border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1.5rem 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.rank-match-header .header-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.header-back-button {
+  flex-shrink: 0;
+  padding: 0.6rem 1.2rem;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.header-back-button:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .rank-match-header h2 {
-  margin: 0 0 0.5rem 0;
-  font-size: 2.5rem;
-  color: #ffd700;
+  margin: 0 0 0.3rem 0;
+  font-size: 2rem;
+  color: white;
   font-weight: 800;
 }
 
 .rank-match-header p {
   margin: 0;
-  font-size: 1rem;
-  color: #9aa3b8;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .rank-match-content {
@@ -237,24 +260,6 @@
   transform: translateY(0);
 }
 
-.back-button {
-  margin: 1rem 2rem 1rem auto;
-  padding: 0.75rem 1.5rem;
-  background: rgba(57, 65, 90, 0.6);
-  color: #e8eaf0;
-  border: 2px solid #39415a;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.back-button:hover {
-  background: rgba(102, 126, 234, 0.1);
-  border-color: #667eea;
-}
-
 /* レスポンシブ */
 @media (max-width: 1024px) {
   .rank-match-content {
@@ -291,10 +296,6 @@
   .deck-selection,
   .match-info {
     max-height: 400px;
-  }
-
-  .back-button {
-    margin-right: 1rem;
   }
 }
 

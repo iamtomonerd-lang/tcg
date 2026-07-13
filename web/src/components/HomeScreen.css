@@ -38,11 +38,19 @@
   flex: 1;
   display: flex;
   flex-wrap: wrap;
+  align-content: center;
   align-items: center;
   justify-content: center;
-  gap: 3rem;
+  gap: 2rem;
   padding: 2rem;
   min-height: 0;
+  max-width: 720px;
+  margin: 0 auto;
+  overflow-y: auto;
+}
+
+.menu-button {
+  flex: 0 0 auto;
 }
 
 .menu-button {

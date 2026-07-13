@@ -17,16 +17,30 @@ interface DeckCard {
   count: number;
 }
 
+interface SavedDeck {
+  id: string;
+  name: string;
+  cards: DeckCard[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface DeckBuilderProps {
   onBack?: () => void;
   onSaveDeck?: (deck: DeckCard[]) => void;
 }
 
-export default function DeckBuilder({ onBack, onSaveDeck }: DeckBuilderProps) {
+const LOCAL_DECKS_KEY = 'bs-saved-decks';
+
+export default function DeckBuilder({ onBack }: DeckBuilderProps) {
   const [cards, setCards] = useState<CardData[]>([]);
   const [deck, setDeck] = useState<Map<string, number>>(new Map());
+  const [deckName, setDeckName] = useState('');
+  const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
+  const [savedDecks, setSavedDecks] = useState<SavedDeck[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'spirit' | 'nexus' | 'magic'>('all');
 
   useEffect(() => {
@@ -39,7 +53,6 @@ export default function DeckBuilder({ onBack, onSaveDeck }: DeckBuilderProps) {
         // データを配列に変換（オブジェクトの場合）
         const cardsArray = Array.isArray(data) ? data : Object.values(data);
 
-        console.log('Loaded cards:', cardsArray.length, 'cards');
         if (cardsArray.length === 0) {
           setError('カード情報がありません');
         } else {
@@ -53,12 +66,37 @@ export default function DeckBuilder({ onBack, onSaveDeck }: DeckBuilderProps) {
       }
     };
     fetchCards();
+    fetchSavedDecks();
   }, []);
+
+  const fetchSavedDecks = async () => {
+    try {
+      const response = await fetch('/api/decks');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      setSavedDecks(data.decks || []);
+      // サーバー保存に成功しているのでローカルにも同期
+      localStorage.setItem(LOCAL_DECKS_KEY, JSON.stringify(data.decks || []));
+    } catch {
+      // サーバーが使えない場合はlocalStorageから復元
+      try {
+        const local = localStorage.getItem(LOCAL_DECKS_KEY);
+        if (local) setSavedDecks(JSON.parse(local));
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const showMessage = (text: string) => {
+    setMessage(text);
+    setTimeout(() => setMessage(null), 3000);
+  };
 
   const addCardToDeck = (cardId: string) => {
     const currentCount = deck.get(cardId) || 0;
     if (currentCount >= 3) {
-      alert('同じカードは3枚までです');
+      showMessage('同じカードは3枚までです');
       return;
     }
     const newDeck = new Map(deck);
@@ -89,15 +127,91 @@ export default function DeckBuilder({ onBack, onSaveDeck }: DeckBuilderProps) {
     }));
   };
 
-  const handleSaveDeck = () => {
+  const handleSaveDeck = async () => {
     const total = getTotalCards();
     if (total !== 40) {
-      alert(`デッキは40枚ちょうどである必要があります。現在: ${total}枚`);
+      showMessage(`デッキは40枚ちょうどである必要があります。現在: ${total}枚`);
       return;
     }
-    if (onSaveDeck) {
-      onSaveDeck(getDeckArray());
+    if (!deckName.trim()) {
+      showMessage('デッキ名を入力してください');
+      return;
     }
+
+    const payload = {
+      id: editingDeckId ?? undefined,
+      name: deckName.trim(),
+      cards: getDeckArray(),
+    };
+
+    try {
+      const response = await fetch('/api/decks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        showMessage(data.error || '保存に失敗しました');
+        return;
+      }
+      setEditingDeckId(data.deck.id);
+      await fetchSavedDecks();
+      showMessage(`✅ デッキ「${data.deck.name}」を保存しました`);
+    } catch {
+      // サーバーが使えない場合はlocalStorageに保存
+      const now = new Date().toISOString();
+      const deckId = editingDeckId ?? `deck_${Date.now().toString(36)}`;
+      const existing = savedDecks.find((d) => d.id === deckId);
+      const newDeckObj: SavedDeck = {
+        id: deckId,
+        name: deckName.trim(),
+        cards: getDeckArray(),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+      const updated = [newDeckObj, ...savedDecks.filter((d) => d.id !== deckId)];
+      setSavedDecks(updated);
+      setEditingDeckId(deckId);
+      localStorage.setItem(LOCAL_DECKS_KEY, JSON.stringify(updated));
+      showMessage(`✅ デッキ「${newDeckObj.name}」を保存しました（ローカル保存）`);
+    }
+  };
+
+  const handleLoadDeck = (saved: SavedDeck) => {
+    const newDeck = new Map<string, number>();
+    for (const c of saved.cards) {
+      newDeck.set(c.cardId, c.count);
+    }
+    setDeck(newDeck);
+    setDeckName(saved.name);
+    setEditingDeckId(saved.id);
+    showMessage(`デッキ「${saved.name}」を読み込みました`);
+  };
+
+  const handleDeleteDeck = async (deckId: string) => {
+    const target = savedDecks.find((d) => d.id === deckId);
+    if (!target) return;
+    if (!confirm(`デッキ「${target.name}」を削除しますか？`)) return;
+
+    try {
+      await fetch(`/api/decks/${deckId}`, { method: 'DELETE' });
+    } catch {
+      // ignore - localStorageからは必ず消す
+    }
+    const updated = savedDecks.filter((d) => d.id !== deckId);
+    setSavedDecks(updated);
+    localStorage.setItem(LOCAL_DECKS_KEY, JSON.stringify(updated));
+    if (editingDeckId === deckId) {
+      setEditingDeckId(null);
+    }
+    showMessage(`デッキ「${target.name}」を削除しました`);
+  };
+
+  const handleNewDeck = () => {
+    setDeck(new Map());
+    setDeckName('');
+    setEditingDeckId(null);
   };
 
   const filteredCards = cards.filter(
@@ -117,9 +231,20 @@ export default function DeckBuilder({ onBack, onSaveDeck }: DeckBuilderProps) {
   return (
     <div className="deck-builder">
       <div className="deck-builder-header">
-        <h2>デッキ構築</h2>
-        <p>カードを選んでデッキを作成してください（40枚ちょうど、同名3枚まで）</p>
+        <div className="header-row">
+          {onBack && (
+            <button className="header-back-button" onClick={onBack}>
+              ← 戻る
+            </button>
+          )}
+          <div>
+            <h2>デッキ構築</h2>
+            <p>カードを選んでデッキを作成してください（40枚ちょうど、同名3枚まで）</p>
+          </div>
+        </div>
       </div>
+
+      {message && <div className="deck-message">{message}</div>}
 
       <div className="deck-builder-content">
         {/* 左側: カード一覧 */}
@@ -206,6 +331,20 @@ export default function DeckBuilder({ onBack, onSaveDeck }: DeckBuilderProps) {
             </div>
           </div>
 
+          <div className="deck-name-row">
+            <input
+              type="text"
+              className="deck-name-input"
+              placeholder="デッキ名を入力"
+              value={deckName}
+              onChange={(e) => setDeckName(e.target.value)}
+              maxLength={30}
+            />
+            <button className="new-deck-button" onClick={handleNewDeck} title="新規デッキ">
+              新規
+            </button>
+          </div>
+
           <div className="deck-list">
             {deck.size === 0 ? (
               <div className="empty-deck">
@@ -247,19 +386,48 @@ export default function DeckBuilder({ onBack, onSaveDeck }: DeckBuilderProps) {
             )}
           </div>
 
+          {/* 保存済みデッキ */}
+          <div className="saved-decks-section">
+            <h4>保存済みデッキ ({savedDecks.length})</h4>
+            {savedDecks.length === 0 ? (
+              <p className="no-saved-decks">保存済みデッキはありません</p>
+            ) : (
+              <div className="saved-decks-list">
+                {savedDecks.map((saved) => (
+                  <div
+                    key={saved.id}
+                    className={`saved-deck-item ${editingDeckId === saved.id ? 'editing' : ''}`}
+                  >
+                    <button className="saved-deck-load" onClick={() => handleLoadDeck(saved)}>
+                      {saved.name}
+                    </button>
+                    <button
+                      className="saved-deck-delete"
+                      onClick={() => handleDeleteDeck(saved.id)}
+                      title="削除"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="deck-footer">
             <button
               className="save-button"
               onClick={handleSaveDeck}
-              disabled={totalCards !== 40}
+              disabled={totalCards !== 40 || !deckName.trim()}
             >
-              {totalCards === 40 ? 'デッキを開始' : `あと ${40 - totalCards} 枚必要`}
+              {totalCards !== 40
+                ? `あと ${40 - totalCards} 枚必要`
+                : !deckName.trim()
+                  ? 'デッキ名を入力してください'
+                  : editingDeckId
+                    ? 'デッキを上書き保存'
+                    : 'デッキを保存'}
             </button>
-            {onBack && (
-              <button className="back-button" onClick={onBack}>
-                ← 戻る
-              </button>
-            )}
           </div>
         </div>
       </div>

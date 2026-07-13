@@ -371,15 +371,6 @@ app.post('/api/training/stats', async (req, res) => {
   }
 });
 
-// Catch-all: serve React app (Express 5 no longer accepts '*' as a route path)
-app.use((req, res) => {
-  res.sendFile(join(__dirname, '../web/dist/index.html'));
-});
-
-app.listen(port, '0.0.0.0', () => {
-  console.log(`🎮 Battle Spirits AI Web UI running at http://localhost:${port}`);
-});
-
 // Helper functions
 
 function createAgent(type: string, iters: number, _rng: Mulberry32) {
@@ -637,6 +628,119 @@ app.post('/api/rank/update', async (req, res) => {
   }
 });
 
+// 保存デッキ用インターフェース
+interface SavedDeck {
+  id: string;
+  name: string;
+  cards: { cardId: string; count: number }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface DecksData {
+  decks: { [key: string]: SavedDeck };
+}
+
+// デッキファイルのパス
+function getDecksPath(): string {
+  const dataDir = process.env.BS_DATA_DIR || join(homedir(), 'BattleSpiritsAI');
+  return join(dataDir, 'decks.json');
+}
+
+// デッキを読み込む
+async function loadDecks(): Promise<DecksData> {
+  try {
+    const path = getDecksPath();
+    const data = await fs.readFile(path, 'utf-8');
+    return JSON.parse(data) as DecksData;
+  } catch {
+    return { decks: {} };
+  }
+}
+
+// デッキを保存
+async function saveDecks(data: DecksData): Promise<void> {
+  const dataDir = process.env.BS_DATA_DIR || join(homedir(), 'BattleSpiritsAI');
+  await fs.mkdir(dataDir, { recursive: true });
+  await fs.writeFile(getDecksPath(), JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// デッキ一覧取得
+app.get('/api/decks', async (_req, res) => {
+  try {
+    const data = await loadDecks();
+    const decks = Object.values(data.decks).sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+    res.json({ decks });
+  } catch (error) {
+    console.error('Error loading decks:', error);
+    res.status(500).json({ error: 'Failed to load decks' });
+  }
+});
+
+// デッキ保存（新規・上書き）
+app.post('/api/decks', async (req, res) => {
+  try {
+    const { id, name, cards } = req.body as {
+      id?: string;
+      name?: string;
+      cards?: { cardId: string; count: number }[];
+    };
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'デッキ名を入力してください' });
+    }
+    if (!Array.isArray(cards) || cards.length === 0) {
+      return res.status(400).json({ error: 'カードがありません' });
+    }
+
+    // バリデーション: 40枚ちょうど、同名3枚まで
+    const total = cards.reduce((sum, c) => sum + c.count, 0);
+    if (total !== 40) {
+      return res.status(400).json({ error: `デッキは40枚ちょうどである必要があります（現在: ${total}枚）` });
+    }
+    if (cards.some((c) => c.count > 3 || c.count < 1)) {
+      return res.status(400).json({ error: '同じカードは3枚までです' });
+    }
+
+    const data = await loadDecks();
+    const now = new Date().toISOString();
+    const deckId = id && data.decks[id] ? id : `deck_${Date.now().toString(36)}`;
+    const existing = data.decks[deckId];
+
+    data.decks[deckId] = {
+      id: deckId,
+      name: name.trim(),
+      cards,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    await saveDecks(data);
+
+    res.json({ deck: data.decks[deckId] });
+  } catch (error) {
+    console.error('Error saving deck:', error);
+    res.status(500).json({ error: 'Failed to save deck' });
+  }
+});
+
+// デッキ削除
+app.delete('/api/decks/:deckId', async (req, res) => {
+  try {
+    const data = await loadDecks();
+    if (!data.decks[req.params.deckId]) {
+      return res.status(404).json({ error: 'Deck not found' });
+    }
+    delete data.decks[req.params.deckId];
+    await saveDecks(data);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting deck:', error);
+    res.status(500).json({ error: 'Failed to delete deck' });
+  }
+});
+
 // 実績用インターフェース
 interface CardAchievement {
   cardId: string;
@@ -731,7 +835,13 @@ app.post('/api/achievements/update-card', async (req, res) => {
   }
 });
 
+// Catch-all: serve React app (Express 5 no longer accepts '*' as a route path)
+// ※ 必ず全APIルートの後に登録すること
+app.use((req, res) => {
+  res.sendFile(join(__dirname, '../web/dist/index.html'));
+});
+
 // サーバー起動
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🎮 Battle Spirits AI Web UI running at http://localhost:${port}`);
 });
