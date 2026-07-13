@@ -64,6 +64,8 @@ export default function PlayerPanel({
       <CoreReserve
         cores={player.cores}
         soulCores={player.soulCores}
+        trashCores={player.trashCores}
+        trashSoulCores={player.trashSoulCores}
         isHumanTurn={isHumanTurn}
         playerNumber={playerNumber}
         onDragStart={onDragStart}

@@ -78,6 +78,37 @@
   text-align: right;
 }
 
+/* Trash section */
+.core-trash-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  background: rgba(100, 50, 50, 0.2);
+  border-radius: 4px;
+  border: 1px solid rgba(139, 69, 69, 0.3);
+}
+
+.trash-label {
+  font-weight: 700;
+  color: #9aa3b8;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+}
+
+.core.trash {
+  background: #4a3333;
+  border-color: #8b5a5a;
+  opacity: 0.6;
+}
+
+.core.trash-soul {
+  background: #6b46c1;
+  border-color: #4a3333;
+  opacity: 0.4;
+}
+
 /* Visual feedback during drag */
 .core-reserve.drag-over {
   background: rgba(102, 126, 234, 0.15);
