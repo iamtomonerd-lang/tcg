@@ -484,7 +484,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
 
     // Place a core from reserve onto a spirit (level-up); only useful below Lv2
-    if (totalCores > 0) {
+    // Note: add_core only uses cores from reserve, not from spirits, so check reserve specifically
+    const reserveCores = me.cores + me.soulCores;
+    if (reserveCores > 0) {
       for (let i = 0; i < me.spirits.length; i++) {
         const s = me.spirits[i]!;
         if (s.def.lv2 && s.coreCount < s.def.lv2.cost) {
