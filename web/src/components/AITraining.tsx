@@ -882,7 +882,7 @@ export default function AITraining({ onBack }: AITrainingProps) {
                 <p>AI の強さが向上しました</p>
               </div>
               <button className="reset-button" onClick={resetTraining}>
-                🔄 リセット
+                💾 保存
               </button>
               <button className="back-button" onClick={onBack}>
                 ← 戻る
