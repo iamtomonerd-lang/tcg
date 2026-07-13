@@ -49,10 +49,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  width: 240px;
-  height: 240px;
-  padding: 1.5rem;
+  gap: 0.75rem;
+  width: 200px;
+  height: 200px;
+  padding: 1.25rem;
   border: 2px solid #39415a;
   border-radius: 12px;
   background: linear-gradient(135deg, rgba(35, 42, 59, 0.8), rgba(57, 65, 90, 0.8));
@@ -96,7 +96,7 @@
 }
 
 .button-icon {
-  font-size: 4rem;
+  font-size: 3rem;
   line-height: 1;
   animation: float 3s ease-in-out infinite;
 }
@@ -109,23 +109,27 @@
   animation-delay: 0.5s;
 }
 
+.menu-button.ai-training .button-icon {
+  animation-delay: 1s;
+}
+
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-8px); }
 }
 
 .button-title {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #e8eaf0;
 }
 
 .button-desc {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #9aa3b8;
   font-weight: 400;
   text-align: center;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .home-footer {
@@ -152,16 +156,20 @@
 
   .menu-button {
     width: 100%;
-    max-width: 300px;
-    height: 200px;
+    max-width: 200px;
+    height: 160px;
   }
 
   .button-icon {
-    font-size: 3rem;
+    font-size: 2.5rem;
   }
 
   .button-title {
-    font-size: 1.25rem;
+    font-size: 1rem;
+  }
+
+  .button-desc {
+    font-size: 0.75rem;
   }
 }
 
