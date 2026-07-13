@@ -195,6 +195,8 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     } else if (data.type === 'core') {
       // Core drag: select the core type for payment
       setSelectedCoreType(data.coreType);
+      // For visual feedback during core drag
+      setDragOverCard('core-drag');
     }
   };
 
@@ -290,11 +292,10 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
         return;
       }
     } else if (dragData.type === 'spirit') {
-      // For spirit drags (core placement), find add_core action
+      // For spirit drags (core placement), find add_core action for THIS spirit
+      const spiritName = dragData.spirit?.def?.name || dragData.spirit?.name;
       matchingAction = legalActions.find((action) =>
-        action.description.includes('コア') ||
-        action.description.includes('add_core') ||
-        action.description.toLowerCase().includes('core')
+        spiritName && action.description.includes(spiritName) && action.description.includes('コア')
       );
     } else if (dragData.type === 'core') {
       // Core dragged onto hand card: use magic with specified core type
@@ -305,10 +306,11 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           cardName && action.description.includes(cardName)
         );
       } else if (dropData.spiritIndex !== undefined) {
-        // Core dragged onto spirit: find add_core action
+        // Core dragged onto spirit: find add_core action for THIS specific spirit
+        const targetSpirit = state?.players[currentPlayer]?.spirits[dropData.spiritIndex];
+        const spiritName = targetSpirit?.name;
         matchingAction = legalActions.find((action) =>
-          action.description.includes('コア') ||
-          action.description.toLowerCase().includes('core')
+          spiritName && action.description.includes(spiritName) && action.description.includes('コア')
         );
       }
     }
@@ -536,6 +538,14 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
                 {state.pendingAttack && <span className="hint attack">防御するか選択</span>}
                 {state.pendingFlash && <span className="hint flash">フラッシュ使用可</span>}
               </div>
+              {!state.pendingAttack && !state.pendingFlash && (
+                <div style={{ fontSize: '0.8rem', color: '#666', padding: '0.5rem 0.8rem', backgroundColor: '#f0f0f0', borderRadius: '4px', marginBottom: '0.8rem', lineHeight: '1.4' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '0.3rem' }}>プレイ手順:</div>
+                  <div>1️⃣ カードを場にドラッグ</div>
+                  <div>2️⃣ コアを支払う</div>
+                  <div>3️⃣ コアをスピリットに乗せる</div>
+                </div>
+              )}
               <div className="action-buttons">
                 {legalActions.map((action) => (
                   <button
