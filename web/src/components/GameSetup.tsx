@@ -3,9 +3,10 @@ import '../styles/GameSetup.css';
 
 interface GameSetupProps {
   onStartGame: (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number) => void;
+  onBack?: () => void;
 }
 
-export default function GameSetup({ onStartGame }: GameSetupProps) {
+export default function GameSetup({ onStartGame, onBack }: GameSetupProps) {
   const [p0Type, setP0Type] = useState('human');
   const [p1Type, setP1Type] = useState('mcts');
   const [p0Iters, setP0Iters] = useState(100);
@@ -72,9 +73,16 @@ export default function GameSetup({ onStartGame }: GameSetupProps) {
           </div>
         </div>
 
-        <button className="start-button" onClick={handleStart}>
-          ゲーム開始
-        </button>
+        <div className="button-group">
+          <button className="start-button" onClick={handleStart}>
+            ゲーム開始
+          </button>
+          {onBack && (
+            <button className="back-button" onClick={onBack}>
+              ← 戻る
+            </button>
+          )}
+        </div>
 
         <div className="info-box">
           <h4>ℹ️ 説明</h4>

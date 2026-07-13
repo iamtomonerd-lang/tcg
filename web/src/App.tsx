@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import GameBoard from './components/GameBoard';
 import GameSetup from './components/GameSetup';
+import HomeScreen from './components/HomeScreen';
 import './App.css';
 
 interface GameSession {
@@ -8,9 +9,21 @@ interface GameSession {
   state: any;
 }
 
+type AppScreen = 'home' | 'setup' | 'game';
+
 export default function App() {
+  const [screen, setScreen] = useState<AppScreen>('home');
   const [session, setSession] = useState<GameSession | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+
+  const handleSelectMode = (mode: 'free-battle' | 'deck-build') => {
+    if (mode === 'free-battle') {
+      setScreen('setup');
+    } else if (mode === 'deck-build') {
+      // TODO: デッキ構築画面を実装
+      console.log('Deck building not yet implemented');
+    }
+  };
 
   const handleStartGame = async (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number) => {
     try {
@@ -27,6 +40,7 @@ export default function App() {
         sessionId: data.sessionId,
         state: data.state,
       });
+      setScreen('game');
     } catch (error) {
       console.error('Failed to start game:', error);
       setStartError(
@@ -37,25 +51,37 @@ export default function App() {
 
   const handleEndGame = () => {
     setSession(null);
+    setScreen('home');
+  };
+
+  const handleBackToHome = () => {
+    setScreen('home');
   };
 
   return (
-    <div className={`app ${session ? 'in-game' : ''}`}>
-      {!session && (
-        <header className="header">
-          <h1>🎮 Battle Spirits AI</h1>
-          <p>ユニバーサルTCG対戦AI</p>
-        </header>
+    <div className={`app ${screen === 'game' ? 'in-game' : ''}`}>
+      {screen === 'home' && <HomeScreen onSelectMode={handleSelectMode} />}
+
+      {screen === 'setup' && (
+        <>
+          {!session && (
+            <header className="header">
+              <h1>🎮 Battle Spirits AI</h1>
+              <p>ユニバーサルTCG対戦AI</p>
+            </header>
+          )}
+          <main className="main">
+            {startError && <div className="error-banner">⚠️ {startError}</div>}
+            <GameSetup onStartGame={handleStartGame} onBack={handleBackToHome} />
+          </main>
+        </>
       )}
 
-      <main className={session ? 'main-game' : 'main'}>
-        {startError && <div className="error-banner">⚠️ {startError}</div>}
-        {!session ? (
-          <GameSetup onStartGame={handleStartGame} />
-        ) : (
-          <GameBoard sessionId={session.sessionId} onEndGame={handleEndGame} />
-        )}
-      </main>
+      {screen === 'game' && (
+        <main className="main-game">
+          <GameBoard sessionId={session!.sessionId} onEndGame={handleEndGame} />
+        </main>
+      )}
     </div>
   );
 }

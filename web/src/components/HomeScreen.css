@@ -1,0 +1,170 @@
+.home-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(135deg, #1a1f3a 0%, #2d3561 50%, #1a2847 100%);
+  color: #e8eaf0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+.home-header {
+  text-align: center;
+  padding: 3rem 2rem 1rem;
+  background: linear-gradient(to bottom, rgba(102, 126, 234, 0.15), transparent);
+}
+
+.home-header h1 {
+  margin: 0;
+  font-size: 3.5rem;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  background: linear-gradient(135deg, #667eea, #64b5f6, #ffd700);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+}
+
+.home-header p {
+  margin: 0.5rem 0 0;
+  font-size: 1.1rem;
+  color: #9aa3b8;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.menu-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3rem;
+  padding: 2rem;
+  min-height: 0;
+}
+
+.menu-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: 280px;
+  height: 280px;
+  padding: 2rem;
+  border: 2px solid #39415a;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(35, 42, 59, 0.8), rgba(57, 65, 90, 0.8));
+  color: #e8eaf0;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.menu-button:hover {
+  border-color: #667eea;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(100, 181, 246, 0.15));
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-8px);
+}
+
+.menu-button:active {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.menu-button.free-battle:hover {
+  border-color: #ff7b6b;
+  background: linear-gradient(135deg, rgba(255, 123, 107, 0.15), rgba(231, 76, 60, 0.1));
+  box-shadow: 0 8px 25px rgba(255, 123, 107, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.menu-button.deck-build:hover {
+  border-color: #4a90d9;
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.15), rgba(100, 181, 246, 0.1));
+  box-shadow: 0 8px 25px rgba(74, 144, 217, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.button-icon {
+  font-size: 4rem;
+  line-height: 1;
+  animation: float 3s ease-in-out infinite;
+}
+
+.menu-button.free-battle .button-icon {
+  animation-delay: 0s;
+}
+
+.menu-button.deck-build .button-icon {
+  animation-delay: 0.5s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.button-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #e8eaf0;
+}
+
+.button-desc {
+  font-size: 0.85rem;
+  color: #9aa3b8;
+  font-weight: 400;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.home-footer {
+  text-align: center;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(57, 65, 90, 0.5);
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 0.85rem;
+  color: #5b6479;
+  margin: 0;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 900px) {
+  .menu-container {
+    flex-direction: column;
+    gap: 2rem;
+    padding: 1rem;
+  }
+
+  .home-header h1 {
+    font-size: 2.5rem;
+  }
+
+  .menu-button {
+    width: 100%;
+    max-width: 300px;
+    height: 200px;
+  }
+
+  .button-icon {
+    font-size: 3rem;
+  }
+
+  .button-title {
+    font-size: 1.25rem;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .home-screen {
+    background: linear-gradient(135deg, #0f1419 0%, #1a2033 50%, #0d1620 100%);
+  }
+
+  .home-header {
+    background: linear-gradient(to bottom, rgba(74, 144, 217, 0.1), transparent);
+  }
+}

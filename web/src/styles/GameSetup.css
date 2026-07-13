@@ -87,8 +87,14 @@
   }
 }
 
+.button-group {
+  display: flex;
+  gap: 1rem;
+  margin: 2rem 0 1rem;
+}
+
 .start-button {
-  width: 100%;
+  flex: 1;
   padding: 1rem;
   font-size: 1.2rem;
   font-weight: bold;
@@ -97,7 +103,6 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  margin: 2rem 0 1rem;
   transition: transform 0.3s, box-shadow 0.3s;
 }
 
@@ -107,6 +112,30 @@
 }
 
 .start-button:active {
+  transform: translateY(-1px);
+}
+
+.back-button {
+  flex: 0 0 auto;
+  padding: 1rem 1.5rem;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #667eea;
+  background: #f0f2f5;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.back-button:hover {
+  background: #667eea;
+  color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.2);
+}
+
+.back-button:active {
   transform: translateY(-1px);
 }
 
