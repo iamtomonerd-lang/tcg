@@ -72,41 +72,44 @@ export default function CoreReserve({
         </div>
       )}
 
-      {(trashCores > 0 || trashSoulCores > 0) && (
-        <div className="core-trash-section">
-          <div className="trash-label">🗑️ トラッシュ</div>
-          {trashCores > 0 && (
-            <div className="core-group trash-cores">
-              <div className="core-display">
-                {Array.from({ length: Math.min(trashCores, 5) }).map((_, i) => (
-                  <div
-                    key={`t-${i}`}
-                    className="core trash"
-                    title="トラッシュのコア"
-                  />
-                ))}
-                {trashCores > 5 && <span className="core-count">+{trashCores - 5}</span>}
-              </div>
-              <span className="core-count">{trashCores}</span>
+      <div className="core-trash-section">
+        <div className="trash-label">🗑️ トラッシュ</div>
+        {trashCores > 0 && (
+          <div className="core-group trash-cores">
+            <div className="core-display">
+              {Array.from({ length: Math.min(trashCores, 5) }).map((_, i) => (
+                <div
+                  key={`t-${i}`}
+                  className="core trash"
+                  title="トラッシュのコア"
+                />
+              ))}
+              {trashCores > 5 && <span className="core-count">+{trashCores - 5}</span>}
             </div>
-          )}
-          {trashSoulCores > 0 && (
-            <div className="core-group trash-soul-cores">
-              <div className="core-display">
-                {Array.from({ length: Math.min(trashSoulCores, 5) }).map((_, i) => (
-                  <div
-                    key={`ts-${i}`}
-                    className="core trash-soul"
-                    title="トラッシュのソウルコア"
-                  />
-                ))}
-                {trashSoulCores > 5 && <span className="core-count">+{trashSoulCores - 5}</span>}
-              </div>
-              <span className="core-count">{trashSoulCores}</span>
+            <span className="core-count">{trashCores}</span>
+          </div>
+        )}
+        {trashCores === 0 && trashSoulCores === 0 && (
+          <div className="core-group trash-empty">
+            <span className="core-count">0</span>
+          </div>
+        )}
+        {trashSoulCores > 0 && (
+          <div className="core-group trash-soul-cores">
+            <div className="core-display">
+              {Array.from({ length: Math.min(trashSoulCores, 5) }).map((_, i) => (
+                <div
+                  key={`ts-${i}`}
+                  className="core trash-soul"
+                  title="トラッシュのソウルコア"
+                />
+              ))}
+              {trashSoulCores > 5 && <span className="core-count">+{trashSoulCores - 5}</span>}
             </div>
-          )}
-        </div>
-      )}
+            <span className="core-count">{trashSoulCores}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

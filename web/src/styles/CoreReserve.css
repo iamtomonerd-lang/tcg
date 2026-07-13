@@ -114,6 +114,11 @@
   opacity: 0.4;
 }
 
+.core-group.trash-empty {
+  color: #999;
+  font-style: italic;
+}
+
 /* Visual feedback during drag */
 .core-reserve.drag-over {
   background: rgba(102, 126, 234, 0.15);
