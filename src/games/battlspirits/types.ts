@@ -146,15 +146,15 @@ export interface GameState {
 }
 
 export type Action =
-  | { type: 'summon'; handIndex: number; targetNexusIndex?: number; coreType?: 'regular' | 'soul' }
+  | { type: 'summon'; handIndex: number; targetNexusIndex?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'add_core'; spiritIndex: number; coreType?: 'regular' | 'soul' } // move 1 core from reserve onto a spirit (level-up)
-  | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul' }
-  | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul' }
+  | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
+  | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number; discardCardIndex?: number } // discardCardIndex for effects requiring card selection
   | { type: 'block'; spiritIndex: number }
   | { type: 'defend'; spiritIndex: number } // respond to pending attack with defense
   | { type: 'take_damage' } // accept attack damage without defending
   | { type: 'pass' } // end current action phase
-  | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul' } // activate a flash magic card
+  | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number } // activate a flash magic card
   | { type: 'skip_flash' } // pass on flash opportunity
   | { type: 'select_draw_arrange'; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; cardIndices?: number[] }; // arrange and select cards for offering draw

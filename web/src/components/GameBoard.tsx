@@ -299,11 +299,12 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           setDragOverCard(null);
           setSelectedCoreType(null);
 
-          // Determine which core type to report (prefer regular if both paid)
-          const selectedType = newPaidRegular >= newPaidSoul ? 'regular' : 'soul';
-          // Execute the action with the core type
+          // Execute the action with exact core type counts
           setTimeout(() => {
-            executeAction(actionIndex, { coreType: selectedType });
+            executeAction(actionIndex, {
+              paidRegularCores: newPaidRegular,
+              paidSoulCores: newPaidSoul,
+            });
           }, 50);
         }
       } else {

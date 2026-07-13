@@ -78,7 +78,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     };
   }
 
-  private payCost(player: PlayerState, amount: number, coreType?: 'regular' | 'soul'): boolean {
+  private payCost(
+    player: PlayerState,
+    amount: number,
+    paidRegularCores?: number,
+    paidSoulCores?: number,
+    legacyCoreType?: 'regular' | 'soul',
+  ): boolean {
     // Calculate total available cores (reserve + spirits)
     let totalAvailable = player.cores + player.soulCores;
     for (const spirit of player.spirits) {
@@ -86,6 +92,61 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
     if (totalAvailable < amount) return false;
 
+    let regularRemaining = paidRegularCores ?? 0;
+    let soulRemaining = paidSoulCores ?? 0;
+
+    // If no specific core distribution provided, use legacy behavior
+    if (paidRegularCores === undefined && paidSoulCores === undefined) {
+      return this.payCostLegacy(player, amount, legacyCoreType);
+    }
+
+    // Take exactly the specified number of regular cores
+    // From reserve first, then from spirits
+    if (regularRemaining > 0) {
+      const fromReserve = Math.min(player.cores, regularRemaining);
+      player.cores -= fromReserve;
+      player.trashCores += fromReserve;
+      regularRemaining -= fromReserve;
+
+      // Take remaining from spirits
+      if (regularRemaining > 0) {
+        for (const spirit of player.spirits) {
+          if (regularRemaining <= 0) break;
+          const take = Math.min(spirit.coreCount, regularRemaining);
+          spirit.coreCount -= take;
+          player.trashCores += take;
+          regularRemaining -= take;
+          updateSpiritLevel(spirit);
+        }
+      }
+    }
+
+    // Take exactly the specified number of soul cores
+    // From reserve first, then from spirits
+    if (soulRemaining > 0) {
+      const fromReserve = Math.min(player.soulCores, soulRemaining);
+      player.soulCores -= fromReserve;
+      player.trashSoulCores += fromReserve;
+      soulRemaining -= fromReserve;
+
+      // Take remaining from spirits
+      if (soulRemaining > 0) {
+        for (const spirit of player.spirits) {
+          if (soulRemaining <= 0) break;
+          const take = Math.min(spirit.soulCoreCount, soulRemaining);
+          spirit.soulCoreCount -= take;
+          player.trashSoulCores += take;
+          soulRemaining -= take;
+          updateSpiritLevel(spirit);
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /** Legacy payCost behavior when core distribution is not specified */
+  private payCostLegacy(player: PlayerState, amount: number, coreType?: 'regular' | 'soul'): boolean {
     let remaining = amount;
 
     if (coreType === 'soul') {
@@ -505,7 +566,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // Use the magic card as flash
       me.hand.splice(action.handIndex, 1);
-      this.payCost(me, actualCost, action.coreType);
+      this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
       me.trash.push(card);
       next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue);
       checkResult(next);
@@ -637,9 +698,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const totalAvailable = this.getTotalAvailableCores(me);
         if (totalAvailable < totalCost) return next;
 
-        // Pay cost (to void) using regular or soul cores
+        // Pay cost (to trash) using specified regular/soul core distribution
         me.hand.splice(action.handIndex, 1);
-        this.payCost(me, totalCost, action.coreType);
+        this.payCost(me, totalCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
 
         // Place Lv1 cores on the spirit (always from regular cores)
         const spirit: any = {
@@ -697,9 +758,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const totalAvailable = this.getTotalAvailableCores(me);
         if (actualCost > totalAvailable) return next;
 
-        // Pay cost using regular or soul cores
+        // Pay cost using specified regular/soul core distribution
         me.hand.splice(action.handIndex, 1);
-        this.payCost(me, actualCost, action.coreType);
+        this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
 
         // Place nexus
         const nexus: Nexus = {
@@ -726,9 +787,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const totalAvailable = this.getTotalAvailableCores(me);
         if (actualCost > totalAvailable) return next;
 
-        // Pay cost using regular or soul cores
+        // Pay cost using specified regular/soul core distribution
         me.hand.splice(action.handIndex, 1);
-        this.payCost(me, actualCost, action.coreType);
+        this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
         me.trash.push(card);
 
         // Special handling for オファーリングドロー
