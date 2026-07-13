@@ -14,6 +14,7 @@ interface PlayerPanelProps {
   onDragEnd?: () => void;
   onDrop?: (data: any) => void;
   dragOverCard?: string | null;
+  onCardRightClick?: (imagePath: string | undefined, name: string) => void;
 }
 
 function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
@@ -44,6 +45,7 @@ export default function PlayerPanel({
   onDragEnd,
   onDrop,
   dragOverCard,
+  onCardRightClick,
 }: PlayerPanelProps) {
   const statsBar = (
     <div className="player-stats-section">
@@ -96,6 +98,10 @@ export default function PlayerPanel({
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
           }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onCardRightClick?.(nexus.imagePath, nexus.name);
+          }}
         >
           <CardImage imagePath={nexus.imagePath} name={nexus.name} />
           <div className="fcard-chips">
@@ -135,6 +141,10 @@ export default function PlayerPanel({
               }
             }
           }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onCardRightClick?.(spirit.imagePath, spirit.name);
+          }}
         >
           <CardImage imagePath={spirit.imagePath} name={spirit.name} />
           <div className="fcard-chips">
@@ -172,6 +182,10 @@ export default function PlayerPanel({
               }
             }}
             onDragEnd={onDragEnd}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onCardRightClick?.(card.imagePath, card.name);
+            }}
           >
             <CardImage imagePath={card.imagePath} name={card.name} />
             <span className="cost-badge">{card.cost}</span>

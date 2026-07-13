@@ -28,6 +28,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   const [arrangedCardIndices, setArrangedCardIndices] = useState<number[]>([]);
   const [selectedHandIndices, setSelectedHandIndices] = useState<Set<number>>(new Set());
   const [pendingCoreCost, setPendingCoreCost] = useState<{ actionIndex: number; requiredCores: number; paidCores: number; paidCoreType: 'regular' | 'soul' | null } | null>(null);
+  const [selectedCardImage, setSelectedCardImage] = useState<{ imagePath: string; name: string } | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
   const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
@@ -106,6 +107,17 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
   useEffect(() => {
     setPendingCoreCost(null);
   }, [state]);
+
+  // Close card image modal on Esc key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedCardImage(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const playAITurn = async () => {
     if (isBusy) return;
@@ -358,6 +370,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           onDragEnd={handleDragEnd}
           onDrop={handleDrop}
           dragOverCard={dragOverCard}
+          onCardRightClick={(imagePath, name) => setSelectedCardImage({ imagePath: imagePath || '', name })}
         />
 
         <div className="center-bar">
@@ -389,6 +402,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           onDragEnd={handleDragEnd}
           onDrop={handleDrop}
           dragOverCard={dragOverCard}
+          onCardRightClick={(imagePath, name) => setSelectedCardImage({ imagePath: imagePath || '', name })}
         />
       </div>
 
@@ -557,6 +571,32 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           </div>
         </div>
       </aside>
+
+      {/* ===== Card image modal ===== */}
+      {selectedCardImage && (
+        <div
+          className="card-image-modal"
+          onClick={() => setSelectedCardImage(null)}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div className="card-image-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="card-image-modal-title">{selectedCardImage.name}</div>
+            {selectedCardImage.imagePath ? (
+              <img
+                src={`/${selectedCardImage.imagePath}`}
+                alt={selectedCardImage.name}
+                className="card-image-modal-img"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="card-image-modal-empty">画像がありません</div>
+            )}
+            <div className="card-image-modal-hint">クリックまたは Esc で閉じる</div>
+          </div>
+        </div>
+      )}
 
       {/* ===== Game over overlay ===== */}
       {isTerminal && (

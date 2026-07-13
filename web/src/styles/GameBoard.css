@@ -453,3 +453,54 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ===== Card image modal ===== */
+
+.card-image-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  cursor: pointer;
+}
+
+.card-image-modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  max-height: 90vh;
+  max-width: 90vw;
+  overflow-y: auto;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+
+.card-image-modal-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+.card-image-modal-img {
+  max-height: 70vh;
+  max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.card-image-modal-empty {
+  color: #999;
+  font-size: 1.1rem;
+  padding: 3rem 1rem;
+}
+
+.card-image-modal-hint {
+  color: #999;
+  font-size: 0.9rem;
+  margin-top: 1.5rem;
+}
