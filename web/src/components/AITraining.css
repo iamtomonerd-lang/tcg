@@ -494,6 +494,13 @@
   background: #e0e0e0;
 }
 
+/* モーダル共通 */
+.settings-modal {
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
 /* データ管理モーダル */
 .data-modal {
   max-width: 500px;
@@ -604,6 +611,159 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+/* リソース設定モーダル */
+.settings-info {
+  background: #e3f2fd;
+  border-left: 4px solid #2196f3;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.settings-info p {
+  margin: 0 0 1rem 0;
+  color: #1565c0;
+  font-weight: 600;
+}
+
+.settings-info ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style: none;
+}
+
+.settings-info li {
+  margin-bottom: 0.5rem;
+  color: #1565c0;
+  font-size: 0.9rem;
+}
+
+.settings-info li.recommend {
+  background: #fff9c4;
+  color: #f57f17;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.settings-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.settings-section label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.settings-section small {
+  display: block;
+  color: #999;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.range-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #ddd;
+  outline: none;
+  -webkit-appearance: none;
+  margin: 0.5rem 0;
+}
+
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #667eea;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.range-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #667eea;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+  border: none;
+}
+
+.settings-presets {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.settings-presets p {
+  margin: 0 0 0.75rem 0;
+  color: #333;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.preset-button {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  color: #333;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 0.9rem;
+}
+
+.preset-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.preset-button.safe {
+  border-color: #4caf50;
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.preset-button.safe:hover {
+  background: #c8e6c9;
+}
+
+.preset-button.balanced {
+  border-color: #667eea;
+  background: #e8eaf6;
+  color: #5568d3;
+}
+
+.preset-button.balanced:hover {
+  background: #d1d5f0;
+}
+
+.preset-button.performance {
+  border-color: #ff9800;
+  background: #ffe0b2;
+  color: #e65100;
+}
+
+.preset-button.performance:hover {
+  background: #ffcc80;
 }
 
 /* レスポンシブ */

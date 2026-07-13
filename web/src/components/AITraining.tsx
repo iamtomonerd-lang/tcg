@@ -42,10 +42,14 @@ export default function AITraining({ onBack }: AITrainingProps) {
   });
   const [showEndTimeModal, setShowEndTimeModal] = useState(false);
   const [showDataModal, setShowDataModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [endTimeHour, setEndTimeHour] = useState(12);
   const [endTimeMinute, setEndTimeMinute] = useState(0);
+  const [cpuLimit, setCpuLimit] = useState(80);
+  const [memoryLimit, setMemoryLimit] = useState(85);
   const [history, setHistory] = useState<TrainingHistory[]>([]);
   const [totalStats, setTotalStats] = useState({ totalGames: 0, totalHours: 0 });
+  const [recommendedLimits, setRecommendedLimits] = useState({ cpu: 80, memory: 85 });
   const trainingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -54,7 +58,36 @@ export default function AITraining({ onBack }: AITrainingProps) {
   // Load training history from server on mount
   useEffect(() => {
     loadTrainingHistory();
+    calculateRecommendedLimits();
   }, []);
+
+  const calculateRecommendedLimits = () => {
+    // デバイスの性能に基づいて推奨上限を計算
+    const cores = navigator.hardwareConcurrency || 4;
+    const memory = (navigator as any).deviceMemory || 8; // GB
+
+    let recommendedCpu = 80;
+    let recommendedMemory = 85;
+
+    // CPUコア数に基づいた推奨値調整
+    if (cores <= 2) {
+      recommendedCpu = 70; // 低性能
+      recommendedMemory = 75;
+    } else if (cores <= 4) {
+      recommendedCpu = 75; // 中性能
+      recommendedMemory = 80;
+    } else if (cores <= 8) {
+      recommendedCpu = 80; // 高性能
+      recommendedMemory = 85;
+    } else {
+      recommendedCpu = 85; // 超高性能
+      recommendedMemory = 90;
+    }
+
+    setRecommendedLimits({ cpu: recommendedCpu, memory: recommendedMemory });
+    setCpuLimit(recommendedCpu);
+    setMemoryLimit(recommendedMemory);
+  };
 
   // Save training data periodically and to localStorage
   useEffect(() => {
@@ -86,9 +119,11 @@ export default function AITraining({ onBack }: AITrainingProps) {
           const newCpuUsage = 30 + Math.random() * 40;
           const newMemoryUsage = 40 + Math.random() * 30;
           let systemHealth: 'good' | 'warm' | 'hot' = 'good';
-          if (newCpuUsage > 80 || newMemoryUsage > 85) {
+
+          // 設定された上限に基づいて判定
+          if (newCpuUsage > cpuLimit || newMemoryUsage > memoryLimit) {
             systemHealth = 'hot';
-          } else if (newCpuUsage > 70 || newMemoryUsage > 75) {
+          } else if (newCpuUsage > cpuLimit - 10 || newMemoryUsage > memoryLimit - 10) {
             systemHealth = 'warm';
           }
 
@@ -420,6 +455,20 @@ export default function AITraining({ onBack }: AITrainingProps) {
                   <small>指定時刻に自動で学習を終了します</small>
                 </div>
 
+                <div className="setup-option">
+                  <label>リソース上限設定</label>
+                  <button
+                    className="time-button"
+                    onClick={() => setShowSettingsModal(true)}
+                    disabled={state !== 'idle'}
+                  >
+                    ⚙️ リソース上限を設定
+                  </button>
+                  <small>
+                    CPU: {cpuLimit}% / メモリ: {memoryLimit}%（推奨: CPU {recommendedLimits.cpu}% / メモリ {recommendedLimits.memory}%）
+                  </small>
+                </div>
+
                 <div className="info-box">
                   <h4>ℹ️ 学習について</h4>
                   <ul>
@@ -585,6 +634,91 @@ export default function AITraining({ onBack }: AITrainingProps) {
                 設定
               </button>
               <button className="modal-button secondary" onClick={() => setShowEndTimeModal(false)}>
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* リソース上限設定モーダル */}
+      {showSettingsModal && (
+        <div className="modal-overlay">
+          <div className="modal settings-modal">
+            <h3>⚙️ リソース上限を設定</h3>
+
+            <div className="settings-info">
+              <p>📊 <strong>このデバイスの推奨設定</strong></p>
+              <ul>
+                <li>CPUコア数: {navigator.hardwareConcurrency || '不明'}個</li>
+                <li>メモリ: {(navigator as any).deviceMemory || '不明'}GB</li>
+                <li className="recommend">推奨CPU上限: {recommendedLimits.cpu}%</li>
+                <li className="recommend">推奨メモリ上限: {recommendedLimits.memory}%</li>
+              </ul>
+            </div>
+
+            <div className="settings-section">
+              <label>CPU使用率上限: {cpuLimit}%</label>
+              <input
+                type="range"
+                min="30"
+                max="95"
+                value={cpuLimit}
+                onChange={(e) => setCpuLimit(parseInt(e.target.value))}
+                className="range-slider"
+              />
+              <small>低い値ほど安全ですが学習速度が低下します</small>
+            </div>
+
+            <div className="settings-section">
+              <label>メモリ使用率上限: {memoryLimit}%</label>
+              <input
+                type="range"
+                min="40"
+                max="95"
+                value={memoryLimit}
+                onChange={(e) => setMemoryLimit(parseInt(e.target.value))}
+                className="range-slider"
+              />
+              <small>低い値ほど安全ですが学習速度が低下します</small>
+            </div>
+
+            <div className="settings-presets">
+              <p>クイック設定:</p>
+              <button
+                className="preset-button safe"
+                onClick={() => {
+                  setCpuLimit(70);
+                  setMemoryLimit(75);
+                }}
+              >
+                🛡️ 安全
+              </button>
+              <button
+                className="preset-button balanced"
+                onClick={() => {
+                  setCpuLimit(recommendedLimits.cpu);
+                  setMemoryLimit(recommendedLimits.memory);
+                }}
+              >
+                ⚖️ 推奨
+              </button>
+              <button
+                className="preset-button performance"
+                onClick={() => {
+                  setCpuLimit(90);
+                  setMemoryLimit(90);
+                }}
+              >
+                🚀 高速
+              </button>
+            </div>
+
+            <div className="modal-buttons">
+              <button className="modal-button primary" onClick={() => setShowSettingsModal(false)}>
+                設定を保存
+              </button>
+              <button className="modal-button secondary" onClick={() => setShowSettingsModal(false)}>
                 キャンセル
               </button>
             </div>
