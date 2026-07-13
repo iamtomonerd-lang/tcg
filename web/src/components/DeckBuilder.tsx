@@ -35,11 +35,20 @@ export default function DeckBuilder({ onBack, onSaveDeck }: DeckBuilderProps) {
         const response = await fetch('/api/cards');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        setCards(data);
+
+        // データを配列に変換（オブジェクトの場合）
+        const cardsArray = Array.isArray(data) ? data : Object.values(data);
+
+        console.log('Loaded cards:', cardsArray.length, 'cards');
+        if (cardsArray.length === 0) {
+          setError('カード情報がありません');
+        } else {
+          setCards(cardsArray as CardData[]);
+        }
         setLoading(false);
       } catch (err) {
         console.error('Failed to load cards:', err);
-        setError('カード一覧を読み込めませんでした');
+        setError(`カード一覧を読み込めませんでした: ${err instanceof Error ? err.message : '不明なエラー'}`);
         setLoading(false);
       }
     };
