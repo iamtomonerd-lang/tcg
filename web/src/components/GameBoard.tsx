@@ -442,14 +442,73 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
             backgroundColor: '#e8eaf0',
             borderRadius: '6px',
             marginBottom: '0.8rem',
-            textAlign: 'center',
           }}>
-            <div style={{ fontWeight: 700, marginBottom: '0.4rem' }}>💎 コア支払い中</div>
-            <div style={{ fontSize: '0.9rem', marginBottom: '0.4rem' }}>
+            <div style={{ fontWeight: 700, marginBottom: '0.4rem', textAlign: 'center' }}>💎 コア支払い中</div>
+            <div style={{ fontSize: '0.9rem', marginBottom: '0.4rem', textAlign: 'center' }}>
               {pendingCoreCost.requiredCores}個中 {pendingCoreCost.paidCores}個を支払いました
             </div>
-            <div style={{ fontSize: '0.85rem', color: '#666' }}>
-              残り {pendingCoreCost.requiredCores - pendingCoreCost.paidCores}個をドラッグしてください
+            <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.6rem', textAlign: 'center' }}>
+              残り {pendingCoreCost.requiredCores - pendingCoreCost.paidCores}個
+            </div>
+            <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', marginBottom: '0.4rem' }}>
+              <button
+                onClick={() => {
+                  if (pendingCoreCost.paidCores < pendingCoreCost.requiredCores) {
+                    const newPaid = pendingCoreCost.paidCores + 1;
+                    setPendingCoreCost({
+                      ...pendingCoreCost,
+                      paidCores: newPaid,
+                      paidCoreType: 'regular',
+                    });
+                    if (newPaid >= pendingCoreCost.requiredCores) {
+                      const actionIndex = pendingCoreCost.actionIndex;
+                      setTimeout(() => {
+                        executeAction(actionIndex, { coreType: 'regular' });
+                        setPendingCoreCost(null);
+                      }, 50);
+                    }
+                  }
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#1e7e4d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                }}
+              >
+                🟢 +1
+              </button>
+              {pendingCoreCost.paidCores > 0 && (
+                <button
+                  onClick={() => {
+                    if (pendingCoreCost.paidCores > 0) {
+                      setPendingCoreCost({
+                        ...pendingCoreCost,
+                        paidCores: pendingCoreCost.paidCores - 1,
+                      });
+                    }
+                  }}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#8b5555',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  🗑️ -1
+                </button>
+              )}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
+              ドラッグまたはボタンで支払い
             </div>
           </div>
         )}
