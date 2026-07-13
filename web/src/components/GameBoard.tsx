@@ -47,10 +47,9 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     // Count field symbols
     const symbolMap = new Map<string, number>();
     for (const spirit of me.spirits) {
-      const def = spirit;
-      const symbolColors = def.symbolColors || [];
+      const symbolColors = spirit.symbolColors || [];
       for (const color of symbolColors) {
-        symbolMap.set(color, (symbolMap.get(color) ?? 0) + (def.bp > 0 ? 1 : 0));
+        symbolMap.set(color, (symbolMap.get(color) ?? 0) + (spirit.symbolCount ?? 1));
       }
     }
 
@@ -67,8 +66,8 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
       }
     }
 
-    // Check for EX symbols in trash
-    const hasEXInTrash = me.trash?.some((c: any) => c.exSymbol) || false;
+    // Check for EX symbols in trash (server sends trash as { count, hasEXSymbol })
+    const hasEXInTrash = me.trash?.hasEXSymbol || false;
     if (card.inheritance && reductionRemaining > 0 && hasEXInTrash) {
       cost = Math.max(0, cost - reductionRemaining);
     }
