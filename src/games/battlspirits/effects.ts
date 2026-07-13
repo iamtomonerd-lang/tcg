@@ -49,6 +49,19 @@ export function destroySpirit(owner: PlayerState, spiritIndex: number): Spirit |
 }
 
 /**
+ * Remove a spirit when its cores reach 0 (not destruction, no effects triggered).
+ * The spirit card goes to trash, but cores are already gone (they were paid/removed).
+ */
+export function removeDeadSpirit(owner: PlayerState, spiritIndex: number): Spirit | undefined {
+  const spirit = owner.spirits[spiritIndex];
+  if (!spirit) return undefined;
+  owner.spirits.splice(spiritIndex, 1);
+  owner.trash.push(spirit.def);
+  // No cores go to trash (they're already at 0 or were already removed)
+  return spirit;
+}
+
+/**
  * Apply a single effect to the game state. Pure function; state is cloned.
  */
 export function applyEffect(

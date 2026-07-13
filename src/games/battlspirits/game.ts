@@ -1,7 +1,7 @@
 import type { Game, Rng } from '../../core/game.js';
 import { CARD_DB, getStarterDeck } from './cards.js';
 import type { Action, GameState, Nexus, Spirit, PlayerState } from './types.js';
-import { applyEffect, triggerEffects, destroySpirit, updateSpiritLevel } from './effects.js';
+import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel } from './effects.js';
 
 /**
  * Battle Spirits Phase 1: simplified rules.
@@ -330,6 +330,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     return total;
   }
 
+  /** Remove all spirits that have 0 cores (not destruction, no effects triggered) */
+  private removeDeadSpirits(player: PlayerState): void {
+    for (let i = player.spirits.length - 1; i >= 0; i--) {
+      const spirit = player.spirits[i]!;
+      if (spirit.coreCount === 0 && spirit.soulCoreCount === 0) {
+        removeDeadSpirit(player, i);
+      }
+    }
+  }
+
   currentPlayer(state: GameState): number {
     return state.currentPlayer;
   }
@@ -569,6 +579,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       // Use the magic card as flash
       me.hand.splice(action.handIndex, 1);
       this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+      this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
       me.trash.push(card);
       next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue);
       checkResult(next);
@@ -703,6 +714,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Pay cost (to trash) using specified regular/soul core distribution
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, totalCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+        this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
 
         // Place Lv1 cores on the spirit (always from regular cores)
         const spirit: any = {
@@ -763,6 +775,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Pay cost using specified regular/soul core distribution
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+        this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
 
         // Place nexus
         const nexus: Nexus = {
@@ -792,6 +805,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Pay cost using specified regular/soul core distribution
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+        this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
         me.trash.push(card);
 
         // Special handling for オファーリングドロー
