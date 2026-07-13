@@ -352,7 +352,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'summon': {
         const card = player.hand[action.handIndex];
         if (!card || card.cardType !== 'spirit') return 0;
-        return this.effectiveCost(player, card) + card.lv1.cost;
+        // Only return the card's cost, NOT the Lv1 placement cost
+        // Lv1 placement is a separate action (add_core) that happens after summon
+        return this.effectiveCost(player, card);
       }
       case 'place_nexus': {
         const card = player.hand[action.handIndex];
@@ -463,8 +465,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       if (this.effectiveCost(me, card) > totalCores) continue;
 
       if (card.cardType === 'spirit') {
-        // Summoning also requires placing the Lv1 maintenance cores from reserve
-        if (this.effectiveCost(me, card) + card.lv1.cost > totalCores) continue;
+        // Summon only needs the card's cost (Lv1 placement is a separate action)
         actions.push({ type: 'summon', handIndex: i });
       } else if (card.cardType === 'nexus') {
         actions.push({ type: 'place_nexus', handIndex: i });

@@ -75,7 +75,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     return cost;
   };
 
-  // Helper: check if a card can be afforded
+  // Helper: check if a card can be afforded (cost only, NOT including Lv1 placement cost)
   const canAffordCard = (card: any): boolean => {
     if (!state) return false;
     const me = state.players[currentPlayer];
@@ -88,15 +88,9 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
     // Calculate effective cost with reductions
     const effectiveCost = calculateEffectiveCost(card);
 
-    if (card.cardType === 'spirit') {
-      // Spirit requires effective cost + Lv1 cost
-      return totalCores >= effectiveCost + (card.lv1?.cost || 0);
-    } else if (card.cardType === 'nexus') {
-      return totalCores >= effectiveCost;
-    } else if (card.cardType === 'magic') {
-      return totalCores >= effectiveCost;
-    }
-    return true;
+    // Check only cost (not Lv1 placement cost)
+    // Lv1 placement is a separate action (add_core) that comes AFTER summon
+    return totalCores >= effectiveCost;
   };
 
   const fetchGameState = useCallback(async () => {
@@ -350,7 +344,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
                 paidSoul: 0,
                 cardName: dragData.card.name,
               });
-              setError(`「${dragData.card.name}」のコスト${cost}個を支払ってください。通常コア（緑）またはソウルコア（紫）をドラッグします。`);
+              setError(`【支払うコア】「${dragData.card.name}」のコスト${cost}個を支払ってください。通常コア（🟢）またはソウルコア（🟣）をドラッグまたはボタンで選択します。`);
             } else {
               // No cost, execute immediately
               executeAction(matchingAction.index, { coreType });
@@ -499,8 +493,11 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
             marginBottom: '1rem',
             border: '2px solid #9f7aea',
           }}>
-            <div style={{ fontWeight: 700, marginBottom: '0.6rem', textAlign: 'center', fontSize: '1rem' }}>
-              💎 コア支払い: 「{pendingCoreCost.cardName}」
+            <div style={{ fontWeight: 700, marginBottom: '0.4rem', textAlign: 'center', fontSize: '1rem' }}>
+              💎 支払うコア: 「{pendingCoreCost.cardName}」
+            </div>
+            <div style={{ fontSize: '0.75rem', marginBottom: '0.8rem', textAlign: 'center', fontWeight: 500, color: '#666' }}>
+              ※召喚のコストのみ。スピリット上への配置は後で add_core アクションで行います
             </div>
             <div style={{ fontSize: '0.95rem', marginBottom: '0.8rem', textAlign: 'center', fontWeight: 600 }}>
               必要: {pendingCoreCost.requiredCores}個
@@ -769,22 +766,57 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
               {!state.pendingAttack && !state.pendingFlash && (
                 <div style={{ fontSize: '0.8rem', color: '#666', padding: '0.5rem 0.8rem', backgroundColor: '#f0f0f0', borderRadius: '4px', marginBottom: '0.8rem', lineHeight: '1.4' }}>
                   <div style={{ fontWeight: 600, marginBottom: '0.3rem' }}>プレイ手順:</div>
-                  <div>1️⃣ カードを場にドラッグ</div>
-                  <div>2️⃣ コアを支払う</div>
-                  <div>3️⃣ コアをスピリットに乗せる</div>
+                  <div style={{ color: '#1e7e4d', fontWeight: 500 }}>1️⃣ カードをドラッグ → 2️⃣ 支払うコアを選択</div>
+                  <div style={{ color: '#6b46c1', fontWeight: 500 }}>3️⃣ スピリットへコア配置（別アクション）</div>
                 </div>
               )}
               <div className="action-buttons">
-                {legalActions.map((action) => (
-                  <button
-                    key={action.index}
-                    className="action-button"
-                    onClick={() => executeAction(action.index)}
-                    disabled={isBusy}
-                  >
-                    {action.description}
-                  </button>
-                ))}
+                {(() => {
+                  // Separate actions: cost payment (from card play) vs core placement (add_core)
+                  const costActions = legalActions.filter(a => !a.description.includes('コア配置') && !a.description.includes('コアを追加'));
+                  const coreActions = legalActions.filter(a => a.description.includes('コア配置') || a.description.includes('コアを追加'));
+
+                  return (
+                    <>
+                      {costActions.length > 0 && (
+                        <div style={{ marginBottom: '0.8rem' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1e7e4d', marginBottom: '0.3rem', textTransform: 'uppercase' }}>
+                            💚 支払うコア（カード召喚用）
+                          </div>
+                          {costActions.map((action) => (
+                            <button
+                              key={action.index}
+                              className="action-button"
+                              onClick={() => executeAction(action.index)}
+                              disabled={isBusy}
+                              style={{ marginBottom: '0.3rem', backgroundColor: '#1e7e4d', borderColor: '#0d5c3a' }}
+                            >
+                              {action.description}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {coreActions.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b46c1', marginBottom: '0.3rem', textTransform: 'uppercase' }}>
+                            💜 乗せるコア（スピリット配置用）
+                          </div>
+                          {coreActions.map((action) => (
+                            <button
+                              key={action.index}
+                              className="action-button"
+                              onClick={() => executeAction(action.index)}
+                              disabled={isBusy}
+                              style={{ marginBottom: '0.3rem', backgroundColor: '#6b46c1', borderColor: '#553399' }}
+                            >
+                              {action.description}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </>
           ) : !isTerminal ? (
