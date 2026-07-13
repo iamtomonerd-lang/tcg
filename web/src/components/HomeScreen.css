@@ -44,9 +44,10 @@
   gap: 2rem;
   padding: 2rem;
   min-height: 0;
-  max-width: 720px;
+  max-width: 780px;
   margin: 0 auto;
   overflow-y: auto;
+  align-content: safe center;
 }
 
 .menu-button {
@@ -87,31 +88,31 @@
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
 }
 
-.menu-button.free-battle:hover {
+.menu-button.menu-free-battle:hover {
   border-color: #ff7b6b;
   background: linear-gradient(135deg, rgba(255, 123, 107, 0.15), rgba(231, 76, 60, 0.1));
   box-shadow: 0 8px 25px rgba(255, 123, 107, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-.menu-button.deck-build:hover {
+.menu-button.menu-deck-build:hover {
   border-color: #4a90d9;
   background: linear-gradient(135deg, rgba(74, 144, 217, 0.15), rgba(100, 181, 246, 0.1));
   box-shadow: 0 8px 25px rgba(74, 144, 217, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-.menu-button.ai-training:hover {
+.menu-button.menu-ai-training:hover {
   border-color: #667eea;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1));
   box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-.menu-button.rank-match:hover {
+.menu-button.menu-rank-match:hover {
   border-color: #ffd700;
   background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 193, 7, 0.1));
   box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-.menu-button.achievements:hover {
+.menu-button.menu-achievements:hover {
   border-color: #ffc107;
   background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), rgba(255, 152, 0, 0.1));
   box-shadow: 0 8px 25px rgba(255, 193, 7, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
@@ -124,23 +125,23 @@
   flex-shrink: 0;
 }
 
-.menu-button.free-battle .button-icon {
+.menu-button.menu-free-battle .button-icon {
   animation-delay: 0s;
 }
 
-.menu-button.deck-build .button-icon {
+.menu-button.menu-deck-build .button-icon {
   animation-delay: 0.5s;
 }
 
-.menu-button.ai-training .button-icon {
+.menu-button.menu-ai-training .button-icon {
   animation-delay: 1s;
 }
 
-.menu-button.rank-match .button-icon {
+.menu-button.menu-rank-match .button-icon {
   animation-delay: 1.5s;
 }
 
-.menu-button.achievements .button-icon {
+.menu-button.menu-achievements .button-icon {
   animation-delay: 2s;
 }
 
@@ -184,6 +185,9 @@
 @media (max-width: 900px) {
   .menu-container {
     flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-content: flex-start;
     gap: 2rem;
     padding: 1rem;
   }

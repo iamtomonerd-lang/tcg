@@ -14,7 +14,7 @@ export default function HomeScreen({ onSelectMode }: HomeScreenProps) {
 
       <div className="menu-container">
         <button
-          className="menu-button free-battle"
+          className="menu-button menu-free-battle"
           onClick={() => onSelectMode('free-battle')}
         >
           <div className="button-icon">⚔️</div>
@@ -23,7 +23,7 @@ export default function HomeScreen({ onSelectMode }: HomeScreenProps) {
         </button>
 
         <button
-          className="menu-button deck-build"
+          className="menu-button menu-deck-build"
           onClick={() => onSelectMode('deck-build')}
         >
           <div className="button-icon">🃏</div>
@@ -32,7 +32,7 @@ export default function HomeScreen({ onSelectMode }: HomeScreenProps) {
         </button>
 
         <button
-          className="menu-button ai-training"
+          className="menu-button menu-ai-training"
           onClick={() => onSelectMode('ai-training')}
         >
           <div className="button-icon">🤖</div>
@@ -41,7 +41,7 @@ export default function HomeScreen({ onSelectMode }: HomeScreenProps) {
         </button>
 
         <button
-          className="menu-button rank-match"
+          className="menu-button menu-rank-match"
           onClick={() => onSelectMode('rank-match')}
         >
           <div className="button-icon">🏆</div>
@@ -50,7 +50,7 @@ export default function HomeScreen({ onSelectMode }: HomeScreenProps) {
         </button>
 
         <button
-          className="menu-button achievements"
+          className="menu-button menu-achievements"
           onClick={() => onSelectMode('achievements')}
         >
           <div className="button-icon">⭐</div>
