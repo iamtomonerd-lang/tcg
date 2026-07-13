@@ -1,7 +1,7 @@
 import './HomeScreen.css';
 
 interface HomeScreenProps {
-  onSelectMode: (mode: 'free-battle' | 'deck-build' | 'ai-training' | 'rank-match') => void;
+  onSelectMode: (mode: 'free-battle' | 'deck-build' | 'ai-training' | 'rank-match' | 'achievements') => void;
 }
 
 export default function HomeScreen({ onSelectMode }: HomeScreenProps) {
@@ -47,6 +47,15 @@ export default function HomeScreen({ onSelectMode }: HomeScreenProps) {
           <div className="button-icon">🏆</div>
           <div className="button-title">ランクマッチ</div>
           <div className="button-desc">レート対戦</div>
+        </button>
+
+        <button
+          className="menu-button achievements"
+          onClick={() => onSelectMode('achievements')}
+        >
+          <div className="button-icon">⭐</div>
+          <div className="button-title">実績</div>
+          <div className="button-desc">カード成績確認</div>
         </button>
       </div>
 

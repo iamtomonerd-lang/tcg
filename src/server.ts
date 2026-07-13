@@ -637,6 +637,100 @@ app.post('/api/rank/update', async (req, res) => {
   }
 });
 
+// 実績用インターフェース
+interface CardAchievement {
+  cardId: string;
+  cardName: string;
+  maxRating: number;
+  maxWinStreak: number;
+  timesUsed: number;
+  lastUpdated: string;
+}
+
+interface AchievementsData {
+  cards: { [key: string]: CardAchievement };
+}
+
+// 実績ファイルのパス
+function getAchievementsPath(): string {
+  const dataDir = process.env.BS_DATA_DIR || join(homedir(), 'BattleSpiritsAI');
+  return join(dataDir, 'achievements.json');
+}
+
+// 実績を読み込む
+async function loadAchievements(): Promise<AchievementsData> {
+  try {
+    const path = getAchievementsPath();
+    const data = await fs.readFile(path, 'utf-8');
+    return JSON.parse(data) as AchievementsData;
+  } catch {
+    return { cards: {} };
+  }
+}
+
+// 実績を保存
+async function saveAchievements(data: AchievementsData): Promise<void> {
+  const dataDir = process.env.BS_DATA_DIR || join(homedir(), 'BattleSpiritsAI');
+  try {
+    await fs.mkdir(dataDir, { recursive: true });
+    const path = getAchievementsPath();
+    await fs.writeFile(path, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Failed to save achievements:', error);
+  }
+}
+
+// 実績統計エンドポイント
+app.get('/api/achievements/stats', async (req, res) => {
+  try {
+    const achievements = await loadAchievements();
+    const cards = Object.values(achievements.cards).sort((a, b) => b.maxRating - a.maxRating);
+    res.json({ achievements: cards });
+  } catch (error) {
+    console.error('Error loading achievements:', error);
+    res.status(500).json({ error: 'Failed to load achievements' });
+  }
+});
+
+// カード実績更新
+app.post('/api/achievements/update-card', async (req, res) => {
+  try {
+    const { cardId, cardName, currentRating, winStreak } = req.body;
+    if (!cardId || !cardName) {
+      return res.status(400).json({ error: 'Missing cardId or cardName' });
+    }
+
+    const achievements = await loadAchievements();
+    const card = achievements.cards[cardId];
+
+    if (!card) {
+      achievements.cards[cardId] = {
+        cardId,
+        cardName,
+        maxRating: currentRating || 1500,
+        maxWinStreak: winStreak || 0,
+        timesUsed: 1,
+        lastUpdated: new Date().toISOString(),
+      };
+    } else {
+      card.timesUsed++;
+      if (currentRating && currentRating > card.maxRating) {
+        card.maxRating = currentRating;
+      }
+      if (winStreak && winStreak > card.maxWinStreak) {
+        card.maxWinStreak = winStreak;
+      }
+      card.lastUpdated = new Date().toISOString();
+    }
+
+    await saveAchievements(achievements);
+    res.json({ success: true, achievement: achievements.cards[cardId] });
+  } catch (error) {
+    console.error('Error updating achievement:', error);
+    res.status(500).json({ error: 'Failed to update achievement' });
+  }
+});
+
 // サーバー起動
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
