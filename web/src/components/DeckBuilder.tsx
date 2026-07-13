@@ -154,6 +154,11 @@ export default function DeckBuilder({ onBack, onSaveDeck }: DeckBuilderProps) {
           <div className="cards-list">
             {filteredCards.map((card) => (
               <div key={card.id} className="card-item">
+                {card.imagePath && (
+                  <div className="card-image-container">
+                    <img src={card.imagePath} alt={card.name} className="card-image" />
+                  </div>
+                )}
                 <div className="card-info">
                   <div className="card-name">{card.name}</div>
                   <div className="card-details">

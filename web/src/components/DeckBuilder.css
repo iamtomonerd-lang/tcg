@@ -95,8 +95,9 @@
 
 .card-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 1rem;
   padding: 1rem;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
@@ -111,8 +112,28 @@
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
 }
 
+.card-image-container {
+  flex: 0 0 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+}
+
+.card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .card-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .card-name {
