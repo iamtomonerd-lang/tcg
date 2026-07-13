@@ -613,6 +613,201 @@
   cursor: pointer;
 }
 
+/* クラウド設定セクション */
+.cloud-settings-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.cloud-settings-section h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.cloud-provider {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.provider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.status {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.status.connected {
+  background: #c8e6c9;
+  color: #2e7d32;
+}
+
+.status.disconnected {
+  background: #ffcdd2;
+  color: #c62828;
+}
+
+.cloud-connect-button,
+.cloud-disconnect-button {
+  width: 100%;
+  padding: 0.6rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.cloud-connect-button {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 2px solid #1565c0;
+}
+
+.cloud-connect-button:hover {
+  background: #1565c0;
+  color: white;
+}
+
+.cloud-connect-button.google {
+  border-color: #4285f4;
+  color: #4285f4;
+}
+
+.cloud-connect-button.google:hover {
+  background: #4285f4;
+}
+
+.cloud-connect-button.dropbox {
+  border-color: #0061ff;
+  color: #0061ff;
+}
+
+.cloud-connect-button.dropbox:hover {
+  background: #0061ff;
+}
+
+.cloud-disconnect-button {
+  background: #ffebee;
+  color: #c62828;
+  border: 2px solid #c62828;
+}
+
+.cloud-disconnect-button:hover {
+  background: #c62828;
+  color: white;
+}
+
+.auto-sync-option {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.auto-sync-option label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #333;
+  font-weight: 500;
+  cursor: pointer;
+  margin: 0;
+}
+
+.auto-sync-option input[type="checkbox"] {
+  cursor: pointer;
+}
+
+/* 自動エクスポートセクション */
+.auto-export-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.auto-export-section h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.auto-export-option {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.auto-export-option label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #333;
+  font-weight: 500;
+  cursor: pointer;
+  margin: 0;
+}
+
+.auto-export-option input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.frequency-select,
+.time-select {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.frequency-select label,
+.time-select label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.frequency-select select,
+.time-select input {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background: white;
+  color: #333;
+}
+
+.frequency-select select:focus,
+.time-select input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
 /* リソース設定モーダル */
 .settings-info {
   background: #e3f2fd;

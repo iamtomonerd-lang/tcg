@@ -43,6 +43,7 @@ export default function AITraining({ onBack }: AITrainingProps) {
   const [showEndTimeModal, setShowEndTimeModal] = useState(false);
   const [showDataModal, setShowDataModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showCloudModal, setShowCloudModal] = useState(false);
   const [endTimeHour, setEndTimeHour] = useState(12);
   const [endTimeMinute, setEndTimeMinute] = useState(0);
   const [cpuLimit, setCpuLimit] = useState(80);
@@ -50,16 +51,69 @@ export default function AITraining({ onBack }: AITrainingProps) {
   const [history, setHistory] = useState<TrainingHistory[]>([]);
   const [totalStats, setTotalStats] = useState({ totalGames: 0, totalHours: 0 });
   const [recommendedLimits, setRecommendedLimits] = useState({ cpu: 80, memory: 85 });
+  const [autoExportEnabled, setAutoExportEnabled] = useState(false);
+  const [autoExportFrequency, setAutoExportFrequency] = useState<'daily' | 'weekly'>('weekly');
+  const [autoExportTime, setAutoExportTime] = useState('02:00');
+  const [googleDriveConnected, setGoogleDriveConnected] = useState(false);
+  const [dropboxConnected, setDropboxConnected] = useState(false);
+  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
   const trainingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoExportIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string>(Math.random().toString(36).substring(7));
 
   // Load training history from server on mount
   useEffect(() => {
     loadTrainingHistory();
     calculateRecommendedLimits();
+    loadAutoExportSettings();
+    loadCloudSettings();
   }, []);
+
+  const loadAutoExportSettings = () => {
+    const saved = localStorage.getItem('ai-training-auto-export-settings');
+    if (saved) {
+      try {
+        const settings = JSON.parse(saved);
+        setAutoExportEnabled(settings.enabled || false);
+        setAutoExportFrequency(settings.frequency || 'weekly');
+        setAutoExportTime(settings.time || '02:00');
+      } catch (e) {
+        console.error('Failed to load auto export settings:', e);
+      }
+    }
+  };
+
+  const loadCloudSettings = () => {
+    const saved = localStorage.getItem('ai-training-cloud-settings');
+    if (saved) {
+      try {
+        const settings = JSON.parse(saved);
+        setGoogleDriveConnected(settings.googleDriveConnected || false);
+        setDropboxConnected(settings.dropboxConnected || false);
+        setCloudSyncEnabled(settings.cloudSyncEnabled || false);
+      } catch (e) {
+        console.error('Failed to load cloud settings:', e);
+      }
+    }
+  };
+
+  const saveAutoExportSettings = (enabled: boolean, frequency: 'daily' | 'weekly', time: string) => {
+    localStorage.setItem('ai-training-auto-export-settings', JSON.stringify({
+      enabled,
+      frequency,
+      time,
+    }));
+  };
+
+  const saveCloudSettings = () => {
+    localStorage.setItem('ai-training-cloud-settings', JSON.stringify({
+      googleDriveConnected,
+      dropboxConnected,
+      cloudSyncEnabled,
+    }));
+  };
 
   const calculateRecommendedLimits = () => {
     // デバイスの性能に基づいて推奨上限を計算
@@ -360,6 +414,119 @@ export default function AITraining({ onBack }: AITrainingProps) {
     a.download = `ai-training-stats-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const setupAutoExport = (enabled: boolean, frequency: 'daily' | 'weekly', time: string) => {
+    saveAutoExportSettings(enabled, frequency, time);
+    setAutoExportEnabled(enabled);
+    setAutoExportFrequency(frequency);
+    setAutoExportTime(time);
+
+    // クリア既存タイマー
+    if (autoExportIntervalRef.current) {
+      clearInterval(autoExportIntervalRef.current);
+    }
+
+    if (enabled) {
+      // 次の実行時刻を計算
+      const checkExport = () => {
+        const now = new Date();
+        const [targetHour, targetMinute] = time.split(':').map(Number);
+        const targetTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), targetHour, targetMinute);
+
+        if (now > targetTime && frequency === 'daily') {
+          targetTime.setDate(targetTime.getDate() + 1);
+        } else if (frequency === 'weekly') {
+          // 毎週日曜日2:00に実行
+          const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
+          targetTime.setDate(targetTime.getDate() + daysUntilSunday);
+        }
+
+        const delay = Math.max(0, targetTime.getTime() - now.getTime());
+
+        autoExportIntervalRef.current = setTimeout(() => {
+          downloadStats();
+
+          // クラウド同期が有効な場合
+          if (cloudSyncEnabled) {
+            syncToCloud();
+          }
+
+          // 次回の実行をスケジュール
+          checkExport();
+        }, delay);
+      };
+
+      checkExport();
+      alert(`✅ 自動エクスポートを有効にしました（${frequency === 'daily' ? '毎日' : '毎週日曜日'} ${time}）`);
+    }
+  };
+
+  const syncToCloud = async () => {
+    const data = {
+      exportDate: new Date().toISOString(),
+      totalStats: {
+        totalGames: totalStats.totalGames,
+        totalHours: totalStats.totalHours.toFixed(1),
+      },
+      sessions: history,
+    };
+
+    if (googleDriveConnected) {
+      try {
+        await uploadToGoogleDrive(data);
+        console.log('✅ Google Driveに同期しました');
+      } catch (error) {
+        console.error('Google Drive同期エラー:', error);
+      }
+    }
+
+    if (dropboxConnected) {
+      try {
+        await uploadToDropbox(data);
+        console.log('✅ Dropboxに同期しました');
+      } catch (error) {
+        console.error('Dropbox同期エラー:', error);
+      }
+    }
+  };
+
+  const uploadToGoogleDrive = async (data: any) => {
+    try {
+      const response = await fetch('/api/cloud/google-drive/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Upload failed');
+    } catch (error) {
+      console.error('Failed to upload to Google Drive:', error);
+      throw error;
+    }
+  };
+
+  const uploadToDropbox = async (data: any) => {
+    try {
+      const response = await fetch('/api/cloud/dropbox/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Upload failed');
+    } catch (error) {
+      console.error('Failed to upload to Dropbox:', error);
+      throw error;
+    }
+  };
+
+  const connectGoogleDrive = () => {
+    // Googleログイン画面にリダイレクト
+    window.location.href = '/api/cloud/google-drive/auth';
+  };
+
+  const connectDropbox = () => {
+    // Dropboxログイン画面にリダイレクト
+    window.location.href = '/api/cloud/dropbox/auth';
   };
 
   const importStats = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -777,6 +944,112 @@ export default function AITraining({ onBack }: AITrainingProps) {
                   style={{ display: 'none' }}
                 />
               </label>
+            </div>
+
+            <div className="cloud-settings-section">
+              <h4>☁️ クラウド同期設定</h4>
+              <div className="cloud-provider">
+                <div className="provider-header">
+                  <span>Google Drive</span>
+                  <span className={`status ${googleDriveConnected ? 'connected' : 'disconnected'}`}>
+                    {googleDriveConnected ? '✅ 接続済み' : '❌ 未接続'}
+                  </span>
+                </div>
+                {!googleDriveConnected ? (
+                  <button className="cloud-connect-button google" onClick={connectGoogleDrive}>
+                    🔗 Google Driveに接続
+                  </button>
+                ) : (
+                  <button className="cloud-disconnect-button" onClick={() => {
+                    setGoogleDriveConnected(false);
+                    saveCloudSettings();
+                  }}>
+                    🔓 切断
+                  </button>
+                )}
+              </div>
+
+              <div className="cloud-provider">
+                <div className="provider-header">
+                  <span>Dropbox</span>
+                  <span className={`status ${dropboxConnected ? 'connected' : 'disconnected'}`}>
+                    {dropboxConnected ? '✅ 接続済み' : '❌ 未接続'}
+                  </span>
+                </div>
+                {!dropboxConnected ? (
+                  <button className="cloud-connect-button dropbox" onClick={connectDropbox}>
+                    🔗 Dropboxに接続
+                  </button>
+                ) : (
+                  <button className="cloud-disconnect-button" onClick={() => {
+                    setDropboxConnected(false);
+                    saveCloudSettings();
+                  }}>
+                    🔓 切断
+                  </button>
+                )}
+              </div>
+
+              {(googleDriveConnected || dropboxConnected) && (
+                <div className="auto-sync-option">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={cloudSyncEnabled}
+                      onChange={(e) => {
+                        setCloudSyncEnabled(e.target.checked);
+                        saveCloudSettings();
+                      }}
+                    />
+                    自動エクスポート時にクラウドに同期
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="auto-export-section">
+              <h4>⏰ 自動エクスポート設定</h4>
+              <div className="auto-export-option">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={autoExportEnabled}
+                    onChange={(e) => setAutoExportEnabled(e.target.checked)}
+                  />
+                  自動エクスポートを有効にする
+                </label>
+              </div>
+
+              {autoExportEnabled && (
+                <>
+                  <div className="frequency-select">
+                    <label>実行頻度:</label>
+                    <select
+                      value={autoExportFrequency}
+                      onChange={(e) => setAutoExportFrequency(e.target.value as 'daily' | 'weekly')}
+                    >
+                      <option value="daily">毎日</option>
+                      <option value="weekly">毎週日曜日</option>
+                    </select>
+                  </div>
+
+                  <div className="time-select">
+                    <label>実行時刻:</label>
+                    <input
+                      type="time"
+                      value={autoExportTime}
+                      onChange={(e) => setAutoExportTime(e.target.value)}
+                    />
+                  </div>
+
+                  <button
+                    className="modal-button primary"
+                    onClick={() => setupAutoExport(autoExportEnabled, autoExportFrequency, autoExportTime)}
+                  >
+                    ⚙️ 設定を保存
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="modal-buttons">

@@ -284,6 +284,44 @@ app.get('/api/training/stats', async (req, res) => {
 });
 
 /**
+ * Cloud storage endpoints for Google Drive
+ */
+app.get('/api/cloud/google-drive/auth', (req, res) => {
+  // In a real implementation, redirect to Google OAuth
+  // For now, simulate successful connection
+  res.redirect('/?google-drive-auth=success');
+});
+
+app.post('/api/cloud/google-drive/upload', async (req, res) => {
+  try {
+    // In a real implementation, upload to Google Drive
+    console.log('Google Drive upload simulation:', req.body);
+    res.json({ success: true, message: 'Uploaded to Google Drive' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to upload to Google Drive' });
+  }
+});
+
+/**
+ * Cloud storage endpoints for Dropbox
+ */
+app.get('/api/cloud/dropbox/auth', (req, res) => {
+  // In a real implementation, redirect to Dropbox OAuth
+  // For now, simulate successful connection
+  res.redirect('/?dropbox-auth=success');
+});
+
+app.post('/api/cloud/dropbox/upload', async (req, res) => {
+  try {
+    // In a real implementation, upload to Dropbox
+    console.log('Dropbox upload simulation:', req.body);
+    res.json({ success: true, message: 'Uploaded to Dropbox' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to upload to Dropbox' });
+  }
+});
+
+/**
  * Save training statistics
  */
 app.post('/api/training/stats', async (req, res) => {
