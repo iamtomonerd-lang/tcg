@@ -37,6 +37,7 @@
 .menu-container {
   flex: 1;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 3rem;
@@ -96,6 +97,12 @@
   box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
+.menu-button.rank-match:hover {
+  border-color: #ffd700;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 193, 7, 0.1));
+  box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
 .button-icon {
   font-size: 3rem;
   line-height: 1;
@@ -113,6 +120,10 @@
 
 .menu-button.ai-training .button-icon {
   animation-delay: 1s;
+}
+
+.menu-button.rank-match .button-icon {
+  animation-delay: 1.5s;
 }
 
 @keyframes float {

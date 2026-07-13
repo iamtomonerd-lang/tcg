@@ -481,3 +481,163 @@ function serializeState(state: GameState) {
       : null,
   };
 }
+
+// ランク統計用インターフェース
+interface DeckRating {
+  deckId: string;
+  deckName: string;
+  rating: number;
+  wins: number;
+  losses: number;
+  lastUpdated: string;
+}
+
+interface RankStatsData {
+  decks: { [key: string]: DeckRating };
+}
+
+// ランク統計ファイルのパス
+function getRankStatsPath(): string {
+  const dataDir = process.env.BS_DATA_DIR || join(homedir(), 'BattleSpiritsAI');
+  return join(dataDir, 'rank-stats.json');
+}
+
+// ランク統計を読み込む
+async function loadRankStats(): Promise<RankStatsData> {
+  try {
+    const path = getRankStatsPath();
+    const data = await fs.readFile(path, 'utf-8');
+    return JSON.parse(data) as RankStatsData;
+  } catch {
+    return { decks: {} };
+  }
+}
+
+// ランク統計を保存
+async function saveRankStats(data: RankStatsData): Promise<void> {
+  const dataDir = process.env.BS_DATA_DIR || join(homedir(), 'BattleSpiritsAI');
+  try {
+    await fs.mkdir(dataDir, { recursive: true });
+    const path = getRankStatsPath();
+    await fs.writeFile(path, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Failed to save rank stats:', error);
+  }
+}
+
+// Eloレーティング計算
+function calculateNewRating(
+  currentRating: number,
+  opponentRating: number,
+  result: number, // 1 = win, 0.5 = draw, 0 = loss
+  k: number = 32
+): number {
+  const expectedScore = 1 / (1 + Math.pow(10, (opponentRating - currentRating) / 400));
+  const newRating = currentRating + k * (result - expectedScore);
+  return Math.round(newRating);
+}
+
+// 正規分布に従うランダム値を生成（Box-Muller変換）
+function randomGaussian(mean: number, sigma: number): number {
+  const u1 = Math.random();
+  const u2 = Math.random();
+  const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  return mean + z0 * sigma;
+}
+
+// ランク統計エンドポイント
+app.get('/api/rank/stats', async (req, res) => {
+  try {
+    const stats = await loadRankStats();
+    const decks = Object.values(stats.decks);
+    res.json({ decks });
+  } catch (error) {
+    console.error('Error loading rank stats:', error);
+    res.status(500).json({ error: 'Failed to load rank stats' });
+  }
+});
+
+// デッキのレート初期化
+app.post('/api/rank/init-deck', async (req, res) => {
+  try {
+    const { deckId, deckName } = req.body;
+    if (!deckId || !deckName) {
+      return res.status(400).json({ error: 'Missing deckId or deckName' });
+    }
+
+    const stats = await loadRankStats();
+    if (!stats.decks[deckId]) {
+      stats.decks[deckId] = {
+        deckId,
+        deckName,
+        rating: 1500,
+        wins: 0,
+        losses: 0,
+        lastUpdated: new Date().toISOString(),
+      };
+      await saveRankStats(stats);
+    }
+
+    res.json({ rating: stats.decks[deckId].rating });
+  } catch (error) {
+    console.error('Error initializing deck rating:', error);
+    res.status(500).json({ error: 'Failed to initialize deck rating' });
+  }
+});
+
+// ランク更新（対戦結果から）
+app.post('/api/rank/update', async (req, res) => {
+  try {
+    const { deckId, result } = req.body; // result: 1 = win, 0 = loss
+    if (!deckId || result === undefined) {
+      return res.status(400).json({ error: 'Missing deckId or result' });
+    }
+
+    const stats = await loadRankStats();
+    const deck = stats.decks[deckId];
+    if (!deck) {
+      return res.status(404).json({ error: 'Deck not found' });
+    }
+
+    // 対戦相手のレート生成（正規分布、±300の範囲）
+    let opponentRating = randomGaussian(1500, 200);
+    opponentRating = Math.max(1200, Math.min(1800, opponentRating));
+
+    // 対戦相手のレートをデッキのレートに合わせて調整
+    const ratingDiff = Math.abs(deck.rating - 1500);
+    const adjustedOpponentRating = Math.max(
+      1200,
+      Math.min(1800, 1500 + (opponentRating - 1500) + (Math.random() - 0.5) * ratingDiff)
+    );
+
+    // 新しいレートを計算
+    const newRating = calculateNewRating(deck.rating, Math.round(adjustedOpponentRating), result);
+
+    // 統計情報を更新
+    deck.rating = newRating;
+    if (result === 1) {
+      deck.wins++;
+    } else {
+      deck.losses++;
+    }
+    deck.lastUpdated = new Date().toISOString();
+
+    await saveRankStats(stats);
+
+    res.json({
+      newRating,
+      opponentRating: Math.round(adjustedOpponentRating),
+      ratingChange: newRating - deck.rating + Math.round(newRating - deck.rating + (result ? 0 : 0)),
+      wins: deck.wins,
+      losses: deck.losses,
+    });
+  } catch (error) {
+    console.error('Error updating rank:', error);
+    res.status(500).json({ error: 'Failed to update rank' });
+  }
+});
+
+// サーバー起動
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
+});
