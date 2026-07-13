@@ -1,7 +1,7 @@
 import './HomeScreen.css';
 
 interface HomeScreenProps {
-  onSelectMode: (mode: 'free-battle' | 'deck-build') => void;
+  onSelectMode: (mode: 'free-battle' | 'deck-build' | 'ai-training') => void;
 }
 
 export default function HomeScreen({ onSelectMode }: HomeScreenProps) {
@@ -29,6 +29,15 @@ export default function HomeScreen({ onSelectMode }: HomeScreenProps) {
           <div className="button-icon">🃏</div>
           <div className="button-title">デッキ構築</div>
           <div className="button-desc">デッキをカスタマイズします</div>
+        </button>
+
+        <button
+          className="menu-button ai-training"
+          onClick={() => onSelectMode('ai-training')}
+        >
+          <div className="button-icon">🤖</div>
+          <div className="button-title">AI学習</div>
+          <div className="button-desc">AIを強化します</div>
         </button>
       </div>
 

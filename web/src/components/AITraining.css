@@ -1,0 +1,540 @@
+.ai-training {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+  color: #333;
+}
+
+/* ヘッダー */
+.training-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.training-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+}
+
+.training-header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 0.95rem;
+}
+
+/* メインコンテンツ */
+.training-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+/* メインパネル */
+.training-main {
+  flex: 1;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  padding: 2rem;
+}
+
+/* アイドル状態 */
+.idle-panel {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.setup-section {
+  padding: 1.5rem 0;
+}
+
+.setup-section h3 {
+  color: #667eea;
+  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+}
+
+.setup-option {
+  margin-bottom: 2rem;
+}
+
+.setup-option label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: #333;
+}
+
+.setup-option small {
+  display: block;
+  color: #999;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.duration-input {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.duration-input input {
+  width: 100px;
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.duration-input input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.duration-input span {
+  font-weight: 600;
+  color: #666;
+}
+
+.time-button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  background: #f0f2ff;
+  color: #667eea;
+  border: 2px solid #667eea;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.time-button:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+}
+
+.time-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.info-box {
+  background: #e3f2fd;
+  border-left: 4px solid #2196f3;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin: 2rem 0;
+}
+
+.info-box h4 {
+  margin: 0 0 1rem 0;
+  color: #1565c0;
+}
+
+.info-box ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style: none;
+}
+
+.info-box li {
+  margin-bottom: 0.75rem;
+  color: #1565c0;
+  line-height: 1.5;
+}
+
+.start-button {
+  width: 100%;
+  padding: 1.2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 1.5rem;
+}
+
+.start-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+/* 学習中パネル */
+.training-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.progress-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.progress-item {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.progress-label {
+  font-size: 0.85rem;
+  color: #999;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.progress-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.progress-rate {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.system-section h3 {
+  margin: 0 0 1.5rem 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.system-status {
+  margin-bottom: 1.5rem;
+}
+
+.status-indicator {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  border-radius: 24px;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.status-indicator.good {
+  background: #c8e6c9;
+  color: #2e7d32;
+}
+
+.status-indicator.warm {
+  background: #ffe0b2;
+  color: #e65100;
+}
+
+.status-indicator.hot {
+  background: #ffcdd2;
+  color: #c62828;
+}
+
+.resource-monitor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.resource-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.resource-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.resource-bar {
+  height: 24px;
+  background: #f0f0f0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #ddd;
+}
+
+.resource-fill {
+  height: 100%;
+  transition: width 0.3s;
+  background: linear-gradient(90deg, #4caf50, #8bc34a);
+}
+
+.resource-fill.warning {
+  background: linear-gradient(90deg, #ff9800, #ffc107);
+}
+
+.resource-fill.critical {
+  background: linear-gradient(90deg, #f44336, #e91e63);
+}
+
+.resource-value {
+  font-weight: 700;
+  color: #667eea;
+  font-size: 0.95rem;
+}
+
+/* 制御パネル */
+.control-panel {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  gap: 1rem;
+}
+
+.pause-button,
+.resume-button,
+.stop-button,
+.reset-button,
+.back-button {
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.pause-button,
+.resume-button {
+  background: #ffc107;
+  color: #333;
+}
+
+.pause-button:hover,
+.resume-button:hover {
+  background: #ffb300;
+  transform: translateY(-2px);
+}
+
+.stop-button {
+  background: #f44336;
+  color: white;
+}
+
+.stop-button:hover {
+  background: #da190b;
+  transform: translateY(-2px);
+}
+
+.reset-button {
+  background: #2196f3;
+  color: white;
+}
+
+.reset-button:hover {
+  background: #0b7dda;
+  transform: translateY(-2px);
+}
+
+.back-button {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.back-button:hover {
+  background: #bdbdbd;
+}
+
+.completion-message {
+  text-align: center;
+  padding: 1rem 0;
+  margin-bottom: 1rem;
+}
+
+.completion-message h3 {
+  margin: 0 0 0.5rem 0;
+  color: #2e7d32;
+  font-size: 1.3rem;
+}
+
+.completion-message p {
+  margin: 0.5rem 0;
+  color: #666;
+}
+
+/* モーダル */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+}
+
+.modal h3 {
+  margin: 0 0 1.5rem 0;
+  color: #333;
+}
+
+.time-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.time-input {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.time-input label {
+  font-size: 0.8rem;
+  color: #999;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+}
+
+.time-input input {
+  width: 60px;
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 1.2rem;
+  text-align: center;
+  font-weight: bold;
+}
+
+.time-input input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.time-separator {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
+.modal-button {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.modal-button.primary {
+  background: #667eea;
+  color: white;
+}
+
+.modal-button.primary:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+}
+
+.modal-button.secondary {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.modal-button.secondary:hover {
+  background: #e0e0e0;
+}
+
+/* レスポンシブ */
+@media (max-width: 1200px) {
+  .training-content {
+    flex-direction: column;
+  }
+
+  .control-panel {
+    width: 100%;
+    flex-direction: row;
+  }
+
+  .control-panel button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .ai-training {
+    height: auto;
+  }
+
+  .training-header {
+    padding: 1rem;
+  }
+
+  .training-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .training-content {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .training-main {
+    padding: 1rem;
+  }
+
+  .progress-section {
+    grid-template-columns: 1fr;
+  }
+
+  .control-panel {
+    flex-direction: column;
+  }
+
+  .time-picker {
+    flex-direction: row;
+  }
+
+  .time-input input {
+    width: 50px;
+  }
+}

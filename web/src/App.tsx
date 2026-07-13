@@ -3,6 +3,7 @@ import GameBoard from './components/GameBoard';
 import GameSetup from './components/GameSetup';
 import HomeScreen from './components/HomeScreen';
 import DeckBuilder from './components/DeckBuilder';
+import AITraining from './components/AITraining';
 import './App.css';
 
 interface GameSession {
@@ -15,18 +16,20 @@ interface DeckCard {
   count: number;
 }
 
-type AppScreen = 'home' | 'setup' | 'deck-build' | 'game';
+type AppScreen = 'home' | 'setup' | 'deck-build' | 'ai-training' | 'game';
 
 export default function App() {
   const [screen, setScreen] = useState<AppScreen>('home');
   const [session, setSession] = useState<GameSession | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
 
-  const handleSelectMode = (mode: 'free-battle' | 'deck-build') => {
+  const handleSelectMode = (mode: 'free-battle' | 'deck-build' | 'ai-training') => {
     if (mode === 'free-battle') {
       setScreen('setup');
     } else if (mode === 'deck-build') {
       setScreen('deck-build');
+    } else if (mode === 'ai-training') {
+      setScreen('ai-training');
     }
   };
 
@@ -90,6 +93,10 @@ export default function App() {
 
       {screen === 'deck-build' && (
         <DeckBuilder onBack={handleBackToHome} onSaveDeck={handleSaveDeck} />
+      )}
+
+      {screen === 'ai-training' && (
+        <AITraining onBack={handleBackToHome} />
       )}
 
       {screen === 'game' && (
