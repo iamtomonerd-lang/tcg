@@ -257,13 +257,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           break;
         }
         case 'core': {
-          // Recover cores: 1 per nexus on field (minimum 1)
-          // But skip on turn 1 (turnCount = 0 for each player's first turn)
+          // Official rule: ターンプレイヤーはボイドからコア1個をそのプレイヤーのリザーブに置きます
+          // Always add 1 core from the void (no limit)
           const isFirstTurn = next.turnCount === 0;
           if (!isFirstTurn) {
             const p = next.players[next.currentPlayer]!;
-            const coreRecover = Math.max(1, p.nexuses.length);
-            p.cores = Math.min(p.cores + coreRecover, 20); // Cap at 20
+            p.cores += 1; // Always 1 core from void
           }
           next.phase = 'draw';
           break;
@@ -494,14 +493,22 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
     }
 
-    // Place a core from reserve onto a spirit (level-up); only useful below Lv2
+    // Place a core from reserve onto a spirit or nexus
     // Note: add_core only uses cores from reserve, not from spirits, so check reserve specifically
     const reserveCores = me.cores + me.soulCores;
     if (reserveCores > 0) {
+      // Add cores to spirits (level-up)
       for (let i = 0; i < me.spirits.length; i++) {
         const s = me.spirits[i]!;
         if (s.def.lv2 && s.coreCount < s.def.lv2.cost) {
           actions.push({ type: 'add_core', spiritIndex: i });
+        }
+      }
+      // Add cores to nexuses (level-up)
+      for (let i = 0; i < me.nexuses.length; i++) {
+        const n = me.nexuses[i]!;
+        if (n.def.lv2 && n.coreCount < n.def.lv2.cost) {
+          actions.push({ type: 'add_core', nexusIndex: i });
         }
       }
     }
@@ -734,30 +741,59 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         break;
       }
       case 'add_core': {
-        const spirit = me.spirits[action.spiritIndex];
         const totalCores = this.getTotalAvailableCores(me);
-        if (!spirit || totalCores <= 0) return next;
+        if (totalCores <= 0) return next;
 
-        // Place 1 core on spirit (regular or soul based on coreType)
-        if (action.coreType === 'soul') {
-          if (me.soulCores > 0) {
-            me.soulCores -= 1;
-            spirit.soulCoreCount = (spirit.soulCoreCount || 0) + 1;
-          } else if (me.cores > 0) {
-            me.cores -= 1;
-            spirit.coreCount += 1;
+        // Place 1 core on spirit or nexus
+        if (action.spiritIndex !== undefined) {
+          const spirit = me.spirits[action.spiritIndex];
+          if (!spirit) return next;
+
+          // Place 1 core on spirit (regular or soul based on coreType)
+          if (action.coreType === 'soul') {
+            if (me.soulCores > 0) {
+              me.soulCores -= 1;
+              spirit.soulCoreCount = (spirit.soulCoreCount || 0) + 1;
+            } else if (me.cores > 0) {
+              me.cores -= 1;
+              spirit.coreCount += 1;
+            }
+          } else {
+            // Default: use regular cores first
+            if (me.cores > 0) {
+              me.cores -= 1;
+              spirit.coreCount += 1;
+            } else if (me.soulCores > 0) {
+              me.soulCores -= 1;
+              spirit.soulCoreCount = (spirit.soulCoreCount || 0) + 1;
+            }
           }
-        } else {
-          // Default: use regular cores first
-          if (me.cores > 0) {
-            me.cores -= 1;
-            spirit.coreCount += 1;
-          } else if (me.soulCores > 0) {
-            me.soulCores -= 1;
-            spirit.soulCoreCount = (spirit.soulCoreCount || 0) + 1;
+          updateSpiritLevel(spirit);
+        } else if (action.nexusIndex !== undefined) {
+          const nexus = me.nexuses[action.nexusIndex];
+          if (!nexus) return next;
+
+          // Place 1 core on nexus
+          if (action.coreType === 'soul') {
+            if (me.soulCores > 0) {
+              me.soulCores -= 1;
+              nexus.coreCount += 1;
+            } else if (me.cores > 0) {
+              me.cores -= 1;
+              nexus.coreCount += 1;
+            }
+          } else {
+            // Default: use regular cores first
+            if (me.cores > 0) {
+              me.cores -= 1;
+              nexus.coreCount += 1;
+            } else if (me.soulCores > 0) {
+              me.soulCores -= 1;
+              nexus.coreCount += 1;
+            }
           }
+          updateSpiritLevel(nexus); // Update nexus level if applicable
         }
-        updateSpiritLevel(spirit);
         break;
       }
       case 'place_nexus': {
@@ -909,10 +945,35 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'pass': {
         // Handle phase transitions based on current phase
         if (next.phase === 'main') {
-          // First turn of player 0 (sente/first player): skip attack phase
+          // First turn of player 0 (sente/first player): skip attack + main2, go directly to end
           const isFirstTurnSente = next.turnCount === 0 && next.currentPlayer === 0;
           if (isFirstTurnSente) {
-            next.phase = 'main2';
+            // Skip to end phase directly (skip attack and main2)
+            next.phase = 'end';
+
+            // Trigger end-of-turn effects for current player
+            const currentPlayer = next.players[next.currentPlayer]!;
+            for (const spirit of currentPlayer.spirits) {
+              next = triggerEffects(next, 'end_step', spirit.def, next.currentPlayer, spirit);
+            }
+            for (const nexus of currentPlayer.nexuses) {
+              next = triggerEffects(next, 'end_step', nexus.def, next.currentPlayer);
+            }
+            checkResult(next);
+            if (next.result) return next;
+
+            // Reset BP boosts
+            for (const p of next.players) {
+              for (const s of p.spirits) {
+                s.bpBoost = 0;
+              }
+            }
+
+            // Move to next turn
+            next.currentPlayer = 1 - next.currentPlayer;
+            next.turnCount++;
+            next = this.startTurn(next);
+            return next;
           } else {
             // Normal: transition to attack phase
             next.phase = 'attack';
@@ -954,15 +1015,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
     }
 
-    // Create flash opportunity for opponent (unless pass or already have pending flash)
+    // Create flash opportunity for opponent (only for attack and block, per official rules)
     const actionTypeStr = (action as any).type;
     if (!next.pendingFlash && actionTypeStr !== 'pass' && actionTypeStr !== 'flash' && actionTypeStr !== 'skip_flash') {
+      // Official rule: Flash only occurs during attack and block phases
       const flashTriggerMap: { [key: string]: any } = {
-        'summon': 'opponent_summon',
-        'place_nexus': 'opponent_summon',
-        'use_magic': 'opponent_magic',
-        'attack': 'opponent_attack',
-        'block': undefined, // block doesn't trigger flash
+        'attack': 'opponent_attack',  // Flash during opponent's attack
+        'defend': 'opponent_attack',  // Flash during opponent's block/defense
+        'block': 'opponent_attack',   // Flash during opponent's block
+        // No flash for summon, place_nexus, use_magic, or other actions
       };
 
       const trigger = flashTriggerMap[actionTypeStr];
@@ -1008,7 +1069,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   actionKey(action: Action): string {
     switch (action.type) {
       case 'summon': return `S${action.handIndex}`;
-      case 'add_core': return `C${action.spiritIndex}`;
+      case 'add_core': {
+        if (action.spiritIndex !== undefined) return `CS${action.spiritIndex}`;
+        if (action.nexusIndex !== undefined) return `CN${action.nexusIndex}`;
+        return 'C';
+      }
       case 'place_nexus': return `N${action.handIndex}`;
       case 'use_magic': {
         let key = `M${action.handIndex}`;
@@ -1037,14 +1102,23 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     switch (action.type) {
       case 'summon': {
         const card = me.hand[action.handIndex];
-        const total = card ? this.effectiveCost(me, card) + card.lv1.cost : 0;
-        return `${card?.name ?? '?'}を召喚（コア${total}個）`;
+        // Only show payment cost, not Lv1 placement cost
+        const cost = card ? this.effectiveCost(me, card) : 0;
+        return `${card?.name ?? '?'}を召喚（コア${cost}個）`;
       }
       case 'add_core': {
-        const spirit = me.spirits[action.spiritIndex];
-        if (!spirit) return '?にコア配置';
-        const need = spirit.def.lv2 ? spirit.def.lv2.cost - spirit.coreCount : 0;
-        return `${spirit.def.name}にコア配置（Lv2まであと${need}個）`;
+        if (action.spiritIndex !== undefined) {
+          const spirit = me.spirits[action.spiritIndex];
+          if (!spirit) return '?にコア配置';
+          const need = spirit.def.lv2 ? spirit.def.lv2.cost - spirit.coreCount : 0;
+          return `${spirit.def.name}にコア配置（Lv2まであと${need}個）`;
+        } else if (action.nexusIndex !== undefined) {
+          const nexus = me.nexuses[action.nexusIndex];
+          if (!nexus) return '?にコア配置';
+          const need = nexus.def.lv2 ? nexus.def.lv2.cost - nexus.coreCount : 0;
+          return `${nexus.def.name}にコア配置（Lv2まであと${need}個）`;
+        }
+        return '?にコア配置';
       }
       case 'place_nexus': {
         const card = me.hand[action.handIndex];
@@ -1151,7 +1225,26 @@ function checkResult(state: GameState): void {
   if (state.result) return;
   const l0 = state.players[0]!.life;
   const l1 = state.players[1]!.life;
-  if (l0 <= 0 && l1 <= 0) state.result = { winner: null };
-  else if (l1 <= 0) state.result = { winner: 0 };
-  else if (l0 <= 0) state.result = { winner: 1 };
+  const d0 = state.players[0]!.deck.length;
+  const d1 = state.players[1]!.deck.length;
+
+  // Check life condition
+  if (l0 <= 0 && l1 <= 0) {
+    state.result = { winner: null };
+    return;
+  }
+  if (l1 <= 0) {
+    state.result = { winner: 0 };
+    return;
+  }
+  if (l0 <= 0) {
+    state.result = { winner: 1 };
+    return;
+  }
+
+  // Check deck condition: on start step, if deck is 0, opponent wins
+  if (state.phase === 'start') {
+    if (d0 === 0) state.result = { winner: 1 };
+    else if (d1 === 0) state.result = { winner: 0 };
+  }
 }
