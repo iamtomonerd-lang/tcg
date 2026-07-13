@@ -21,6 +21,7 @@ export default function CoreReserve({
   onDragStart,
   onDragEnd,
 }: CoreReserveProps) {
+
   const handleCoreDragStart = (coreType: 'regular' | 'soul') => {
     if (isHumanTurn && onDragStart) {
       const dragPayload = {
