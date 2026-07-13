@@ -32,8 +32,12 @@ function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
   );
 }
 
-/** Draggable core dots displayed on a field card (spirit or nexus) */
-function FieldCores({
+/**
+ * Core tray rendered BELOW a field card (outside the draggable card element),
+ * so dragging a core never conflicts with dragging the card itself.
+ * The tray is also a drop target for placing cores onto this card.
+ */
+function CoreTray({
   zone,
   index,
   coreCount,
@@ -41,6 +45,8 @@ function FieldCores({
   canDrag,
   onDragStart,
   onDragEnd,
+  onDrop,
+  targetPlayerNumber,
 }: {
   zone: 'spirit' | 'nexus';
   index: number;
@@ -49,9 +55,11 @@ function FieldCores({
   canDrag: boolean;
   onDragStart?: (data: any) => void;
   onDragEnd?: () => void;
+  onDrop?: (data: any) => void;
+  targetPlayerNumber: number;
 }) {
   const startDrag = (e: React.DragEvent, coreType: 'regular' | 'soul') => {
-    e.stopPropagation(); // don't trigger the card's own drag
+    e.stopPropagation();
     if (canDrag && onDragStart) {
       const dragPayload = {
         type: 'core',
@@ -64,10 +72,26 @@ function FieldCores({
     }
   };
 
-  if (coreCount <= 0 && soulCoreCount <= 0) return null;
-
   return (
-    <div className="fcard-cores" onDragOver={(e) => e.preventDefault()}>
+    <div
+      className={`core-tray ${canDrag ? 'interactive' : ''}`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (onDrop) {
+          onDrop({
+            targetPlayerNumber,
+            targetZone: zone,
+            ...(zone === 'spirit' ? { spiritIndex: index } : { nexusIndex: index }),
+          });
+        }
+      }}
+      title="コア置き場 — コアをここにドロップして配置、ドラッグで移動"
+    >
       {Array.from({ length: coreCount }).map((_, i) => (
         <div
           key={`fc-${i}`}
@@ -88,6 +112,7 @@ function FieldCores({
           title="ソウルコア - ドラッグで移動・支払い"
         />
       ))}
+      {coreCount <= 0 && soulCoreCount <= 0 && <span className="core-tray-empty">コアなし</span>}
     </div>
   );
 }
@@ -151,32 +176,34 @@ export default function PlayerPanel({
       }}
     >
       {player.nexuses.map((nexus: any, i: number) => (
-        <div
-          key={`n${i}`}
-          className={`fcard nexus ${dragOverCard === `nexus-${i}` ? 'drag-over' : ''}`}
-          title={`${nexus.name}（ネクサス Lv${nexus.level}｜コア${nexus.coreCount ?? 0}）`}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (onDrop && isHumanTurn) {
-              onDrop({ targetPlayerNumber: playerNumber, nexusIndex: i, targetZone: 'nexus' });
-            }
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            onCardRightClick?.(nexus.imagePath, nexus.name);
-          }}
-        >
-          <CardImage imagePath={nexus.imagePath} name={nexus.name} />
-          <div className="fcard-chips">
-            <span className="chip nexus-chip">ネクサス</span>
-            <span className="chip">Lv{nexus.level}</span>
+        <div key={`n${i}`} className="fcard-wrap">
+          <div
+            className={`fcard nexus ${dragOverCard === `nexus-${i}` ? 'drag-over' : ''}`}
+            title={`${nexus.name}（ネクサス Lv${nexus.level}｜コア${nexus.coreCount ?? 0}）`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (onDrop && isHumanTurn) {
+                onDrop({ targetPlayerNumber: playerNumber, nexusIndex: i, targetZone: 'nexus' });
+              }
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onCardRightClick?.(nexus.imagePath, nexus.name);
+            }}
+          >
+            <CardImage imagePath={nexus.imagePath} name={nexus.name} />
+            <div className="fcard-chips">
+              <span className="chip nexus-chip">ネクサス</span>
+              <span className="chip">Lv{nexus.level}</span>
+            </div>
+            <div className="fcard-name">{nexus.name}</div>
           </div>
-          <FieldCores
+          <CoreTray
             zone="nexus"
             index={i}
             coreCount={nexus.coreCount ?? 0}
@@ -184,47 +211,51 @@ export default function PlayerPanel({
             canDrag={canMoveCores}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
+            onDrop={isHumanTurn ? onDrop : undefined}
+            targetPlayerNumber={playerNumber}
           />
-          <div className="fcard-name">{nexus.name}</div>
         </div>
       ))}
       {player.spirits.map((spirit: any, i: number) => (
-        <div
-          key={`s${i}`}
-          className={`fcard spirit ${spirit.canAttack ? '' : 'tapped'} ${dragOverCard === `spirit-${i}` ? 'drag-over' : ''}`}
-          title={`${spirit.name}｜Lv${spirit.level}｜BP${spirit.bp}｜コア${spirit.coreCount}${spirit.canAttack ? '' : '｜疲労'}`}
-          draggable={isHumanTurn}
-          onDragStart={(e) => {
-            if (isHumanTurn && onDragStart) {
-              const dragPayload = { type: 'spirit', spiritIndex: i, spirit };
-              onDragStart(dragPayload);
-              e.dataTransfer!.effectAllowed = 'move';
-              e.dataTransfer!.setData('text/plain', JSON.stringify(dragPayload));
-            }
-          }}
-          onDragEnd={onDragEnd}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (onDrop && isHumanTurn) {
-              onDrop({ targetPlayerNumber: playerNumber, spiritIndex: i, targetZone: 'spirit' });
-            }
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            onCardRightClick?.(spirit.imagePath, spirit.name);
-          }}
-        >
-          <CardImage imagePath={spirit.imagePath} name={spirit.name} />
-          <div className="fcard-chips">
-            <span className="chip">Lv{spirit.level}</span>
-            <span className="chip bp">BP{spirit.bp}</span>
+        <div key={`s${i}`} className="fcard-wrap">
+          <div
+            className={`fcard spirit ${spirit.canAttack ? '' : 'tapped'} ${dragOverCard === `spirit-${i}` ? 'drag-over' : ''}`}
+            title={`${spirit.name}｜Lv${spirit.level}｜BP${spirit.bp}｜コア${spirit.coreCount}${spirit.canAttack ? '' : '｜疲労'}`}
+            draggable={isHumanTurn}
+            onDragStart={(e) => {
+              if (isHumanTurn && onDragStart) {
+                const dragPayload = { type: 'spirit', spiritIndex: i, spirit };
+                onDragStart(dragPayload);
+                e.dataTransfer!.effectAllowed = 'move';
+                e.dataTransfer!.setData('text/plain', JSON.stringify(dragPayload));
+              }
+            }}
+            onDragEnd={onDragEnd}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (onDrop && isHumanTurn) {
+                onDrop({ targetPlayerNumber: playerNumber, spiritIndex: i, targetZone: 'spirit' });
+              }
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onCardRightClick?.(spirit.imagePath, spirit.name);
+            }}
+          >
+            <CardImage imagePath={spirit.imagePath} name={spirit.name} />
+            <div className="fcard-chips">
+              <span className="chip">Lv{spirit.level}</span>
+              <span className="chip bp">BP{spirit.bp}</span>
+            </div>
+            <div className="fcard-name">{spirit.name}</div>
+            {!spirit.canAttack && <div className="tap-overlay">疲労</div>}
           </div>
-          <FieldCores
+          <CoreTray
             zone="spirit"
             index={i}
             coreCount={spirit.coreCount ?? 0}
@@ -232,9 +263,9 @@ export default function PlayerPanel({
             canDrag={canMoveCores}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
+            onDrop={isHumanTurn ? onDrop : undefined}
+            targetPlayerNumber={playerNumber}
           />
-          <div className="fcard-name">{spirit.name}</div>
-          {!spirit.canAttack && <div className="tap-overlay">疲労</div>}
         </div>
       ))}
       {player.nexuses.length === 0 && player.spirits.length === 0 && (
