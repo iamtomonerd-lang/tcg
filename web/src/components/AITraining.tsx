@@ -17,6 +17,16 @@ interface TrainingStats {
   memoryUsage: number;
 }
 
+interface TrainingHistory {
+  sessionId: string;
+  gamesPlayed: number;
+  totalElapsedSeconds: number;
+  sessionStartTime: string;
+  sessionEndTime?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function AITraining({ onBack }: AITrainingProps) {
   const [state, setState] = useState<TrainingState>('idle');
   const [duration, setDuration] = useState(60); // minutes
@@ -31,10 +41,33 @@ export default function AITraining({ onBack }: AITrainingProps) {
     memoryUsage: 0,
   });
   const [showEndTimeModal, setShowEndTimeModal] = useState(false);
+  const [showDataModal, setShowDataModal] = useState(false);
   const [endTimeHour, setEndTimeHour] = useState(12);
   const [endTimeMinute, setEndTimeMinute] = useState(0);
+  const [history, setHistory] = useState<TrainingHistory[]>([]);
+  const [totalStats, setTotalStats] = useState({ totalGames: 0, totalHours: 0 });
   const trainingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionIdRef = useRef<string>(Math.random().toString(36).substring(7));
+
+  // Load training history from server on mount
+  useEffect(() => {
+    loadTrainingHistory();
+  }, []);
+
+  // Save training data periodically and to localStorage
+  useEffect(() => {
+    if (state === 'running' || state === 'paused') {
+      saveIntervalRef.current = setInterval(() => {
+        saveTrainingStats();
+      }, 5000); // Save every 5 seconds
+    }
+
+    return () => {
+      if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
+    };
+  }, [state, stats]);
 
   // シミュレーション用：本来はサーバーから取得
   useEffect(() => {
@@ -114,6 +147,53 @@ export default function AITraining({ onBack }: AITrainingProps) {
     setState('completed');
     if (trainingIntervalRef.current) clearInterval(trainingIntervalRef.current);
     if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+    if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
+
+    // Save final stats
+    const finalSession: TrainingHistory = {
+      sessionId: sessionIdRef.current,
+      gamesPlayed: Math.floor(stats.gamesPlayed),
+      totalElapsedSeconds: stats.elapsedSeconds,
+      sessionStartTime: new Date(stats.startTime).toISOString(),
+      sessionEndTime: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updatedHistory = [...history];
+    const existingIndex = updatedHistory.findIndex((s) => s.sessionId === sessionIdRef.current);
+    if (existingIndex >= 0) {
+      updatedHistory[existingIndex] = finalSession;
+    } else {
+      updatedHistory.push(finalSession);
+    }
+    setHistory(updatedHistory);
+
+    // Update total stats
+    const totalGames = updatedHistory.reduce((sum, s) => sum + s.gamesPlayed, 0);
+    const totalSeconds = updatedHistory.reduce((sum, s) => sum + s.totalElapsedSeconds, 0);
+    setTotalStats({
+      totalGames,
+      totalHours: totalSeconds / 3600,
+    });
+
+    // Save to server
+    fetch('/api/training/stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: sessionIdRef.current,
+        stats: {
+          gamesPlayed: Math.floor(stats.gamesPlayed),
+          totalElapsedSeconds: stats.elapsedSeconds,
+          sessionStartTime: new Date(stats.startTime).toISOString(),
+          sessionEndTime: new Date().toISOString(),
+        },
+      }),
+    }).catch((error) => console.error('Failed to save final stats:', error));
+
+    // Save to localStorage
+    localStorage.setItem('ai-training-stats', JSON.stringify({ sessions: updatedHistory }));
   };
 
   const handleSetEndTime = () => {
@@ -161,6 +241,140 @@ export default function AITraining({ onBack }: AITrainingProps) {
     if (remaining <= 0) return '終了';
     const remainingSeconds = Math.floor(remaining / 1000);
     return formatTime(remainingSeconds);
+  };
+
+  const loadTrainingHistory = async () => {
+    try {
+      const response = await fetch('/api/training/stats');
+      if (response.ok) {
+        const data = await response.json();
+        const sessions = data.sessions || [];
+        setHistory(sessions);
+
+        // Calculate total stats
+        const totalGames = sessions.reduce((sum: number, s: TrainingHistory) => sum + s.gamesPlayed, 0);
+        const totalSeconds = sessions.reduce((sum: number, s: TrainingHistory) => sum + s.totalElapsedSeconds, 0);
+        setTotalStats({
+          totalGames: totalGames,
+          totalHours: totalSeconds / 3600,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load training history:', error);
+      // Try to load from localStorage as fallback
+      const localData = localStorage.getItem('ai-training-stats');
+      if (localData) {
+        try {
+          const parsed = JSON.parse(localData);
+          setHistory(parsed.sessions || []);
+        } catch (e) {
+          console.error('Failed to parse localStorage data:', e);
+        }
+      }
+    }
+  };
+
+  const saveTrainingStats = async () => {
+    const sessionData: TrainingHistory = {
+      sessionId: sessionIdRef.current,
+      gamesPlayed: Math.floor(stats.gamesPlayed),
+      totalElapsedSeconds: stats.elapsedSeconds,
+      sessionStartTime: new Date(stats.startTime).toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Save to localStorage
+    const localData = { sessions: [...history, sessionData] };
+    localStorage.setItem('ai-training-stats', JSON.stringify(localData));
+
+    // Save to server
+    try {
+      await fetch('/api/training/stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: sessionIdRef.current,
+          stats: {
+            gamesPlayed: Math.floor(stats.gamesPlayed),
+            totalElapsedSeconds: stats.elapsedSeconds,
+            sessionStartTime: new Date(stats.startTime).toISOString(),
+          },
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to save to server:', error);
+    }
+  };
+
+  const downloadStats = () => {
+    const data = {
+      exportDate: new Date().toISOString(),
+      totalStats: {
+        totalGames: totalStats.totalGames,
+        totalHours: totalStats.totalHours.toFixed(1),
+      },
+      sessions: history,
+    };
+
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ai-training-stats-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importStats = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        const importedSessions = data.sessions || [];
+
+        // Merge with existing
+        const merged = [...history];
+        for (const session of importedSessions) {
+          const existing = merged.find((s) => s.sessionId === session.sessionId);
+          if (!existing) {
+            merged.push(session);
+          }
+        }
+
+        setHistory(merged);
+
+        // Save merged data to server
+        for (const session of merged) {
+          await fetch('/api/training/stats', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId: session.sessionId,
+              stats: {
+                gamesPlayed: session.gamesPlayed,
+                totalElapsedSeconds: session.totalElapsedSeconds,
+                sessionStartTime: session.sessionStartTime,
+              },
+            }),
+          });
+        }
+
+        // Update localStorage
+        localStorage.setItem('ai-training-stats', JSON.stringify({ sessions: merged }));
+
+        alert(`✅ ${importedSessions.length}個のセッションをインポートしました`);
+        setShowDataModal(false);
+      } catch (error) {
+        console.error('Failed to import stats:', error);
+        alert('❌ ファイルの形式が正しくありません');
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -294,9 +508,14 @@ export default function AITraining({ onBack }: AITrainingProps) {
         {/* 制御パネル */}
         <div className="control-panel">
           {state === 'idle' ? (
-            <button className="back-button" onClick={onBack}>
-              ← 戻る
-            </button>
+            <>
+              <button className="data-button" onClick={() => setShowDataModal(true)}>
+                📊 データ管理
+              </button>
+              <button className="back-button" onClick={onBack}>
+                ← 戻る
+              </button>
+            </>
           ) : state === 'running' ? (
             <>
               <button className="pause-button" onClick={pauseTraining}>
@@ -367,6 +586,68 @@ export default function AITraining({ onBack }: AITrainingProps) {
               </button>
               <button className="modal-button secondary" onClick={() => setShowEndTimeModal(false)}>
                 キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* データ管理モーダル */}
+      {showDataModal && (
+        <div className="modal-overlay">
+          <div className="modal data-modal">
+            <h3>📊 学習データ管理</h3>
+
+            <div className="data-stats">
+              <div className="stat-item">
+                <div className="stat-label">累計対戦数</div>
+                <div className="stat-value">{totalStats.totalGames}</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-label">累計時間</div>
+                <div className="stat-value">{totalStats.totalHours.toFixed(1)} 時間</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-label">セッション数</div>
+                <div className="stat-value">{history.length}</div>
+              </div>
+            </div>
+
+            <div className="data-history">
+              <h4>セッション履歴</h4>
+              <div className="history-list">
+                {history.length === 0 ? (
+                  <p className="empty-message">セッション履歴がありません</p>
+                ) : (
+                  history.slice(-5).reverse().map((session) => (
+                    <div key={session.sessionId} className="history-item">
+                      <span className="history-date">{new Date(session.sessionStartTime).toLocaleString('ja-JP')}</span>
+                      <span className="history-games">{session.gamesPlayed} ゲーム</span>
+                      <span className="history-time">{(session.totalElapsedSeconds / 60).toFixed(1)} 分</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="data-actions">
+              <button className="modal-button primary" onClick={downloadStats}>
+                💾 エクスポート
+              </button>
+              <label className="modal-button primary file-input-label">
+                📥 インポート
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={importStats}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+
+            <div className="modal-buttons">
+              <button className="modal-button secondary" onClick={() => setShowDataModal(false)}>
+                閉じる
               </button>
             </div>
           </div>

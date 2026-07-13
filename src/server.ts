@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { promises as fs } from 'fs';
 import { BattlSpiritsGame } from './games/battlspirits/game.js';
 import { CARD_DB } from './games/battlspirits/cards.js';
 import type { GameState, Action } from './games/battlspirits/types.js';
@@ -265,6 +266,65 @@ app.get('/api/cards/:cardId', (req, res) => {
  */
 app.get('/api/cards', (req, res) => {
   res.json(CARD_DB);
+});
+
+/**
+ * Get training statistics
+ */
+app.get('/api/training/stats', async (req, res) => {
+  try {
+    const statsPath = join(__dirname, '../data/training-stats.json');
+    const data = await fs.readFile(statsPath, 'utf-8');
+    const stats = JSON.parse(data);
+    res.json(stats);
+  } catch (error) {
+    // File doesn't exist or is invalid; return empty stats
+    res.json({ sessions: [] });
+  }
+});
+
+/**
+ * Save training statistics
+ */
+app.post('/api/training/stats', async (req, res) => {
+  try {
+    const statsPath = join(__dirname, '../data/training-stats.json');
+
+    // Ensure data directory exists
+    const dataDir = dirname(statsPath);
+    try {
+      await fs.mkdir(dataDir, { recursive: true });
+    } catch (err) {
+      // Directory might already exist
+    }
+
+    // Get existing stats or create new
+    let allStats: any = { sessions: [] };
+    try {
+      const existing = await fs.readFile(statsPath, 'utf-8');
+      allStats = JSON.parse(existing);
+    } catch (err) {
+      // File doesn't exist, use empty stats
+    }
+
+    // Add or update session stats
+    const { sessionId, stats } = req.body;
+    if (sessionId && stats) {
+      const existingIndex = allStats.sessions.findIndex((s: any) => s.sessionId === sessionId);
+      if (existingIndex >= 0) {
+        allStats.sessions[existingIndex] = { sessionId, ...stats, updatedAt: new Date().toISOString() };
+      } else {
+        allStats.sessions.push({ sessionId, ...stats, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      }
+    }
+
+    // Write back to file
+    await fs.writeFile(statsPath, JSON.stringify(allStats, null, 2), 'utf-8');
+    res.json({ success: true, stats: allStats });
+  } catch (error) {
+    console.error('Error saving training stats:', error);
+    res.status(500).json({ error: 'Failed to save training stats' });
+  }
 });
 
 // Catch-all: serve React app (Express 5 no longer accepts '*' as a route path)
