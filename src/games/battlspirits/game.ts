@@ -753,7 +753,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
       this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
       me.trash.push(card);
-      next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex);
+      // For Soul Magic Red: skip symbol check if paid with normal cost (not soul core)
+      const hasSoulMagicRedEffect = card.effects?.some(e => e.skill === 'ソウルマジック：赤');
+      const paidWithNormalCore = (action.paidRegularCores ?? 0) > 0;
+      const skipSymbolCheck = hasSoulMagicRedEffect && paidWithNormalCore;
+      next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex, undefined, undefined, skipSymbolCheck);
       checkResult(next);
       if (next.result) return next;
 
@@ -1274,7 +1278,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Trigger magic effects with optional target and value
-        next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'main', action.targetNexusIndex);
+        // For Soul Magic Red: skip symbol check if paid with normal cost (not soul core)
+        const hasSoulMagicRedEffect = card.effects?.some(e => e.skill === 'ソウルマジック：赤');
+        const paidWithNormalCore = (action.paidRegularCores ?? 0) > 0;
+        const skipSymbolCheck = hasSoulMagicRedEffect && paidWithNormalCore;
+        next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'main', action.targetNexusIndex, undefined, undefined, skipSymbolCheck);
         // Fall through to flash checking below
         break;
       }

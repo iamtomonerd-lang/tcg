@@ -118,6 +118,7 @@ export function applyEffect(
   spiritIndex?: number, // index (in me.spirits) of the spirit that triggered the effect, e.g. attacker/summoned spirit
   targetSpiritIndex?: number,
   effectValue?: number,
+  skipSymbolCheck?: boolean, // Skip requiresSymbol condition (e.g., for Soul Magic Red paid with normal cost)
 ): GameState {
   const next = cloneGameState(state);
   const me = next.players[sourcePlayer]!;
@@ -137,8 +138,9 @@ export function applyEffect(
     if (effect.condition.maxHandSize && me.hand.length > effect.condition.maxHandSize) {
       return next;
     }
-    if (effect.condition.requiresSymbol) {
+    if (effect.condition.requiresSymbol && !skipSymbolCheck) {
       // Requires a symbol of this color on the player's field (spirits or nexuses)
+      // (skipped if skipSymbolCheck is true, e.g., Soul Magic Red paid with normal cost)
       const color = effect.condition.requiresSymbol;
       const hasSymbol =
         me.spirits.some((s) => s.def.symbolColors?.includes(color)) ||
@@ -409,6 +411,7 @@ export function triggerEffects(
   targetNexusIndex?: number,
   sourceLevel?: 1 | 2,
   sourceNexusIndex?: number, // index of the nexus whose effect is firing (for costExhaustSelf)
+  skipSymbolCheck?: boolean, // Skip requiresSymbol condition (e.g., for Soul Magic Red paid with normal cost)
 ): GameState {
   let next = state;
   const effects = (card.effects ?? []).filter((e) => {
@@ -454,10 +457,10 @@ export function triggerEffects(
       }
       // Apply effect to all matching spirits
       for (const idx of matchingIndices) {
-        next = applyEffect(next, effect, sourcePlayer, targetNexusIndex, idx, targetIdx, effectValue);
+        next = applyEffect(next, effect, sourcePlayer, targetNexusIndex, idx, targetIdx, effectValue, skipSymbolCheck);
       }
     } else {
-      next = applyEffect(next, effect, sourcePlayer, targetNexusIndex, spiritIndex, targetIdx, effectValue);
+      next = applyEffect(next, effect, sourcePlayer, targetNexusIndex, spiritIndex, targetIdx, effectValue, skipSymbolCheck);
     }
   }
   return next;
