@@ -48,6 +48,11 @@ app.post('/api/game/new', async (req, res) => {
   const game = new BattlSpiritsGame();
   let state = game.createInitialState(rng);
 
+  // Randomly decide first player
+  if (rng.next() < 0.5) {
+    state.currentPlayer = 1;
+  }
+
   const playerTypes: [string, string] = [p0Type || 'human', p1Type || 'mcts'];
 
   // Calculate AI rating and iterations if ranked match
