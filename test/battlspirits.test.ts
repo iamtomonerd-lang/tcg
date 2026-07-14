@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Mulberry32 } from '../src/core/rng.js';
 import { BattlSpiritsGame } from '../src/games/battlspirits/game.js';
 import { CARD_DB } from '../src/games/battlspirits/cards.js';
-import { destroySpirit, fixupSpiritIndicesAfterRemoval } from '../src/games/battlspirits/effects.js';
+import { destroySpirit, fixupSpiritIndicesAfterRemoval, updateSpiritLevel } from '../src/games/battlspirits/effects.js';
 import type { GameState, PlayerState, Spirit } from '../src/games/battlspirits/types.js';
 
 const game = new BattlSpiritsGame();
@@ -549,5 +549,25 @@ describe('BP boost durations', () => {
     // BP10000 > limit 7000 (no damage taken this turn) → no flash targeting action for the magic
     const flashActions = game.legalActions(state).filter((a) => a.type === 'flash');
     expect(flashActions.length).toBe(0);
+  });
+});
+
+describe('真界放 (Shinkaihou) Skill', () => {
+  it('spirit with 真界放 reaches Lv2 with sufficient soul cores only', () => {
+    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 0, soulCoreCount: 3, canAttack: true };
+    updateSpiritLevel(shinkaihouSpirit);
+    expect(shinkaihouSpirit.level).toBe(2);
+  });
+
+  it('spirit with 真界放 reaches Lv2 with sufficient regular cores', () => {
+    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 3, soulCoreCount: 0, canAttack: true };
+    updateSpiritLevel(shinkaihouSpirit);
+    expect(shinkaihouSpirit.level).toBe(2);
+  });
+
+  it('spirit with 真界放 stays at Lv1 with insufficient cores', () => {
+    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 1, soulCoreCount: 1, canAttack: true };
+    updateSpiritLevel(shinkaihouSpirit);
+    expect(shinkaihouSpirit.level).toBe(1);
   });
 });
