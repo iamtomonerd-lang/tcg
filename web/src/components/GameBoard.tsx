@@ -985,6 +985,30 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         </div>
       )}
 
+      {/* ===== Opening hand mulligan overlay ===== */}
+      {!isTerminal && state.pendingMulligan && playerTypes[state.pendingMulligan.player] === 'human' && (
+        <div className="game-over">
+          <div className="game-over-content mulligan-content">
+            <h3>初手を確認してください</h3>
+            <div className="mulligan-hand">
+              {state.players[state.pendingMulligan.player].handCards.map((c: any, i: number) => (
+                <div key={`${c.id}-${i}`} className="mulligan-card">
+                  {c.imagePath ? <img src={c.imagePath} alt={c.name} /> : null}
+                  <span>{c.name}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mulligan-buttons">
+              {legalActions.map((a) => (
+                <button key={a.index} onClick={() => executeAction(a.index)} disabled={isBusy}>
+                  {a.description}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ===== Game over overlay ===== */}
       {isTerminal && (
         <div className="game-over">

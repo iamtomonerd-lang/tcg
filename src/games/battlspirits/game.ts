@@ -49,16 +49,22 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       phase: 'start',
       battle: null,
       result: null,
+      pendingMulligan: { player: 0 },
     };
-    // Draw 4 cards each
+    // Draw opening hand of 4 cards each
     for (const p of players) {
-      for (let i = 0; i < 4; i++) {
-        const card = p.deck.shift();
-        if (card) p.hand.push(card);
-      }
+      this.drawOpeningHand(p);
     }
-    // Start first turn
-    return this.startTurn(state);
+    // Mulligan decisions happen before the first turn starts (see applyAction 'mulligan')
+    return state;
+  }
+
+  /** Draw a fresh opening hand of 4 cards (used both for the initial deal and for mulligan redraws). */
+  private drawOpeningHand(p: PlayerState): void {
+    for (let i = 0; i < 4; i++) {
+      const card = p.deck.shift();
+      if (card) p.hand.push(card);
+    }
   }
 
   private newPlayer(rng: Rng) {
@@ -415,6 +421,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   legalActions(state: GameState): Action[] {
     if (state.result) return [];
 
+    // Opening hand mulligan: keep as-is, or shuffle the whole hand back and redraw (no card selection)
+    if (state.pendingMulligan) {
+      return [
+        { type: 'mulligan', redraw: false },
+        { type: 'mulligan', redraw: true },
+      ];
+    }
+
     // If there are opened cards from draw phase, must select one
     if (state.pendingDraw) {
       // Return arrangement action marker
@@ -625,10 +639,34 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     return actions;
   }
 
-  applyAction(state: GameState, action: Action, _rng: Rng): GameState {
+  applyAction(state: GameState, action: Action, rng: Rng): GameState {
     let next = cloneState(state);
     const me = next.players[next.currentPlayer]!;
     const opponent = next.players[1 - next.currentPlayer]!;
+
+    // Opening hand mulligan: keep as-is, or shuffle the whole hand back into the deck and redraw
+    if (action.type === 'mulligan') {
+      if (!next.pendingMulligan) return next;
+      const decidingPlayer = next.pendingMulligan.player;
+      const p = next.players[decidingPlayer]!;
+
+      if (action.redraw) {
+        p.deck.push(...p.hand);
+        p.hand = [];
+        rng.shuffle(p.deck);
+        this.drawOpeningHand(p);
+      }
+
+      if (decidingPlayer === 0) {
+        next.pendingMulligan = { player: 1 };
+        next.currentPlayer = 1;
+        return next;
+      }
+
+      next.pendingMulligan = null;
+      next.currentPlayer = 0;
+      return this.startTurn(next);
+    }
 
     // Handle flash actions and flash skipping
     if (action.type === 'flash') {
@@ -1397,6 +1435,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         return key;
       }
       case 'skip_flash': return 'SF';
+      case 'mulligan': return action.redraw ? 'MU-redraw' : 'MU-keep';
       default: return '?';
     }
   }
@@ -1484,6 +1523,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         return desc;
       }
       case 'skip_flash': return 'フラッシュを使わない';
+      case 'mulligan': return action.redraw ? '初手をシャッフルして引き直す' : '初手を維持する';
       case 'select_draw_arrange': {
         if (!state.pendingDraw) return 'オファーリングドロー';
         const selectedIndices = action.selectedCardIndices || [];
@@ -1517,6 +1557,7 @@ function cloneState(state: GameState): GameState {
           toRearrangeIndices: state.pendingDraw.toRearrangeIndices.slice(),
         }
       : null,
+    pendingMulligan: state.pendingMulligan ? { ...state.pendingMulligan } : null,
   };
 }
 

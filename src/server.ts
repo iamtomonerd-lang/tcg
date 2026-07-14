@@ -508,6 +508,7 @@ function serializeState(state: GameState) {
         }
       : null,
     pendingFlash: state.pendingFlash ? { trigger: state.pendingFlash.trigger } : null,
+    pendingMulligan: state.pendingMulligan ? { player: state.pendingMulligan.player } : null,
     pendingDraw: state.pendingDraw
       ? {
           openedCards: state.pendingDraw.openedCards.map((c) => ({

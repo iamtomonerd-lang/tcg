@@ -152,6 +152,10 @@ export interface PendingDraw {
   effectValue?: number; // from original use_magic action
 }
 
+export interface PendingMulligan {
+  player: number; // player who must decide keep/redraw next (0 or 1)
+}
+
 export interface GameState {
   players: [PlayerState, PlayerState];
   currentPlayer: number;
@@ -162,6 +166,7 @@ export interface GameState {
   pendingFlash?: PendingFlash | null; // if set, opponent has a flash opportunity
   pendingAttack?: PendingAttack | null; // if set, defending player can choose to block
   pendingDraw?: PendingDraw | null; // if set, player must select card(s) from opened deck
+  pendingMulligan?: PendingMulligan | null; // if set, a player must decide to keep or redraw their opening hand
 }
 
 export type Action =
@@ -184,4 +189,5 @@ export type Action =
   | { type: 'pass' } // end current action phase
   | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; targetNexusIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number } // activate a flash magic card
   | { type: 'skip_flash' } // pass on flash opportunity
-  | { type: 'select_draw_arrange'; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; cardIndices?: number[] }; // arrange and select cards for offering draw
+  | { type: 'select_draw_arrange'; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; cardIndices?: number[] } // arrange and select cards for offering draw
+  | { type: 'mulligan'; redraw: boolean }; // opening hand: keep as-is, or shuffle it back and redraw (no selection)
