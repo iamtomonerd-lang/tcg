@@ -145,6 +145,7 @@ export function applyEffect(
       const damageValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       if (target === 'opponent_hero') {
         opponent.life -= damageValue;
+        opponent.damageThisTurn = (opponent.damageThisTurn ?? 0) + damageValue;
       } else if (target === 'opponent_creature' && targetNexusIndex !== undefined) {
         // TODO: damage creature (not in phase 1)
       }
@@ -195,7 +196,11 @@ export function applyEffect(
     }
     case 'destroy_creature': {
       // Destroy opponent's spirit at targetSpiritIndex, or weakest destroyable one
-      const bpLimit = effect.value; // e.g. 3000 = "BP3000以下"
+      let bpLimit = effect.value; // e.g. 3000 = "BP3000以下"
+      // Soul Magic red: if player took damage this turn, modify BP threshold
+      if (effect.skill === 'ソウルマジック：赤' && (me.damageThisTurn ?? 0) > 0) {
+        bpLimit = 10000; // change from 7000 to 10000 if damage taken
+      }
       let targetIndex = targetSpiritIndex ?? -1;
       if (targetIndex === -1) {
         for (let i = 0; i < opponent.spirits.length; i++) {
@@ -390,5 +395,6 @@ function clonePlayerState(p: PlayerState): PlayerState {
     spirits: p.spirits.map((s) => ({ ...s, soulCoreCount: s.soulCoreCount })),
     nexuses: p.nexuses.map((n) => ({ ...n })),
     trash: p.trash.slice(),
+    damageThisTurn: p.damageThisTurn,
   };
 }

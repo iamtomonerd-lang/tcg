@@ -110,6 +110,7 @@ export interface PlayerState {
   spirits: Spirit[];
   nexuses: Nexus[];
   trash: CardDef[];
+  damageThisTurn?: number; // tracks damage taken this turn (for Soul Magic red conditions)
 }
 
 export interface BattleState {

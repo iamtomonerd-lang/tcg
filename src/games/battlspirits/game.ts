@@ -253,6 +253,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       switch (next.phase) {
         case 'start': {
           // Transition to Core phase
+          // Reset damage tracking at start of turn
+          next.players[next.currentPlayer]!.damageThisTurn = 0;
           next.phase = 'core';
           break;
         }
