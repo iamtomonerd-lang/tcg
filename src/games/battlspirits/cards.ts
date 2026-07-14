@@ -329,19 +329,15 @@ export const CARD_DB: Record<string, CardDef> = {
     effects: [
       {
         trigger: 'attack',
-        action: 'discard_hand',
-        symbol: '風牙',
-        level: [1, 2],
-        skill: '継召',
-        description: 'Lv1-2時、アタック中に自分の手札の系統：「風牙」を持つカード1枚を破棄する',
-      },
-      {
-        trigger: 'attack',
         action: 'boost_bp',
         value: 3000,
+        costAction: 'discard_hand',
+        costSymbol: '風牙',
+        isFlash: true,
+        mode: 'flash',
         level: [1, 2],
         skill: '継召',
-        description: 'Lv1-2時、アタック中にこのバトル中、このスピリットをBP+3000する',
+        description: 'Lv1-2時、アタック中に【起動：フラッシュ】〔ターン1回〕自分の手札の系統：「風牙」を持つカード1枚を破棄する▶このバトル中、このスピリットをBP+3000する',
       },
       {
         trigger: 'attack',
