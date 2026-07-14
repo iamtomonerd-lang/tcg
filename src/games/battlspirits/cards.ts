@@ -465,6 +465,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
+    inheritance: true,
     imagePath: 'assets/cards/magic_offering_draw.png',
     lv1: { cost: 0, bp: 0 },
     effects: [
