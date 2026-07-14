@@ -243,8 +243,12 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
     return res.status(400).json({ error: 'Game is already terminal' });
   }
 
-  const currentPlayer = session.game.currentPlayer(session.state);
-  const agent = currentPlayer === 0 ? session.p0Agent : session.p1Agent;
+  // During mulligan, use pendingMulligan.player instead of currentPlayer
+  const decidingPlayer = session.state.pendingMulligan
+    ? session.state.pendingMulligan.player
+    : session.game.currentPlayer(session.state);
+
+  const agent = decidingPlayer === 0 ? session.p0Agent : session.p1Agent;
 
   if (!agent) {
     return res.status(400).json({ error: 'Current player is human; use /action instead' });
@@ -259,7 +263,7 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
     state: serializeState(session.state),
     isTerminal: session.game.isTerminal(session.state),
     currentPlayer: session.game.currentPlayer(session.state),
-    actionDescription: `P${currentPlayer}: ${description}`,
+    actionDescription: `P${decidingPlayer}: ${description}`,
   });
 });
 

@@ -38,7 +38,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
   const [selectedCardImage, setSelectedCardImage] = useState<{ imagePath: string; name: string } | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
-  const isHumanTurn = !isTerminal && playerTypes[currentPlayer] === 'human';
+  const isHumanTurn = !isTerminal && (
+    state?.pendingMulligan
+      ? playerTypes[state.pendingMulligan.player] === 'human'
+      : playerTypes[currentPlayer] === 'human'
+  );
 
   const fetchGameState = useCallback(async () => {
     try {
