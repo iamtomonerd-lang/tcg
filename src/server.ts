@@ -40,7 +40,7 @@ const sessions = new Map<string, GameSession>();
  * Create a new game session
  */
 app.post('/api/game/new', async (req, res) => {
-  const { p0Type, p1Type, p0Iters, p1Iters, p0DeckId, p1DeckId } = req.body;
+  const { p0Type, p1Type, p0Iters, p1Iters, p0DeckId, p1DeckId, p0Rating } = req.body;
 
   const sessionId = Math.random().toString(36).substring(7);
   const rng = new Mulberry32(Date.now() & 0xffffffff);
@@ -49,14 +49,28 @@ app.post('/api/game/new', async (req, res) => {
 
   const playerTypes: [string, string] = [p0Type || 'human', p1Type || 'mcts'];
 
+  // Calculate AI rating and iterations if ranked match
+  let actualP1Iters = p1Iters || 100;
+  let actualP1DeckId = p1DeckId;
+
+  if (p0Rating !== undefined && p1DeckId === 'ai-auto') {
+    // Generate AI rating using Gaussian distribution (±300 range is enforced later)
+    const p1Rating = generateAIRating(p0Rating, rng);
+    // Calculate AI iterations based on rating (higher rating = more iterations)
+    // Formula: base 100 + (rating - 1500) * 0.15
+    actualP1Iters = Math.max(50, Math.floor(100 + (p1Rating - 1500) * 0.15));
+    // Generate AI deck based on rating (deterministically from seed)
+    actualP1DeckId = `ai-rating-${p1Rating}`;
+  }
+
   // Load decks if provided
   try {
     if (p0DeckId) {
       const deck0 = await loadDeckForGame(p0DeckId);
       if (deck0) state.players[0].deck = deck0;
     }
-    if (p1DeckId) {
-      const deck1 = await loadDeckForGame(p1DeckId);
+    if (actualP1DeckId) {
+      const deck1 = await loadDeckForGame(actualP1DeckId);
       if (deck1) state.players[1].deck = deck1;
     }
   } catch (error) {
@@ -65,7 +79,7 @@ app.post('/api/game/new', async (req, res) => {
 
   // Create AI agents ('human' players have no agent)
   const p0Agent = createAgent(playerTypes[0], p0Iters || 100, rng);
-  const p1Agent = createAgent(playerTypes[1], p1Iters || 100, rng);
+  const p1Agent = createAgent(playerTypes[1], actualP1Iters, rng);
 
   sessions.set(sessionId, {
     game,
@@ -850,6 +864,78 @@ app.post('/api/achievements/update-card', async (req, res) => {
 });
 
 /**
+ * Generate AI rating using Gaussian distribution
+ * Clamped to [playerRating - 300, playerRating + 300]
+ */
+function generateAIRating(playerRating: number, rng: Mulberry32): number {
+  // Box-Muller transform for Gaussian distribution
+  const u1 = rng.next();
+  const u2 = rng.next();
+  const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+
+  // Mean = playerRating, Sigma = 200
+  const aiRating = playerRating + z0 * 200;
+
+  // Clamp to ±300 range
+  return Math.max(playerRating - 300, Math.min(playerRating + 300, Math.round(aiRating)));
+}
+
+/**
+ * Generate AI deck based on rating (deterministically)
+ * Lower ratings prefer low-cost cards, higher ratings prefer high-cost cards
+ * Uses rating as seed for reproducibility
+ */
+function getAIDeckForRating(rating: number): { cardId: string; count: number }[] {
+  const allCards = Object.entries(CARD_DB);
+  if (allCards.length === 0) return [];
+
+  // Use rating as deterministic seed
+  const rng = new Mulberry32(Math.abs(rating));
+
+  // Calculate card selection bias based on rating
+  // 1200 = prefer low-cost (< 2), 1500 = balanced, 1800 = prefer high-cost (> 3)
+  const costBias = (rating - 1500) / 300; // -1 to 1
+
+  const selected: { [key: string]: number } = {};
+  for (let i = 0; i < 40; i++) {
+    let card: [string, any] | undefined;
+
+    // Filter cards based on rating bias
+    if (costBias < -0.5) {
+      // Low rating: prefer cards with cost <= 3
+      const filtered = allCards.filter(([_, c]) => c.cost <= 3);
+      if (filtered.length > 0) {
+        card = filtered[rng.int(filtered.length)];
+      }
+    } else if (costBias > 0.5) {
+      // High rating: prefer cards with cost >= 3
+      const filtered = allCards.filter(([_, c]) => c.cost >= 3);
+      if (filtered.length > 0) {
+        card = filtered[rng.int(filtered.length)];
+      }
+    } else {
+      // Medium rating: balanced selection
+      card = allCards[rng.int(allCards.length)];
+    }
+
+    if (!card) {
+      card = allCards[rng.int(allCards.length)];
+    }
+
+    if (card) {
+      const [cardId] = card;
+      selected[cardId] = (selected[cardId] || 0) + 1;
+      if (selected[cardId] > 3) {
+        i--;
+        selected[cardId]--;
+      }
+    }
+  }
+
+  return Object.entries(selected).map(([cardId, count]) => ({ cardId, count }));
+}
+
+/**
  * AI デッキプリセット定義
  * 難易度ごとに異なるカード配分のデッキを生成
  */
@@ -916,7 +1002,24 @@ function getAIDeckPreset(difficulty: 'ai-easy' | 'ai-medium' | 'ai-hard'): { car
  */
 async function loadDeckForGame(deckId: string): Promise<any[] | null> {
   try {
-    // AIプリセットデッキの場合
+    // AIプリセットデッキ（レート別）の場合
+    if (deckId.startsWith('ai-rating-')) {
+      const ratingStr = deckId.replace('ai-rating-', '');
+      const rating = parseInt(ratingStr);
+      const cardList = getAIDeckForRating(rating);
+      const deck: any[] = [];
+      for (const { cardId, count } of cardList) {
+        const card = CARD_DB[cardId as any];
+        if (card) {
+          for (let i = 0; i < count; i++) {
+            deck.push(card);
+          }
+        }
+      }
+      return deck.length > 0 ? deck : null;
+    }
+
+    // AIプリセットデッキ（基本難易度）の場合
     if (deckId.startsWith('ai-')) {
       const difficulty = deckId as 'ai-easy' | 'ai-medium' | 'ai-hard';
       const cardList = getAIDeckPreset(difficulty);

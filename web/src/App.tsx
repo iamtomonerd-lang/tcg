@@ -34,12 +34,12 @@ export default function App() {
     }
   };
 
-  const handleStartGame = async (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number, p0DeckId?: string, p1DeckId?: string) => {
+  const handleStartGame = async (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number, p0DeckId?: string, p1DeckId?: string, p0Rating?: number) => {
     try {
       const response = await fetch('/api/game/new', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ p0Type, p1Type, p0Iters, p1Iters, p0DeckId, p1DeckId }),
+        body: JSON.stringify({ p0Type, p1Type, p0Iters, p1Iters, p0DeckId, p1DeckId, p0Rating }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 

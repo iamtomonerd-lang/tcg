@@ -19,7 +19,7 @@ interface DeckRating {
 
 interface RankMatchProps {
   onBack?: () => void;
-  onStartGame?: (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number, p0DeckId?: string, p1DeckId?: string) => void;
+  onStartGame?: (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number, p0DeckId?: string, p1DeckId?: string, p0Rating?: number) => void;
 }
 
 const LOCAL_DECKS_KEY = 'bs-saved-decks';
@@ -163,9 +163,9 @@ export default function RankMatch({ onBack, onStartGame }: RankMatchProps) {
               <button
                 className="start-button"
                 onClick={() => {
-                  if (onStartGame && selectedDeck) {
-                    const aiDifficulty = getAIDifficultyFromRating(selected.rating);
-                    onStartGame('human', 'mcts', 100, 200, selectedDeck, aiDifficulty);
+                  if (onStartGame && selectedDeck && selected) {
+                    // プレイヤーのレート情報をサーバーに渡し、AI難易度を動的に決定させる
+                    onStartGame('human', 'mcts', 100, 200, selectedDeck, 'ai-auto', selected.rating);
                   }
                 }}
               >
