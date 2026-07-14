@@ -92,12 +92,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.5rem;
   padding: 0.5rem 0.8rem;
   background: #667eea;
   color: white;
   font-size: 0.95rem;
 }
 
+.side-header .header-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.side-header .surrender-button,
 .side-header .reset-button {
   background: rgba(255, 255, 255, 0.2);
   color: white;
@@ -106,6 +114,12 @@
   padding: 0.25rem 0.6rem;
   font-size: 0.8rem;
   cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.side-header .surrender-button:hover {
+  background: rgba(255, 69, 0, 0.5);
+  border-color: rgba(255, 100, 50, 0.8);
 }
 
 .side-header .reset-button:hover {

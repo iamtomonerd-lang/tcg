@@ -426,6 +426,12 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     return labels[phase] || 'フェーズ';
   };
 
+  const handleSurrender = () => {
+    if (confirm('ゲームに投了します。よろしいですか？')) {
+      onEndGame();
+    }
+  };
+
   return (
     <div className="game-screen">
       {/* ===== Battle area (left) ===== */}
@@ -484,7 +490,10 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       <aside className="side-panel">
         <div className="side-header">
           <strong>Battle Spirits</strong>
-          <button className="reset-button" onClick={onEndGame}>🔄 リセット</button>
+          <div className="header-buttons">
+            <button className="surrender-button" onClick={handleSurrender} title="ゲームに投了します">🏳️ 投了</button>
+            <button className="reset-button" onClick={onEndGame}>🔄 リセット</button>
+          </div>
         </div>
 
         {error && <div className="error-banner side-error">⚠️ {error}</div>}
