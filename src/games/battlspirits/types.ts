@@ -30,6 +30,7 @@ export interface CardEffect {
     requiresAdjacentSymbol?: string; // requires adjacent spirit with this symbol
     excludeEXSymbol?: boolean; // exclude cards with EX symbol
     excludeSoulCore?: boolean; // exclude soul cores (for place_core effects)
+    onlySoulCore?: boolean; // only use soul cores (for place_core effects)
     requiresNexus?: boolean; // requires at least one nexus on field
     requiresSpirit?: { lineage?: string; count?: number }; // requires specific spirit(s)
     opponentHasNexus?: boolean; // opponent must have nexus

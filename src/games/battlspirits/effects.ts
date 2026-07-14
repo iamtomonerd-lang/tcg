@@ -244,21 +244,41 @@ export function applyEffect(
       const coreValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       const source = effect.source ?? 'void';
       const excludeSoulCore = effect.condition?.excludeSoulCore ?? false;
+      const onlySoulCore = effect.condition?.onlySoulCore ?? false;
 
       if (selfSpirit) {
         if (source === 'trash') {
-          // Take cores from trash (prefer regular cores if not excluding)
+          // Take cores from trash with conditions
           let taken = 0;
-          if (!excludeSoulCore && me.trashSoulCores > 0) {
-            const soulTake = Math.min(me.trashSoulCores, coreValue);
-            selfSpirit.soulCoreCount = (selfSpirit.soulCoreCount || 0) + soulTake;
-            me.trashSoulCores -= soulTake;
-            taken += soulTake;
-          }
-          if (taken < coreValue && me.trashCores > 0) {
-            const regularTake = Math.min(me.trashCores, coreValue - taken);
-            selfSpirit.coreCount += regularTake;
-            me.trashCores -= regularTake;
+          if (onlySoulCore) {
+            // Only take soul cores
+            if (me.trashSoulCores > 0) {
+              const soulTake = Math.min(me.trashSoulCores, coreValue);
+              selfSpirit.soulCoreCount = (selfSpirit.soulCoreCount || 0) + soulTake;
+              me.trashSoulCores -= soulTake;
+              taken += soulTake;
+            }
+          } else if (excludeSoulCore) {
+            // Only take regular cores
+            if (me.trashCores > 0) {
+              const regularTake = Math.min(me.trashCores, coreValue);
+              selfSpirit.coreCount += regularTake;
+              me.trashCores -= regularTake;
+              taken += regularTake;
+            }
+          } else {
+            // Take soul cores first, then regular cores
+            if (me.trashSoulCores > 0) {
+              const soulTake = Math.min(me.trashSoulCores, coreValue);
+              selfSpirit.soulCoreCount = (selfSpirit.soulCoreCount || 0) + soulTake;
+              me.trashSoulCores -= soulTake;
+              taken += soulTake;
+            }
+            if (taken < coreValue && me.trashCores > 0) {
+              const regularTake = Math.min(me.trashCores, coreValue - taken);
+              selfSpirit.coreCount += regularTake;
+              me.trashCores -= regularTake;
+            }
           }
         } else {
           // From void (infinite source)
