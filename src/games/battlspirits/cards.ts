@@ -46,12 +46,12 @@ export const CARD_DB: Record<string, CardDef> = {
     lv2: { cost: 2, bp: 3000 },
     effects: [
       {
-        trigger: 'attack',
+        trigger: 'battle_end',
         action: 'draw',
         value: 1,
         level: [2],
         condition: { maxHandSize: 5 },
-        description: 'Lv2時、攻撃中にバトル終了時、手札が5枚以下なら1枚ドロー',
+        description: '[Lv2]「アタック中」バトル終了時、自分の手札が5枚以下なら、1枚ドローする',
       },
     ],
   },
