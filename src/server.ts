@@ -37,6 +37,11 @@ interface GameSession {
   p0Agent: any;
   p1Agent: any;
   playerTypes: [string, string];
+  p0Rating?: number;
+  p1Rating?: number;
+  p0Deck?: { cardId: string; count: number }[];
+  p1Deck?: { cardId: string; count: number }[];
+  resultLogged?: boolean;
 }
 
 const sessions = new Map<string, GameSession>();
@@ -93,6 +98,18 @@ app.post('/api/game/new', async (req, res) => {
   const p0Agent = createAgent(playerTypes[0], p0Iters || 100, rng);
   const p1Agent = createAgent(playerTypes[1], actualP1Iters, rng);
 
+  // Extract deck info from loaded decks for learning logging
+  const p0DeckInfo = state.players[0].deck.length > 0
+    ? extractDeckInfo(state.players[0].deck)
+    : [];
+  const p1DeckInfo = state.players[1].deck.length > 0
+    ? extractDeckInfo(state.players[1].deck)
+    : [];
+
+  // Use provided ratings or defaults for learning
+  const finalP0Rating = p0Rating || 1700;
+  const finalP1Rating = p1Rating || 1700;
+
   sessions.set(sessionId, {
     game,
     state,
@@ -100,6 +117,10 @@ app.post('/api/game/new', async (req, res) => {
     p0Agent,
     p1Agent,
     playerTypes,
+    p0Rating: finalP0Rating,
+    p1Rating: finalP1Rating,
+    p0Deck: p0DeckInfo,
+    p1Deck: p1DeckInfo,
   });
 
   res.json({
@@ -119,9 +140,41 @@ app.get('/api/game/:sessionId/state', (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
 
+  const isTerminal = session.game.isTerminal(session.state);
+
+  // Log game result when game ends (only once)
+  if (isTerminal && !session.resultLogged && session.state.result?.winner !== null) {
+    const winnerId = session.state.result!.winner!;
+    const loserRating = winnerId === 0 ? session.p1Rating || 1700 : session.p0Rating || 1700;
+    const winnerRating = winnerId === 0 ? session.p0Rating || 1700 : session.p1Rating || 1700;
+
+    const result: any = {
+      timestamp: Date.now(),
+      player0Rating: session.p0Rating || 1700,
+      player1Rating: session.p1Rating || 1700,
+      winnerId,
+      winnerRating,
+      loserRating,
+      turnCount: session.state.turnCount,
+      player0Deck: session.p0Deck || [],
+      player1Deck: session.p1Deck || [],
+      player0CardsPlayed: extractCardsPlayed(session.state.players[0]),
+      player1CardsPlayed: extractCardsPlayed(session.state.players[1]),
+      damageDealt: [
+        session.state.players[1].life < 20 ? 20 - session.state.players[1].life : 0,
+        session.state.players[0].life < 20 ? 20 - session.state.players[0].life : 0,
+      ],
+      spiritsDestroyed: session.state.players[0].trash.filter(c => c.cardType === 'spirit').length +
+                        session.state.players[1].trash.filter(c => c.cardType === 'spirit').length,
+    };
+
+    gameLogger.recordGameResult(result);
+    session.resultLogged = true;
+  }
+
   res.json({
     state: serializeState(session.state),
-    isTerminal: session.game.isTerminal(session.state),
+    isTerminal,
     currentPlayer: session.game.currentPlayer(session.state),
     playerTypes: session.playerTypes,
   });
@@ -431,6 +484,48 @@ app.post('/api/training/stats', async (req, res) => {
 });
 
 // Helper functions
+
+/**
+ * Convert an array of card objects to deck info format
+ */
+function extractDeckInfo(cards: any[]): { cardId: string; count: number }[] {
+  const counts: { [cardId: string]: number } = {};
+  for (const card of cards) {
+    const cardId = card.id;
+    counts[cardId] = (counts[cardId] || 0) + 1;
+  }
+  return Object.entries(counts).map(([cardId, count]) => ({ cardId, count }));
+}
+
+/**
+ * Extract cards that were played (used) by a player during the game
+ */
+function extractCardsPlayed(player: any): string[] {
+  const played = new Set<string>();
+
+  // Cards in spirits (summoned)
+  if (player.spirits) {
+    for (const spirit of player.spirits) {
+      played.add(spirit.def.id);
+    }
+  }
+
+  // Cards in nexuses (summoned)
+  if (player.nexuses) {
+    for (const nexus of player.nexuses) {
+      played.add(nexus.def.id);
+    }
+  }
+
+  // Cards in trash (destroyed or used as magic)
+  if (player.trash) {
+    for (const card of player.trash) {
+      played.add(card.id);
+    }
+  }
+
+  return Array.from(played);
+}
 
 function createAgent(type: string, iters: number, _rng: Mulberry32) {
   switch (type) {
