@@ -20,8 +20,8 @@ export function updateSpiritLevel(spirit: Spirit): void {
   const hasShinkaihouSkill = spirit.def.effects?.some(e => e.skill === '真界放');
 
   if (hasShinkaihouSkill) {
-    // 真界放: ソウルコア1個以上、または通常コア Lv2必要数以上で Lv2 に到達
-    if (spirit.soulCoreCount >= 1 || spirit.coreCount >= spirit.def.lv2.cost) {
+    // 真界放: ソウルコアのみで Lv2 に到達
+    if (spirit.soulCoreCount >= spirit.def.lv2.cost) {
       spirit.level = 2;
     } else {
       spirit.level = 1;
