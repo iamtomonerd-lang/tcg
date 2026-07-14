@@ -474,7 +474,6 @@ export const CARD_DB: Record<string, CardDef> = {
         value: 1,
         source: 'trash',
         mode: 'main',
-        level: [1],
         condition: { requiresFatiguedRed: true, excludeSoulCore: true },
         description: 'その後、疲労状態の自分の赤のスピリットがいるなら、自分のトラッシュのソウルコア以外のコア1個をリザーブに置く',
       },

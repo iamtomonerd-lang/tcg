@@ -294,7 +294,7 @@ export function applyEffect(
       break;
     }
     case 'place_core': {
-      // Place cores on this spirit and recompute level
+      // Place cores on this spirit (or in reserve if no target)
       // Source can be 'trash' or 'void' (default)
       const coreValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       const source = effect.source ?? 'void';
@@ -340,6 +340,37 @@ export function applyEffect(
           selfSpirit.coreCount += coreValue;
         }
         updateSpiritLevel(selfSpirit);
+      } else if (source === 'trash') {
+        // No target spirit: place cores directly in reserve (for Break Claw, etc.)
+        if (excludeSoulCore) {
+          // Only take regular cores from trash
+          if (me.trashCores > 0) {
+            const regularTake = Math.min(me.trashCores, coreValue);
+            me.cores += regularTake;
+            me.trashCores -= regularTake;
+          }
+        } else if (onlySoulCore) {
+          // Only take soul cores from trash
+          if (me.trashSoulCores > 0) {
+            const soulTake = Math.min(me.trashSoulCores, coreValue);
+            me.soulCores += soulTake;
+            me.trashSoulCores -= soulTake;
+          }
+        } else {
+          // Take soul cores first, then regular cores
+          let taken = 0;
+          if (me.trashSoulCores > 0) {
+            const soulTake = Math.min(me.trashSoulCores, coreValue);
+            me.soulCores += soulTake;
+            me.trashSoulCores -= soulTake;
+            taken += soulTake;
+          }
+          if (taken < coreValue && me.trashCores > 0) {
+            const regularTake = Math.min(me.trashCores, coreValue - taken);
+            me.cores += regularTake;
+            me.trashCores -= regularTake;
+          }
+        }
       }
       break;
     }
