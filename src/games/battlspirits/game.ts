@@ -49,13 +49,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       phase: 'start',
       battle: null,
       result: null,
-      pendingMulligan: { player: 0 },
+      pendingRockPaperScissors: { rocksChoices: undefined, decidingPlayer: -1 },
     };
     // Draw opening hand of 4 cards each
     for (const p of players) {
       this.drawOpeningHand(p);
     }
-    // Mulligan decisions happen before the first turn starts (see applyAction 'mulligan')
+    // Rock-paper-scissors happens before the first turn starts (see applyAction 'rock_paper_scissors')
     return state;
   }
 
@@ -443,6 +443,23 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   legalActions(state: GameState): Action[] {
     if (state.result) return [];
 
+    // Rock-paper-scissors phase: both players choose their hand
+    if (state.pendingRockPaperScissors && state.pendingRockPaperScissors.rocksChoices === undefined) {
+      return [
+        { type: 'rock_paper_scissors', choice: 0 }, // rock
+        { type: 'rock_paper_scissors', choice: 1 }, // paper
+        { type: 'rock_paper_scissors', choice: 2 }, // scissors
+      ];
+    }
+
+    // Order choice phase: winner chooses to go first or second
+    if (state.pendingRockPaperScissors && state.pendingRockPaperScissors.decidingPlayer >= 0) {
+      return [
+        { type: 'choose_order', goFirst: true },
+        { type: 'choose_order', goFirst: false },
+      ];
+    }
+
     // Opening hand mulligan: keep as-is, or shuffle the whole hand back and redraw (no card selection)
     if (state.pendingMulligan) {
       return [
@@ -710,10 +727,53 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const me = next.players[next.currentPlayer]!;
     const opponent = next.players[1 - next.currentPlayer]!;
 
+    // Rock-paper-scissors: collect both players' choices
+    if (action.type === 'rock_paper_scissors') {
+      if (!next.pendingRockPaperScissors || next.pendingRockPaperScissors.rocksChoices !== undefined) return next;
+
+      const choices = [action.choice, 0]; // placeholder for opponent's choice
+      if (next.currentPlayer === 0) {
+        next.pendingRockPaperScissors.rocksChoices = [action.choice, undefined as any];
+        next.currentPlayer = 1;
+        return next;
+      } else {
+        next.pendingRockPaperScissors.rocksChoices = [next.pendingRockPaperScissors.rocksChoices![0]!, action.choice];
+        // Determine winner: rock=0, paper=1, scissors=2
+        // paper beats rock, scissors beats paper, rock beats scissors
+        const p0Choice = next.pendingRockPaperScissors.rocksChoices[0]!;
+        const p1Choice = next.pendingRockPaperScissors.rocksChoices[1]!;
+        let winner: number;
+        if (p0Choice === p1Choice) {
+          // Tie: replay (shouldn't happen with random AI, but handle it)
+          winner = rng.int(2);
+        } else if ((p0Choice + 1) % 3 === p1Choice) {
+          winner = 1;
+        } else {
+          winner = 0;
+        }
+        next.pendingRockPaperScissors = { rocksChoices: undefined, decidingPlayer: winner };
+        next.currentPlayer = winner;
+        return next;
+      }
+    }
+
+    // Choose order: winner decides to go first or second
+    if (action.type === 'choose_order') {
+      if (!next.pendingRockPaperScissors || next.pendingRockPaperScissors.decidingPlayer < 0) return next;
+
+      const winner = next.pendingRockPaperScissors.decidingPlayer;
+      const firstPlayer = action.goFirst ? winner : 1 - winner;
+      next.pendingRockPaperScissors = null;
+      next.pendingMulligan = { player: firstPlayer, firstPlayer };
+      next.currentPlayer = firstPlayer;
+      return next;
+    }
+
     // Opening hand mulligan: keep as-is, or shuffle the whole hand back into the deck and redraw
     if (action.type === 'mulligan') {
       if (!next.pendingMulligan) return next;
       const decidingPlayer = next.pendingMulligan.player;
+      const firstPlayer = next.pendingMulligan.firstPlayer;
       const p = next.players[decidingPlayer]!;
 
       if (action.redraw) {
@@ -723,14 +783,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         this.drawOpeningHand(p);
       }
 
-      if (decidingPlayer === 0) {
-        next.pendingMulligan = { player: 1 };
-        next.currentPlayer = 1;
+      const otherPlayer = 1 - decidingPlayer;
+      if (decidingPlayer === firstPlayer) {
+        // First player completed mulligan; move to second player
+        next.pendingMulligan = { player: otherPlayer, firstPlayer };
+        next.currentPlayer = otherPlayer;
         return next;
       }
 
+      // Second player completed mulligan; start the first turn
       next.pendingMulligan = null;
-      next.currentPlayer = 0;
+      next.currentPlayer = firstPlayer;
       return this.startTurn(next);
     }
 

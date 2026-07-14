@@ -159,8 +159,14 @@ export interface PendingDraw {
   effectValue?: number; // from original use_magic action
 }
 
+export interface PendingRockPaperScissors {
+  rocksChoices?: (0 | 1 | 2)[]; // 0=rock, 1=paper, 2=scissors; undefined = awaiting choice
+  decidingPlayer: number; // player who must choose order (0 or 1) after winning RPS
+}
+
 export interface PendingMulligan {
   player: number; // player who must decide keep/redraw next (0 or 1)
+  firstPlayer: number; // player who goes first (determined in order choice)
 }
 
 export interface EffectResult {
@@ -175,6 +181,7 @@ export interface GameState {
   phase: GamePhase;
   battle: BattleState | null;
   result: { winner: number | null } | null;
+  pendingRockPaperScissors?: PendingRockPaperScissors | null; // if set, in initial RPS or order-choosing phase
   pendingFlash?: PendingFlash | null; // if set, opponent has a flash opportunity
   pendingAttack?: PendingAttack | null; // if set, defending player can choose to block
   pendingDraw?: PendingDraw | null; // if set, player must select card(s) from opened deck
@@ -182,6 +189,8 @@ export interface GameState {
 }
 
 export type Action =
+  | { type: 'rock_paper_scissors'; choice: 0 | 1 | 2 } // 0=rock, 1=paper, 2=scissors
+  | { type: 'choose_order'; goFirst: boolean } // winner chooses to go first or second
   | { type: 'summon'; handIndex: number; targetNexusIndex?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'add_core'; spiritIndex?: number; nexusIndex?: number; coreType?: 'regular' | 'soul' } // move 1 core from reserve onto a spirit or nexus (level-up)
   | {
