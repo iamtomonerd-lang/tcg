@@ -486,7 +486,23 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (card.cardType !== 'magic') continue;
         // Filter effects by mode: either mode 'flash' or no mode specified (for backward compatibility)
         const flashEffects = card.effects?.filter(e => (e.isFlash || !e.mode || e.mode === 'flash')) ?? [];
-        if (flashEffects.length === 0 || this.effectiveCost(me, card) > totalCores) continue;
+        if (flashEffects.length === 0) continue;
+
+        // Check if can afford flash cost
+        let canAfford = true;
+        const flashEffect = flashEffects[0];
+        if (flashEffect?.skill === 'ソウルマジック：赤') {
+          // Soul Magic: Red costs 1 soul core
+          const canPaySoulCore = me.soulCores >= 1 || me.spirits.some(s => s.soulCoreCount > 0);
+          if (!canPaySoulCore) continue;
+          // Also check the life condition (ライフが減った)
+          if (!me.damageThisTurn || me.damageThisTurn === 0) {
+            // Without life damage, BP limit is 7000; with damage, it's 10000
+            // But still need to have a valid target
+          }
+        } else if (this.effectiveCost(me, card) > totalCores) {
+          continue;
+        }
 
         const destroyEffect = flashEffects.find((e) => e.action === 'destroy_creature');
         const boostEffect = flashEffects.find((e) => e.action === 'boost_bp' && e.requiresTarget);
