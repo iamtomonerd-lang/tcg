@@ -1082,61 +1082,17 @@ function getAIDeckForRating(rating: number, sessionSeed?: number): { cardId: str
  * AI デッキプリセット定義
  * 難易度ごとに異なるカード配分のデッキを生成
  */
-function getAIDeckPreset(difficulty: 'ai-easy' | 'ai-medium' | 'ai-hard'): { cardId: string; count: number }[] {
-  const allCards = Object.entries(CARD_DB);
-  if (allCards.length === 0) return [];
-
-  if (difficulty === 'ai-easy') {
-    // イージー: ランダムな40枚デッキ
-    const selected: { [key: string]: number } = {};
-    for (let i = 0; i < 40; i++) {
-      const entry = allCards[Math.floor(Math.random() * allCards.length)];
-      if (!entry) break;
-      const [cardId] = entry;
-      selected[cardId] = (selected[cardId] || 0) + 1;
-      if (selected[cardId] > 3) {
-        i--;
-        selected[cardId]--;
-      }
-    }
-    return Object.entries(selected).map(([cardId, count]) => ({ cardId, count }));
-  } else if (difficulty === 'ai-medium') {
-    // ノーマル: バランス型デッキ（低コスト・中コストカードを多く）
-    const selected: { [key: string]: number } = {};
-    const mediumCards = allCards.filter(([_, card]) => {
-      return (card.cardType === 'spirit' || card.cardType === 'magic') && card.cost <= 4;
-    });
-    const cardsToUse = mediumCards.length > 0 ? mediumCards : allCards;
-    for (let i = 0; i < 40; i++) {
-      const entry = cardsToUse[Math.floor(Math.random() * cardsToUse.length)];
-      if (!entry) break;
-      const [cardId] = entry;
-      selected[cardId] = (selected[cardId] || 0) + 1;
-      if (selected[cardId] > 3) {
-        i--;
-        selected[cardId]--;
-      }
-    }
-    return Object.entries(selected).map(([cardId, count]) => ({ cardId, count }));
-  } else {
-    // ハード: 高コストカード中心（上級戦闘）
-    const selected: { [key: string]: number } = {};
-    const hardCards = allCards.filter(([_, card]) => {
-      return (card.cardType === 'spirit' || card.cardType === 'magic') && card.cost >= 3;
-    });
-    const cardsToUse = hardCards.length > 0 ? hardCards : allCards;
-    for (let i = 0; i < 40; i++) {
-      const entry = cardsToUse[Math.floor(Math.random() * cardsToUse.length)];
-      if (!entry) break;
-      const [cardId] = entry;
-      selected[cardId] = (selected[cardId] || 0) + 1;
-      if (selected[cardId] > 3) {
-        i--;
-        selected[cardId]--;
-      }
-    }
-    return Object.entries(selected).map(([cardId, count]) => ({ cardId, count }));
-  }
+function getAIDeckPreset(difficulty: 'ai-easy' | 'ai-medium' | 'ai-hard', sessionSeed?: number): { cardId: string; count: number }[] {
+  // Map difficulty levels to ratings for synergy-based adaptive decks
+  // This ensures variable, interesting decks even in normal matches
+  const difficultyRating: Record<string, number> = {
+    'ai-easy': 1400,    // Low rating = more random synergy breakage
+    'ai-medium': 1650,  // Medium rating = moderate optimization
+    'ai-hard': 1800,    // High rating = more optimized decks
+  };
+  const rating = difficultyRating[difficulty] || 1650;
+  // Use the same synergy-based adaptive system as rating matches
+  return getAIDeckForRating(rating, sessionSeed);
 }
 
 /**
@@ -1165,7 +1121,7 @@ async function loadDeckForGame(deckId: string, sessionSeed?: number): Promise<an
     // AIプリセットデッキ（基本難易度）の場合
     if (deckId.startsWith('ai-')) {
       const difficulty = deckId as 'ai-easy' | 'ai-medium' | 'ai-hard';
-      const cardList = getAIDeckPreset(difficulty);
+      const cardList = getAIDeckPreset(difficulty, sessionSeed);
       const deck: any[] = [];
       for (const { cardId, count } of cardList) {
         const card = CARD_DB[cardId as any];
