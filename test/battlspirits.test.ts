@@ -553,8 +553,8 @@ describe('BP boost durations', () => {
 });
 
 describe('真界放 (Shinkaihou) Skill', () => {
-  it('spirit with 真界放 reaches Lv2 with sufficient soul cores only', () => {
-    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 0, soulCoreCount: 3, canAttack: true };
+  it('spirit with 真界放 reaches Lv2 with just 1 soul core', () => {
+    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 0, soulCoreCount: 1, canAttack: true };
     updateSpiritLevel(shinkaihouSpirit);
     expect(shinkaihouSpirit.level).toBe(2);
   });
@@ -565,8 +565,8 @@ describe('真界放 (Shinkaihou) Skill', () => {
     expect(shinkaihouSpirit.level).toBe(2);
   });
 
-  it('spirit with 真界放 stays at Lv1 with insufficient cores', () => {
-    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 1, soulCoreCount: 1, canAttack: true };
+  it('spirit with 真界放 stays at Lv1 with no soul cores and insufficient regular cores', () => {
+    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
     updateSpiritLevel(shinkaihouSpirit);
     expect(shinkaihouSpirit.level).toBe(1);
   });
