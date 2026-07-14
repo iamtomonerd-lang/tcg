@@ -12,7 +12,7 @@ describe('Battle Spirits Summon', () => {
     expect(s.players[0].soulCores).toBe(1);
     expect(s.players[0].trashCores).toBe(0);
     expect(s.players[0].trashSoulCores).toBe(0);
-    expect(s.players[0].hand.length).toBe(5); // 4 initial + 1 from draw phase
+    expect(s.players[0].hand.length).toBe(4); // 4 initial; first player's first draw phase is skipped
     expect(s.players[0].spirits.length).toBe(0);
     expect(s.phase).toBe('main');
     expect(s.currentPlayer).toBe(0);

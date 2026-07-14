@@ -270,14 +270,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           break;
         }
         case 'draw': {
-          // Standard draw phase: draw 1 card
-          const p = next.players[next.currentPlayer]!;
-          if (p.deck.length === 0) {
-            next.result = { winner: 1 - next.currentPlayer };
-            return next;
+          // Standard draw phase: draw 1 card (first player's very first turn skips this, per official rules)
+          const isFirstTurn = next.turnCount === 0;
+          if (!isFirstTurn) {
+            const p = next.players[next.currentPlayer]!;
+            if (p.deck.length === 0) {
+              next.result = { winner: 1 - next.currentPlayer };
+              return next;
+            }
+            const card = p.deck.shift()!;
+            p.hand.push(card);
           }
-          const card = p.deck.shift()!;
-          p.hand.push(card);
           next.phase = 'refresh';
           break; // continue the loop so refresh runs and phase reaches main
         }
