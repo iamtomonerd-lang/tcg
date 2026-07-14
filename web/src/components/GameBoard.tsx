@@ -782,102 +782,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         )}
 
         <div className="side-actions">
-          {state.pendingDraw ? (
-            <>
-              <div className="side-actions-title">📖 カード配置</div>
-              <div className="draw-cards">
-                {state.pendingDraw.toHandIndices.length > 0 && (
-                  <div className="draw-section">
-                    <div className="draw-section-title">手札に追加（クリックで選択）</div>
-                    {state.pendingDraw.toHandIndices.map((idx) => {
-                      const card = state.pendingDraw.openedCards[idx];
-                      const isSelected = selectedHandIndices.has(idx);
-                      const canSelect = isSelected || selectedHandIndices.size < 2;
-                      return (
-                        <button
-                          key={`hand-${idx}`}
-                          className={`draw-card-selectable ${isSelected ? 'selected' : ''}`}
-                          onClick={() => {
-                            if (!canSelect) return;
-                            const newSelected = new Set(selectedHandIndices);
-                            if (isSelected) {
-                              newSelected.delete(idx);
-                            } else {
-                              newSelected.add(idx);
-                            }
-                            setSelectedHandIndices(newSelected);
-                          }}
-                          disabled={!canSelect}
-                        >
-                          <div className="draw-card-name">{card.name}</div>
-                          <div className="draw-card-cost">コスト{card.cost}</div>
-                          <div className="draw-card-checkmark">{isSelected ? '✓' : ''}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                {state.pendingDraw.toRearrangeIndices.length > 0 && (
-                  <div className="draw-section">
-                    <div className="draw-section-title">山札下に戻す（順序変更可能）</div>
-                    {arrangedCardIndices.map((cardIdx, order) => {
-                      const card = state.pendingDraw.openedCards[cardIdx];
-                      const isFirst = order === 0;
-                      const isLast = order === arrangedCardIndices.length - 1;
-                      return (
-                        <div key={`arrange-${cardIdx}`} className="draw-card-with-controls">
-                          <div className="draw-card-display">
-                            <div className="draw-card-name">{card.name}</div>
-                            <div className="draw-card-cost">コスト{card.cost}</div>
-                          </div>
-                          <div className="draw-card-controls">
-                            <button
-                              className="draw-move-btn"
-                              onClick={() => {
-                                if (!isFirst) {
-                                  const newArr = [...arrangedCardIndices];
-                                  [newArr[order - 1], newArr[order]] = [newArr[order], newArr[order - 1]];
-                                  setArrangedCardIndices(newArr);
-                                }
-                              }}
-                              disabled={isFirst}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              className="draw-move-btn"
-                              onClick={() => {
-                                if (!isLast) {
-                                  const newArr = [...arrangedCardIndices];
-                                  [newArr[order], newArr[order + 1]] = [newArr[order + 1], newArr[order]];
-                                  setArrangedCardIndices(newArr);
-                                }
-                              }}
-                              disabled={isLast}
-                            >
-                              ↓
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <button
-                className="action-button"
-                onClick={() => {
-                  if (isHumanTurn) {
-                    const selectedIndices = Array.from(selectedHandIndices);
-                    executeAction(0, { selectedCardIndices: selectedIndices, arrangedCardIndices });
-                  }
-                }}
-                disabled={isBusy}
-              >
-                確定
-              </button>
-            </>
-          ) : isHumanTurn ? (
+          {!state.pendingDraw && isHumanTurn ? (
             <>
               <div className="side-actions-title">
                 🎯 あなたの番です
@@ -1009,6 +914,115 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Offering draw overlay ===== */}
+      {!isTerminal && state.pendingDraw && isHumanTurn && (
+        <div className="game-over">
+          <div className="game-over-content offering-draw-content">
+            <h3>オファーリングドロー - カードを選択</h3>
+
+            {state.pendingDraw.toHandIndices.length > 0 && (
+              <div className="offering-section">
+                <div className="offering-section-title">手札に追加するカード（最大2枚選択）</div>
+                <div className="offering-hand">
+                  {state.pendingDraw.toHandIndices.map((idx) => {
+                    const card = state.pendingDraw.openedCards[idx];
+                    const isSelected = selectedHandIndices.has(idx);
+                    const canSelect = isSelected || selectedHandIndices.size < 2;
+                    return (
+                      <div
+                        key={`hand-${idx}`}
+                        className={`offering-card ${isSelected ? 'selected' : ''} ${!canSelect ? 'disabled' : ''}`}
+                        onClick={() => {
+                          if (!canSelect) return;
+                          const newSelected = new Set(selectedHandIndices);
+                          if (isSelected) {
+                            newSelected.delete(idx);
+                          } else {
+                            newSelected.add(idx);
+                          }
+                          setSelectedHandIndices(newSelected);
+                        }}
+                        style={{ cursor: canSelect ? 'pointer' : 'not-allowed' }}
+                      >
+                        {card.imagePath ? <img src={card.imagePath} alt={card.name} /> : null}
+                        <span className="offering-card-name">{card.name}</span>
+                        <span className="offering-card-cost">コスト{card.cost}</span>
+                        {isSelected && <span className="offering-checkmark">✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {state.pendingDraw.toRearrangeIndices.length > 0 && (
+              <div className="offering-section">
+                <div className="offering-section-title">山札下に戻すカード（↑↓で順序変更）</div>
+                <div className="offering-arrange">
+                  {arrangedCardIndices.map((cardIdx, order) => {
+                    const card = state.pendingDraw.openedCards[cardIdx];
+                    const isFirst = order === 0;
+                    const isLast = order === arrangedCardIndices.length - 1;
+                    return (
+                      <div key={`arrange-${cardIdx}`} className="offering-arrange-row">
+                        <div className="offering-arrange-card">
+                          {card.imagePath ? <img src={card.imagePath} alt={card.name} /> : null}
+                          <div className="offering-arrange-info">
+                            <div className="offering-card-name">{card.name}</div>
+                            <div className="offering-card-cost">コスト{card.cost}</div>
+                          </div>
+                        </div>
+                        <div className="offering-arrange-controls">
+                          <button
+                            className="offering-move-btn"
+                            onClick={() => {
+                              if (!isFirst) {
+                                const newArr = [...arrangedCardIndices];
+                                [newArr[order - 1], newArr[order]] = [newArr[order], newArr[order - 1]];
+                                setArrangedCardIndices(newArr);
+                              }
+                            }}
+                            disabled={isFirst}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            className="offering-move-btn"
+                            onClick={() => {
+                              if (!isLast) {
+                                const newArr = [...arrangedCardIndices];
+                                [newArr[order], newArr[order + 1]] = [newArr[order + 1], newArr[order]];
+                                setArrangedCardIndices(newArr);
+                              }
+                            }}
+                            disabled={isLast}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <button
+              className="offering-confirm-btn"
+              onClick={() => {
+                if (isHumanTurn) {
+                  const selectedIndices = Array.from(selectedHandIndices);
+                  executeAction(0, { selectedCardIndices: selectedIndices, arrangedCardIndices });
+                }
+              }}
+              disabled={isBusy}
+            >
+              確定
+            </button>
           </div>
         </div>
       )}
