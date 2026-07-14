@@ -185,8 +185,8 @@ export type Action =
       toIndex?: number;
       coreType: 'regular' | 'soul';
     }
-  | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
-  | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
+  | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean }
+  | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean }
   | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number; discardCardIndex?: number; effectTargetIndex?: number } // discardCardIndex for effects requiring card selection; effectTargetIndex for effects requiring an own-spirit target (e.g. place_core)
   | { type: 'block'; spiritIndex: number } // ブロック：相手の攻撃に対してスピリットで迎撃
   | { type: 'take_damage' } // ダメージ受け入れ：防御せずにダメージを受ける

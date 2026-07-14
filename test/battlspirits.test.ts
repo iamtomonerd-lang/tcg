@@ -571,3 +571,18 @@ describe('真界放 (Shinkaihou) Skill', () => {
     expect(shinkaihouSpirit.level).toBe(1);
   });
 });
+
+describe('ブレイククロー destroy_nexus', () => {
+  it('ブレイククロー is in the card database', () => {
+    expect(CARD_DB.magic_break_claw).toBeDefined();
+    expect(CARD_DB.magic_break_claw!.name).toBe('ブレイククロー');
+  });
+
+  it('ブレイククロー has destroy_nexus effect', () => {
+    const card = CARD_DB.magic_break_claw!;
+    const destroyNexusEffect = card.effects?.find(e => e.action === 'destroy_nexus');
+    expect(destroyNexusEffect).toBeDefined();
+    expect(destroyNexusEffect?.trigger).toBe('immediate');
+    expect(destroyNexusEffect?.mode).toBe('main');
+  });
+});
