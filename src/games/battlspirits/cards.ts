@@ -42,8 +42,8 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['風牙'],
     imagePath: 'assets/cards/spirit_moon_shacco.png',
-    lv1: { cost: 1, bp: 2 },
-    lv2: { cost: 2, bp: 3 },
+    lv1: { cost: 1, bp: 2000 },
+    lv2: { cost: 2, bp: 3000 },
     effects: [
       {
         trigger: 'attack',
@@ -67,8 +67,8 @@ export const CARD_DB: Record<string, CardDef> = {
     lineage: ['紅雲', '風牙'],
     exSymbol: true,
     imagePath: 'assets/cards/spirit_genie_bow.png',
-    lv1: { cost: 1, bp: 3 },
-    lv2: { cost: 3, bp: 5 },
+    lv1: { cost: 1, bp: 3000 },
+    lv2: { cost: 3, bp: 5000 },
     effects: [
       {
         trigger: 'attack',
@@ -92,8 +92,8 @@ export const CARD_DB: Record<string, CardDef> = {
     lineage: ['紅雲', '風牙'],
     exSymbol: true,
     imagePath: 'assets/cards/spirit_ro_meek.png',
-    lv1: { cost: 1, bp: 3 },
-    lv2: { cost: 3, bp: 5 },
+    lv1: { cost: 1, bp: 3000 },
+    lv2: { cost: 3, bp: 5000 },
     effects: [
       {
         trigger: 'summon',
@@ -116,8 +116,8 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['風牙'],
     imagePath: 'assets/cards/spirit_haria.png',
-    lv1: { cost: 1, bp: 4 },
-    lv2: { cost: 3, bp: 6 },
+    lv1: { cost: 1, bp: 4000 },
+    lv2: { cost: 3, bp: 6000 },
     effects: [
       {
         trigger: 'attack',
@@ -140,8 +140,8 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     exSymbol: true,
     imagePath: 'assets/cards/spirit_gun_gata.png',
-    lv1: { cost: 1, bp: 5 },
-    lv2: { cost: 3, bp: 8 },
+    lv1: { cost: 1, bp: 5000 },
+    lv2: { cost: 3, bp: 8000 },
   },
 
   spirit_cubel: {
@@ -154,8 +154,8 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['風牙'],
     imagePath: 'assets/cards/spirit_cubel.png',
-    lv1: { cost: 1, bp: 4 },
-    lv2: { cost: 4, bp: 7 },
+    lv1: { cost: 1, bp: 4000 },
+    lv2: { cost: 4, bp: 7000 },
     effects: [
       {
         trigger: 'summon',
@@ -179,8 +179,8 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['風牙'],
     imagePath: 'assets/cards/spirit_graipher.png',
-    lv1: { cost: 1, bp: 5 },
-    lv2: { cost: 3, bp: 7, coreType: 'ソウルコア' },
+    lv1: { cost: 1, bp: 5000 },
+    lv2: { cost: 3, bp: 7000, coreType: 'ソウルコア' },
     effects: [
       {
         trigger: 'attack',
@@ -220,8 +220,8 @@ export const CARD_DB: Record<string, CardDef> = {
     lineage: ['風牙'],
     inheritance: true,
     imagePath: 'assets/cards/spirit_seldalius.png',
-    lv1: { cost: 1, bp: 6 },
-    lv2: { cost: 2, bp: 7 },
+    lv1: { cost: 1, bp: 6000 },
+    lv2: { cost: 2, bp: 7000 },
     effects: [
       {
         trigger: 'summon',
@@ -246,8 +246,8 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['紅雲', '風牙'],
     imagePath: 'assets/cards/spirit_lev_falus.png',
-    lv1: { cost: 1, bp: 6 },
-    lv2: { cost: 3, bp: 8, coreType: 'ソウルコア' },
+    lv1: { cost: 1, bp: 6000 },
+    lv2: { cost: 3, bp: 8000, coreType: 'ソウルコア' },
     effects: [
       {
         trigger: 'summon',
@@ -278,8 +278,8 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['風牙'],
     imagePath: 'assets/cards/spirit_shinkoku_renshi.png',
-    lv1: { cost: 1, bp: 6 },
-    lv2: { cost: 3, bp: 8 },
+    lv1: { cost: 1, bp: 6000 },
+    lv2: { cost: 3, bp: 8000 },
     effects: [
       {
         trigger: 'summon',
@@ -310,8 +310,8 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['風牙'],
     imagePath: 'assets/cards/spirit_hibutsu_akurai.png',
-    lv1: { cost: 1, bp: 7 },
-    lv2: { cost: 4, bp: 10, coreType: 'ソウルコア' },
+    lv1: { cost: 1, bp: 7000 },
+    lv2: { cost: 4, bp: 10000, coreType: 'ソウルコア' },
     effects: [
       {
         trigger: 'attack',
