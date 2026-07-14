@@ -63,14 +63,15 @@ app.post('/api/game/new', async (req, res) => {
     actualP1DeckId = `ai-rating-${p1Rating}`;
   }
 
-  // Load decks if provided
+  // Load decks if provided (use session timestamp as seed for variation)
+  const sessionSeed = Date.now() & 0xffffffff;
   try {
     if (p0DeckId) {
-      const deck0 = await loadDeckForGame(p0DeckId);
+      const deck0 = await loadDeckForGame(p0DeckId, sessionSeed);
       if (deck0) state.players[0].deck = deck0;
     }
     if (actualP1DeckId) {
-      const deck1 = await loadDeckForGame(actualP1DeckId);
+      const deck1 = await loadDeckForGame(actualP1DeckId, sessionSeed);
       if (deck1) state.players[1].deck = deck1;
     }
   } catch (error) {
@@ -970,13 +971,20 @@ function getOptimalDeck(): { cardId: string; count: number }[] {
  * Generate AI deck based on rating with synergy degradation
  * Higher ratings = closer to optimal with high synergy
  * Lower ratings = more synergy breaking, reduced construction precision
+ *
+ * Same rating + different sessionSeed = different decks (natural variation)
+ * Same rating + same sessionSeed = same deck (reproducibility within session)
  */
-function getAIDeckForRating(rating: number): { cardId: string; count: number }[] {
+function getAIDeckForRating(rating: number, sessionSeed?: number): { cardId: string; count: number }[] {
   const allCards = Object.entries(CARD_DB);
   if (allCards.length === 0) return [];
 
-  // Use rating as deterministic seed for reproducibility
-  const rng = new Mulberry32(Math.abs(rating));
+  // Combine rating and session seed for deterministic variation
+  // Same rating but different sessions = different decks
+  const seed = sessionSeed !== undefined
+    ? (Math.abs(rating) * 10000 + sessionSeed) & 0xffffffff
+    : Math.abs(rating);
+  const rng = new Mulberry32(seed);
 
   // Get optimal deck as the baseline
   const optimalDeck = getOptimalDeck();
@@ -1113,13 +1121,13 @@ function getAIDeckPreset(difficulty: 'ai-easy' | 'ai-medium' | 'ai-hard'): { car
  * デッキIDに基づいてゲーム用デッキを読み込む
  * ユーザーデッキまたはAIプリセットデッキを返す
  */
-async function loadDeckForGame(deckId: string): Promise<any[] | null> {
+async function loadDeckForGame(deckId: string, sessionSeed?: number): Promise<any[] | null> {
   try {
     // AIプリセットデッキ（レート別）の場合
     if (deckId.startsWith('ai-rating-')) {
       const ratingStr = deckId.replace('ai-rating-', '');
       const rating = parseInt(ratingStr);
-      const cardList = getAIDeckForRating(rating);
+      const cardList = getAIDeckForRating(rating, sessionSeed);
       const deck: any[] = [];
       for (const { cardId, count } of cardList) {
         const card = CARD_DB[cardId as any];
