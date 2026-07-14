@@ -502,8 +502,10 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
   };
 
   const handleShowCardRulebook = (cardId: string, imagePath: string | undefined, name: string) => {
-    // Open rulebook in a new window
-    window.open(`/api/cards/${cardId}/rulebook`, `card-rulebook-${cardId}`, 'width=800,height=1000,scrollbars=yes');
+    // Show card image modal
+    if (imagePath) {
+      setSelectedCardImage({ imagePath, name });
+    }
   };
 
   return (
