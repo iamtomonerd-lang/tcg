@@ -134,7 +134,7 @@ export const CARD_DB: Record<string, CardDef> = {
 
   spirit_gun_gata: {
     id: 'spirit_gun_gata',
-    name: 'グン＝ガタ',
+    name: 'ゲン＝ガタ',
     cardType: 'spirit',
     cost: 4,
     reductionCost: 3,
