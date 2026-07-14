@@ -1,6 +1,6 @@
 import type { Game, Rng } from '../../core/game.js';
 import { CARD_DB, getStarterDeck } from './cards.js';
-import type { Action, GameState, Nexus, Spirit, PlayerState } from './types.js';
+import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack } from './types.js';
 import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel } from './effects.js';
 
 /**
@@ -65,7 +65,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const deck = getStarterDeck();
     rng.shuffle(deck);
     return {
-      life: 5,
+      life: 20,
       cores: 3, // starting regular cores
       soulCores: 1, // starting soul core
       trashCores: 0, // cores in trash
@@ -402,7 +402,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     return player.hand.some(
       (c) =>
         c.cardType === 'magic' &&
-        c.effects?.some((e) => e.isFlash) &&
+        c.effects?.some((e) => e.trigger === 'immediate' && (e.isFlash || !e.mode || e.mode === 'flash')) &&
         this.effectiveCost(player, c) <= totalCores,
     );
   }
@@ -489,12 +489,30 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const mainEffects = card.effects?.filter(e => !e.mode || e.mode === 'main') ?? [];
         if (mainEffects.length === 0) continue; // No main-phase effects for this card
 
-        // Check if card has effects with requiresTarget
-        const hasTargetEffect = mainEffects.some((e) => e.requiresTarget) ?? false;
+        // Check if card has effects with requiresTarget (for spirits or nexuses)
+        const hasDestroyNexusEffect = mainEffects.some((e) => e.action === 'destroy_nexus') ?? false;
+        const hasOtherTargetEffect = mainEffects.some((e) => e.requiresTarget && e.action !== 'destroy_nexus') ?? false;
         // Check if card has effects with variableValue
         const hasVariableEffect = mainEffects.some((e) => e.variableValue) ?? false;
 
-        if (hasTargetEffect) {
+        if (hasDestroyNexusEffect) {
+          // Generate targeting actions for opponent nexuses (Lv1 only, not Lv2)
+          const opponent = state.players[1 - state.currentPlayer]!;
+          const validNexusIndices: number[] = [];
+          for (let t = 0; t < opponent.nexuses.length; t++) {
+            if (opponent.nexuses[t]!.level !== 2) {
+              validNexusIndices.push(t);
+            }
+          }
+          if (validNexusIndices.length > 0) {
+            for (const nexusIndex of validNexusIndices) {
+              actions.push({ type: 'use_magic', handIndex: i, targetNexusIndex: nexusIndex });
+            }
+          } else {
+            // No valid nexus targets, but card can still be used (effect won't trigger)
+            actions.push({ type: 'use_magic', handIndex: i });
+          }
+        } else if (hasOtherTargetEffect) {
           // Generate targeting actions for opponent spirits
           const opponent = state.players[1 - state.currentPlayer]!;
           for (let t = 0; t < opponent.spirits.length; t++) {
@@ -547,9 +565,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     for (let i = 0; i < me.spirits.length; i++) {
       const s = me.spirits[i]!;
       if (s.canAttack && !s.cannotAttackUntilNextTurn) {
-        // Check if this spirit has a discard_hand effect that requires card selection
+        // Check if this spirit has effects that require target selection
         const discardEffect = s.def.effects?.find(
           (e) => e.trigger === 'attack' && e.action === 'discard_hand' && e.level?.includes(s.level)
+        );
+        const placeCoreEffect = s.def.effects?.find(
+          (e) => e.trigger === 'attack' && e.action === 'place_core' && e.requiresTarget && e.level?.includes(s.level)
         );
 
         if (discardEffect) {
@@ -572,8 +593,22 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             // No valid cards to discard - can still attack but effect won't trigger
             actions.push({ type: 'attack', spiritIndex: i });
           }
+        } else if (placeCoreEffect) {
+          // place_core effect requires target spirit selection
+          // Generate one attack action for each own spirit (except the attacker)
+          let hasValidTarget = false;
+          for (let ti = 0; ti < me.spirits.length; ti++) {
+            if (ti !== i) {
+              actions.push({ type: 'attack', spiritIndex: i, effectTargetIndex: ti });
+              hasValidTarget = true;
+            }
+          }
+          // If no valid targets, still allow attack without target
+          if (!hasValidTarget) {
+            actions.push({ type: 'attack', spiritIndex: i });
+          }
         } else {
-          // No discard requirement - normal attack
+          // No targeting requirement - normal attack
           actions.push({ type: 'attack', spiritIndex: i });
         }
       }
@@ -604,12 +639,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const totalAvailable = this.getTotalAvailableCores(me);
       if (actualCost > totalAvailable) return next;
 
+      const stashedAttack = next.pendingFlash?.stashedAttack;
+
       // Use the magic card as flash
       me.hand.splice(action.handIndex, 1);
       this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
       this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
       me.trash.push(card);
-      next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue);
+      next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex);
       checkResult(next);
       if (next.result) return next;
 
@@ -623,6 +660,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           cardId: '',
           initiatingPlayer: next.pendingFlash!.initiatingPlayer,
           lastFlashPlayer: next.currentPlayer,
+          stashedAttack,
         };
         // Switch to opponent for counter-timing
         next.currentPlayer = 1 - next.currentPlayer;
@@ -631,8 +669,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // No counter-timing available: resolve the original action
       next.pendingFlash = null;
-      // Return to original player to complete the action
-      if (next.pendingFlash === null) {
+      if (stashedAttack) {
+        // This flash window opened in response to an attack declaration; now that it's
+        // closed, hand control to the defender to choose defend/take_damage.
+        next.pendingAttack = stashedAttack;
+        next.currentPlayer = 1 - stashedAttack.attackerPlayer;
+      } else {
+        // Return to original player to complete the action
         next.currentPlayer = 1 - next.currentPlayer;
       }
       return next;
@@ -650,9 +693,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         return next;
       }
 
-      // No more flash opportunity: clear and return to original player
+      // No more flash opportunity: clear and resolve
+      const stashedAttack = next.pendingFlash.stashedAttack;
       next.pendingFlash = null;
-      next.currentPlayer = 1 - next.currentPlayer;
+      if (stashedAttack) {
+        // This flash window opened in response to an attack declaration; now that it's
+        // closed, hand control to the defender to choose defend/take_damage.
+        next.pendingAttack = stashedAttack;
+        next.currentPlayer = 1 - stashedAttack.attackerPlayer;
+      } else {
+        next.currentPlayer = 1 - next.currentPlayer;
+      }
       checkResult(next);
       return next;
     }
@@ -662,7 +713,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const defender = me.spirits[action.spiritIndex];
       if (!defender || !next.pendingAttack) return next;
 
-      const attacker = next.players[next.pendingAttack.attackerPlayer]!.spirits[next.pendingAttack.attackerSpiritIndex]!;
+      const pendingAttack = next.pendingAttack;
+      const attacker = next.players[pendingAttack.attackerPlayer]!.spirits[pendingAttack.attackerSpiritIndex]!;
       const attackerStats = attacker.level === 1 ? attacker.def.lv1 : attacker.def.lv2 || attacker.def.lv1;
       const attackBP = attackerStats.bp + (attacker.bpBoost ?? 0);
 
@@ -678,17 +730,36 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Attacker wins: destroy defender
         destroySpirit(me, action.spiritIndex);
         next = triggerEffects(next, 'destroy', defender.def, next.currentPlayer);
+        // Trigger nexus destroy effects for defender's player
+        for (let ni = 0; ni < me.nexuses.length; ni++) {
+          const nexus = me.nexuses[ni]!;
+          next = triggerEffects(next, 'destroy', nexus.def, next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
+        }
       } else if (attackBP < defendBP) {
         // Defender wins: destroy attacker
-        const attackerPlayer = next.players[next.pendingAttack.attackerPlayer]!;
-        destroySpirit(attackerPlayer, next.pendingAttack.attackerSpiritIndex);
+        const attackerPlayer = next.players[pendingAttack.attackerPlayer]!;
+        destroySpirit(attackerPlayer, pendingAttack.attackerSpiritIndex);
         next = triggerEffects(next, 'destroy', attacker.def, 1 - next.currentPlayer);
+        // Trigger nexus destroy effects for attacker's player
+        for (let ni = 0; ni < attackerPlayer.nexuses.length; ni++) {
+          const nexus = attackerPlayer.nexuses[ni]!;
+          next = triggerEffects(next, 'destroy', nexus.def, 1 - next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
+        }
       } else {
         // Equal BP: both destroyed
         destroySpirit(me, action.spiritIndex);
-        destroySpirit(next.players[next.pendingAttack.attackerPlayer]!, next.pendingAttack.attackerSpiritIndex);
+        destroySpirit(next.players[pendingAttack.attackerPlayer]!, pendingAttack.attackerSpiritIndex);
         next = triggerEffects(next, 'destroy', defender.def, next.currentPlayer);
         next = triggerEffects(next, 'destroy', attacker.def, 1 - next.currentPlayer);
+        // Trigger nexus destroy effects for both players
+        for (let ni = 0; ni < me.nexuses.length; ni++) {
+          const nexus = me.nexuses[ni]!;
+          next = triggerEffects(next, 'destroy', nexus.def, next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
+        }
+        for (let ni = 0; ni < next.players[pendingAttack.attackerPlayer]!.nexuses.length; ni++) {
+          const nexus = next.players[pendingAttack.attackerPlayer]!.nexuses[ni]!;
+          next = triggerEffects(next, 'destroy', nexus.def, 1 - next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
+        }
       }
 
       // Trigger battle_end effects
@@ -774,10 +845,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           bpBoost: 0,
         };
         updateSpiritLevel(spirit);
+        const newSpiritIndex = me.spirits.length;
         me.spirits.push(spirit);
 
         // Trigger summon effects
-        next = triggerEffects(next, 'summon', card, next.currentPlayer, spirit);
+        next = triggerEffects(next, 'summon', card, next.currentPlayer, newSpiritIndex, undefined, undefined, undefined, undefined, undefined, spirit.level);
         break;
       }
       case 'add_core': {
@@ -1053,7 +1125,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Trigger magic effects with optional target and value
-        next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue);
+        next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'main', action.targetNexusIndex);
         // Fall through to flash checking below
         break;
       }
@@ -1061,26 +1133,48 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const spirit = me.spirits[action.spiritIndex];
         if (!spirit || !spirit.canAttack) return next;
 
-        // Trigger attack effects (may boost BP), passing discardCardIndex if provided
-        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, spirit, undefined, undefined, action.discardCardIndex);
+        // Trigger attack effects (may boost BP, place cores, etc.), passing discardCardIndex/effectTargetIndex if provided
+        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, action.spiritIndex, action.effectTargetIndex, undefined, action.discardCardIndex, undefined, undefined, spirit.level);
+
+        // Nexus "attack"-trigger effects (e.g. buffs during my attack step)
+        const attackerNow = next.players[next.currentPlayer]!;
+        for (let ni = 0; ni < attackerNow.nexuses.length; ni++) {
+          const nexus = attackerNow.nexuses[ni]!;
+          next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, action.spiritIndex, undefined, undefined, undefined, undefined, undefined, nexus.level);
+        }
 
         // Create pending attack opportunity for opponent to defend
         const damage = spirit.def.symbolCount;
-        next.pendingAttack = {
+        const pendingAttack: PendingAttack = {
           attackerPlayer: next.currentPlayer,
           attackerSpiritIndex: action.spiritIndex,
-          damage: damage,
+          damage,
         };
 
-        // Switch to opponent to handle defense
-        next.currentPlayer = 1 - next.currentPlayer;
+        const defenderIndex = 1 - next.currentPlayer;
+        const defender = next.players[defenderIndex]!;
+
+        // Give the defender a flash opportunity before they must choose defend/take_damage
+        if (this.hasAffordableFlash(defender)) {
+          next.pendingFlash = {
+            trigger: 'opponent_attack',
+            cardId: '',
+            initiatingPlayer: next.currentPlayer,
+            stashedAttack: pendingAttack,
+          };
+          next.currentPlayer = defenderIndex;
+          return next;
+        }
+
+        next.pendingAttack = pendingAttack;
+        next.currentPlayer = defenderIndex;
         return next;
       }
       case 'block': {
         const spirit = me.spirits[action.spiritIndex];
         if (!spirit || !spirit.canAttack) return next;
         // Block triggers effects on the blocking spirit
-        next = triggerEffects(next, 'block', spirit.def, next.currentPlayer, spirit);
+        next = triggerEffects(next, 'block', spirit.def, next.currentPlayer, action.spiritIndex, undefined, undefined, undefined, undefined, undefined, spirit.level);
         break;
       }
       case 'select_draw_arrange': {
@@ -1123,11 +1217,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
             // Trigger end-of-turn effects for current player
             const currentPlayer = next.players[next.currentPlayer]!;
-            for (const spirit of currentPlayer.spirits) {
-              next = triggerEffects(next, 'end_step', spirit.def, next.currentPlayer, spirit);
+            for (let si = 0; si < currentPlayer.spirits.length; si++) {
+              const spirit = currentPlayer.spirits[si]!;
+              next = triggerEffects(next, 'end_step', spirit.def, next.currentPlayer, si, undefined, undefined, undefined, undefined, undefined, spirit.level);
             }
             for (const nexus of currentPlayer.nexuses) {
-              next = triggerEffects(next, 'end_step', nexus.def, next.currentPlayer);
+              next = triggerEffects(next, 'end_step', nexus.def, next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
             }
             checkResult(next);
             if (next.result) return next;
@@ -1159,11 +1254,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
           // Trigger end-of-turn effects for current player
           const currentPlayer = next.players[next.currentPlayer]!;
-          for (const spirit of currentPlayer.spirits) {
-            next = triggerEffects(next, 'end_step', spirit.def, next.currentPlayer, spirit);
+          for (let si = 0; si < currentPlayer.spirits.length; si++) {
+            const spirit = currentPlayer.spirits[si]!;
+            next = triggerEffects(next, 'end_step', spirit.def, next.currentPlayer, si, undefined, undefined, undefined, undefined, undefined, spirit.level);
           }
           for (const nexus of currentPlayer.nexuses) {
-            next = triggerEffects(next, 'end_step', nexus.def, next.currentPlayer);
+            next = triggerEffects(next, 'end_step', nexus.def, next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
           }
           checkResult(next);
           if (next.result) return next;

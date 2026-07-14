@@ -34,6 +34,7 @@ export interface CardEffect {
     requiresSpirit?: { lineage?: string; count?: number }; // requires specific spirit(s)
     opponentHasNexus?: boolean; // opponent must have nexus
     requiresSkill?: string; // requires card with specific skill (e.g., "継召")
+    maxCost?: number; // for trash_to_hand: only cards with cost <= this value are eligible
   };
   symbol?: string; // for search_deck/trash_to_hand: symbol to search for
   excludeId?: string; // for trash_to_hand: exclude this card ID
@@ -124,6 +125,7 @@ export interface PendingFlash {
   actionIndex?: number; // the action that triggered this flash window
   initiatingPlayer: number; // player who triggered the flash window (0 or 1)
   lastFlashPlayer?: number; // player who last used a flash (for stacking)
+  stashedAttack?: PendingAttack; // attack waiting to become pendingAttack once this flash window closes
 }
 
 export interface PendingAttack {
@@ -169,11 +171,11 @@ export type Action =
     }
   | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
-  | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number; discardCardIndex?: number } // discardCardIndex for effects requiring card selection
+  | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number; discardCardIndex?: number; effectTargetIndex?: number } // discardCardIndex for effects requiring card selection; effectTargetIndex for effects requiring an own-spirit target (e.g. place_core)
   | { type: 'block'; spiritIndex: number }
   | { type: 'defend'; spiritIndex: number } // respond to pending attack with defense
   | { type: 'take_damage' } // accept attack damage without defending
   | { type: 'pass' } // end current action phase
-  | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number } // activate a flash magic card
+  | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; targetNexusIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number } // activate a flash magic card
   | { type: 'skip_flash' } // pass on flash opportunity
   | { type: 'select_draw_arrange'; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; cardIndices?: number[] }; // arrange and select cards for offering draw

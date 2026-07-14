@@ -69,7 +69,7 @@ export function applyEffect(
   effect: CardEffect,
   sourcePlayer: number,
   targetNexusIndex?: number,
-  spirit?: any, // the spirit triggering the effect
+  spiritIndex?: number, // index (in me.spirits) of the spirit that triggered the effect, e.g. attacker/summoned spirit
   targetSpiritIndex?: number,
   effectValue?: number,
 ): GameState {
@@ -77,10 +77,11 @@ export function applyEffect(
   const me = next.players[sourcePlayer]!;
   const opponent = next.players[1 - sourcePlayer]!;
 
-  // Check effect level applicability
-  if (effect.level && spirit && !effect.level.includes(spirit.level)) {
-    return next;
-  }
+  // Resolve the spirit this effect self-targets: an explicitly player-chosen target takes
+  // priority (e.g. "自分のスピリット1体を指定できる"), otherwise the triggering spirit itself.
+  const selfSpirit = effect.requiresTarget && targetSpiritIndex !== undefined
+    ? me.spirits[targetSpiritIndex]
+    : (spiritIndex !== undefined ? me.spirits[spiritIndex] : undefined);
 
   // Check effect conditions
   if (effect.condition) {
@@ -156,8 +157,8 @@ export function applyEffect(
     case 'boost_bp': {
       // Boost the spirit's BP temporarily (stored as a modifier in spirit state)
       const boostValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
-      if (spirit) {
-        spirit.bpBoost = (spirit.bpBoost ?? 0) + boostValue;
+      if (selfSpirit) {
+        selfSpirit.bpBoost = (selfSpirit.bpBoost ?? 0) + boostValue;
       }
       break;
     }
@@ -207,11 +208,13 @@ export function applyEffect(
       const targetLineage = effect.symbol;
       const excludeId = effect.excludeId;
       const excludeEXSymbol = effect.condition?.excludeEXSymbol ?? false;
+      const maxCost = effect.condition?.maxCost;
       for (let i = 0; i < me.trash.length; i++) {
         const card = me.trash[i]!;
         if ((!targetLineage || card.lineage?.includes(targetLineage)) &&
             (!excludeId || card.id !== excludeId) &&
             (!excludeEXSymbol || !card.exSymbol) &&
+            (maxCost === undefined || card.cost <= maxCost) &&
             card.cardType === 'spirit') {
           me.hand.push(card);
           me.trash.splice(i, 1);
@@ -227,26 +230,26 @@ export function applyEffect(
       const source = effect.source ?? 'void';
       const excludeSoulCore = effect.condition?.excludeSoulCore ?? false;
 
-      if (spirit) {
+      if (selfSpirit) {
         if (source === 'trash') {
           // Take cores from trash (prefer regular cores if not excluding)
           let taken = 0;
           if (!excludeSoulCore && me.trashSoulCores > 0) {
             const soulTake = Math.min(me.trashSoulCores, coreValue);
-            spirit.soulCoreCount = (spirit.soulCoreCount || 0) + soulTake;
+            selfSpirit.soulCoreCount = (selfSpirit.soulCoreCount || 0) + soulTake;
             me.trashSoulCores -= soulTake;
             taken += soulTake;
           }
           if (taken < coreValue && me.trashCores > 0) {
             const regularTake = Math.min(me.trashCores, coreValue - taken);
-            spirit.coreCount += regularTake;
+            selfSpirit.coreCount += regularTake;
             me.trashCores -= regularTake;
           }
         } else {
           // From void (infinite source)
-          spirit.coreCount += coreValue;
+          selfSpirit.coreCount += coreValue;
         }
-        updateSpiritLevel(spirit);
+        updateSpiritLevel(selfSpirit);
       }
       break;
     }
@@ -278,9 +281,17 @@ export function applyEffect(
       break;
     }
     case 'destroy_nexus': {
-      // Destroy opponent's nexus when magic is used (immediate trigger)
-      if (opponent.nexuses.length > 0) {
-        opponent.nexuses.pop();
+      // Destroy opponent's nexus when magic is used (immediate trigger).
+      // Excludes nexuses that have reached Lv2 ("真界放していない" nexus only).
+      const eligible = opponent.nexuses
+        .map((n, idx) => ({ n, idx }))
+        .filter(({ n }) => n.level !== 2)
+        .map(({ idx }) => idx);
+      const chosenIndex = targetNexusIndex !== undefined && eligible.includes(targetNexusIndex)
+        ? targetNexusIndex
+        : eligible[0];
+      if (chosenIndex !== undefined) {
+        opponent.nexuses.splice(chosenIndex, 1);
       }
       break;
     }
@@ -297,14 +308,22 @@ export function triggerEffects(
   trigger: string,
   card: CardDef,
   sourcePlayer: number,
-  spirit?: any,
+  spiritIndex?: number,
   targetSpiritIndex?: number,
   effectValue?: number,
   discardCardIndex?: number,
+  modeFilter?: 'main' | 'flash',
+  targetNexusIndex?: number,
+  sourceLevel?: 1 | 2,
 ): GameState {
   let next = state;
-  const effects = card.effects?.filter((e) => e.trigger === trigger) ?? [];
-  const me = next.players[sourcePlayer]!;
+  const effects = (card.effects ?? []).filter((e) => {
+    if (e.trigger !== trigger) return false;
+    if (modeFilter === 'main' && !(!e.mode || e.mode === 'main')) return false;
+    if (modeFilter === 'flash' && !(e.isFlash || !e.mode || e.mode === 'flash')) return false;
+    if (e.level && sourceLevel !== undefined && !e.level.includes(sourceLevel)) return false;
+    return true;
+  });
 
   for (const effect of effects) {
     // For discard_hand effects, use discardCardIndex as targetSpiritIndex if provided
@@ -312,22 +331,22 @@ export function triggerEffects(
 
     // Handle multiTarget effects (apply to multiple spirits)
     if (effect.multiTarget && effect.action === 'boost_bp') {
-      // Find all spirits matching the condition
-      const targetSpirits: any[] = [];
+      // Find all spirits matching the condition (resolved fresh, in case earlier effects mutated the field)
+      const me = next.players[sourcePlayer]!;
+      const matchingIndices: number[] = [];
       if (effect.condition?.requiresSkill === '継召') {
-        // Find all spirits with inheritance (継召)
-        for (const s of me.spirits) {
-          if (s.def.inheritance) {
-            targetSpirits.push(s);
+        for (let i = 0; i < me.spirits.length; i++) {
+          if (me.spirits[i]!.def.inheritance) {
+            matchingIndices.push(i);
           }
         }
       }
       // Apply effect to all matching spirits
-      for (const targetSpirit of targetSpirits) {
-        next = applyEffect(next, effect, sourcePlayer, undefined, targetSpirit, targetIdx, effectValue);
+      for (const idx of matchingIndices) {
+        next = applyEffect(next, effect, sourcePlayer, targetNexusIndex, idx, targetIdx, effectValue);
       }
     } else {
-      next = applyEffect(next, effect, sourcePlayer, undefined, spirit, targetIdx, effectValue);
+      next = applyEffect(next, effect, sourcePlayer, targetNexusIndex, spiritIndex, targetIdx, effectValue);
     }
   }
   return next;
@@ -343,6 +362,9 @@ function cloneGameState(state: GameState): GameState {
     phase: state.phase,
     battle: state.battle ? { ...state.battle } : null,
     result: state.result ? { ...state.result } : null,
+    pendingFlash: state.pendingFlash ? { ...state.pendingFlash } : state.pendingFlash,
+    pendingAttack: state.pendingAttack ? { ...state.pendingAttack } : state.pendingAttack,
+    pendingDraw: state.pendingDraw ? { ...state.pendingDraw } : state.pendingDraw,
   };
 }
 
