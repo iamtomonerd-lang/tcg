@@ -432,6 +432,75 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     }
   };
 
+  const handleBugReport = () => {
+    if (!confirm('現在の場面をバグ報告として保存してホームに戻ります。よろしいですか？')) {
+      return;
+    }
+
+    // 現在の場面をテキスト化
+    const bugReport = {
+      timestamp: new Date().toISOString(),
+      sessionId,
+      gameState: {
+        turnCount: state.turnCount,
+        phase: state.phase,
+        currentPlayer,
+        p0Life: state.players[0].life,
+        p1Life: state.players[1].life,
+        p0Hand: state.players[0].handSize,
+        p1Hand: state.players[1].handSize,
+        p0Cores: state.players[0].cores,
+        p1Cores: state.players[1].cores,
+        p0SoulCores: state.players[0].soulCores,
+        p1SoulCores: state.players[1].soulCores,
+        p0DeckCount: state.players[0].deck.count,
+        p1DeckCount: state.players[1].deck.count,
+        p0TrashCount: state.players[0].trash.count,
+        p1TrashCount: state.players[1].trash.count,
+        p0Spirits: state.players[0].field.map((s: any) => ({
+          name: s.name,
+          level: s.level,
+          bp: s.bp,
+          cores: s.coreCount,
+          soulCores: s.soulCoreCount,
+        })),
+        p1Spirits: state.players[1].field.map((s: any) => ({
+          name: s.name,
+          level: s.level,
+          bp: s.bp,
+          cores: s.coreCount,
+          soulCores: s.soulCoreCount,
+        })),
+        p0Nexuses: state.players[0].nexuses?.length || 0,
+        p1Nexuses: state.players[1].nexuses?.length || 0,
+      },
+      gameHistory: gameHistory.slice(-20), // 最後の20アクション
+      playerTypes,
+      isTerminal,
+      p1Rating,
+    };
+
+    // ブラウザのローカルストレージに保存
+    try {
+      const reports = JSON.parse(localStorage.getItem('bug-reports') || '[]');
+      reports.push(bugReport);
+      // 最新100件まで保持
+      if (reports.length > 100) {
+        reports.shift();
+      }
+      localStorage.setItem('bug-reports', JSON.stringify(reports));
+
+      // コンソールにもログ出力（デバッグ用）
+      console.log('🐛 Bug Report Saved:', bugReport);
+
+      // ホームに戻る
+      onEndGame();
+    } catch (err) {
+      console.error('Failed to save bug report:', err);
+      alert('バグ報告の保存に失敗しました。');
+    }
+  };
+
   return (
     <div className="game-screen">
       {/* ===== Battle area (left) ===== */}
@@ -494,6 +563,13 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             <button className="surrender-button" onClick={handleSurrender} title="ゲームに投了します">🏳️ 投了</button>
             <button className="reset-button" onClick={onEndGame}>🔄 リセット</button>
           </div>
+        </div>
+
+        <div className="bug-report-bar">
+          <button className="bug-report-button" onClick={handleBugReport} title="現在の場面をバグ報告として保存します">
+            🐛 バグ報告
+          </button>
+          <span className="bug-report-hint">問題が発生した場合はここをクリック</span>
         </div>
 
         {error && <div className="error-banner side-error">⚠️ {error}</div>}
