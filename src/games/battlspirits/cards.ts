@@ -189,6 +189,7 @@ export const CARD_DB: Record<string, CardDef> = {
     reductionCost: 3,
     symbolCount: 1,
     symbolColors: ['red'],
+    exSymbol: true,
     lineage: ['風牙'],
     imagePath: 'assets/cards/spirit_graipher.png',
     lv1: { cost: 1, bp: 5000 },
