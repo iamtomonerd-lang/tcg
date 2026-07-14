@@ -287,6 +287,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
+    inheritance: true,
     imagePath: 'assets/cards/spirit_shinkoku_renshi.png',
     lv1: { cost: 1, bp: 6000 },
     lv2: { cost: 3, bp: 8000 },
