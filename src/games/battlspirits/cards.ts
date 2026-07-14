@@ -165,6 +165,7 @@ export const CARD_DB: Record<string, CardDef> = {
         value: 2,
         source: 'trash',
         level: [1, 2],
+        skill: '真界放',
         condition: { excludeEXSymbol: true, excludeSoulCore: true },
         description: 'Lv1-2時、召喚時に自分のトラッシュのソウルコア以外のコア2個までをこのスピリットに置く',
       },

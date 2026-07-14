@@ -20,8 +20,8 @@ export function updateSpiritLevel(spirit: Spirit): void {
   const hasShinkaihouSkill = spirit.def.effects?.some(e => e.skill === '真界放');
 
   if (hasShinkaihouSkill) {
-    // 真界放: can reach Lv2 with soul cores only
-    if (spirit.soulCoreCount >= spirit.def.lv2.cost) {
+    // 真界放: reach Lv2 with 1 soul core OR with the specified number of regular cores
+    if (spirit.soulCoreCount >= 1 || spirit.coreCount >= spirit.def.lv2.cost) {
       spirit.level = 2;
     } else {
       spirit.level = 1;
