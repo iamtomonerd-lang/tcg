@@ -161,6 +161,11 @@ export interface PendingMulligan {
   player: number; // player who must decide keep/redraw next (0 or 1)
 }
 
+export interface EffectResult {
+  description: string; // 日本語での効果結果の説明
+  type: 'draw' | 'boost_bp' | 'damage' | 'heal' | 'destroy' | 'place_core' | 'other';
+}
+
 export interface GameState {
   players: [PlayerState, PlayerState];
   currentPlayer: number;

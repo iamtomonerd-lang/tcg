@@ -149,7 +149,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       setIsTerminal(data.isTerminal);
       setCurrentPlayer(data.currentPlayer ?? data.state.currentPlayer);
       if (data.actionDescription) {
-        setGameHistory((prev) => [...prev, data.actionDescription]);
+        const historyEntries = [data.actionDescription];
+        if (data.effectResults && Array.isArray(data.effectResults)) {
+          historyEntries.push(...data.effectResults.map((r: any) => `  ${r.description}`));
+        }
+        setGameHistory((prev) => [...prev, ...historyEntries]);
       }
     } catch (error) {
       console.error('Failed to play AI turn:', error);
@@ -200,7 +204,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       setCurrentPlayer(data.currentPlayer ?? data.state.currentPlayer);
       setError(null);
       if (data.actionDescription) {
-        setGameHistory((prev) => [...prev, data.actionDescription]);
+        const historyEntries = [data.actionDescription];
+        if (data.effectResults && Array.isArray(data.effectResults)) {
+          historyEntries.push(...data.effectResults.map((r: any) => `  ${r.description}`));
+        }
+        setGameHistory((prev) => [...prev, ...historyEntries]);
       }
     } catch (error) {
       console.error('Failed to execute action:', error);

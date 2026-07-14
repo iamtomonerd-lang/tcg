@@ -6,7 +6,7 @@ import { homedir } from 'os';
 import { promises as fs } from 'fs';
 import { BattlSpiritsGame } from './games/battlspirits/game.js';
 import { CARD_DB } from './games/battlspirits/cards.js';
-import type { GameState, Action } from './games/battlspirits/types.js';
+import type { GameState, Action, EffectResult } from './games/battlspirits/types.js';
 import { Mulberry32 } from './core/rng.js';
 import { IsmctsAgent } from './ai/ismcts.js';
 import { cardToRulebook } from './games/battlspirits/cardRulebook.js';
@@ -283,13 +283,16 @@ app.post('/api/game/:sessionId/action', (req, res) => {
 
   const description = session.game.describeAction(session.state, action);
   const actingPlayer = session.game.currentPlayer(session.state);
+  const stateBefore = session.state;
   session.state = session.game.applyAction(session.state, action, session.rng);
+  const effectResults = detectEffectResults(stateBefore, session.state, action);
 
   res.json({
     state: serializeState(session.state),
     isTerminal: session.game.isTerminal(session.state),
     currentPlayer: session.game.currentPlayer(session.state),
     actionDescription: `P${actingPlayer}: ${description}`,
+    effectResults,
   });
 });
 
@@ -320,13 +323,16 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
   // Get best action from AI (describe BEFORE applying — indices refer to the pre-action state)
   const action = agent.chooseAction(session.game, session.state, session.rng);
   const description = session.game.describeAction(session.state, action);
+  const stateBefore = session.state;
   session.state = session.game.applyAction(session.state, action, session.rng);
+  const effectResults = detectEffectResults(stateBefore, session.state, action);
 
   res.json({
     state: serializeState(session.state),
     isTerminal: session.game.isTerminal(session.state),
     currentPlayer: session.game.currentPlayer(session.state),
     actionDescription: `P${decidingPlayer}: ${description}`,
+    effectResults,
   });
 });
 
@@ -553,6 +559,107 @@ function createAgent(type: string, iters: number, _rng: Mulberry32) {
         },
       };
   }
+}
+
+function detectEffectResults(before: GameState, after: GameState, action: Action): EffectResult[] {
+  const results: EffectResult[] = [];
+
+  // 引いたカードを検出
+  if (action.type === 'select_draw_arrange') {
+    if (action.selectedCardIndices && action.selectedCardIndices.length > 0 && before.pendingDraw) {
+      const cardNames = action.selectedCardIndices
+        .map(idx => before.pendingDraw!.openedCards[idx]?.name)
+        .filter((name): name is string => !!name);
+      if (cardNames.length > 0) {
+        results.push({
+          description: `📥 ${cardNames.join(', ')}を手札に加える`,
+          type: 'draw',
+        });
+      }
+    }
+  }
+
+  // 破壊されたスピリット/ネクサスを検出
+  for (let p = 0; p < 2; p++) {
+    const beforePlayer = before.players[p];
+    const afterPlayer = after.players[p];
+    if (!beforePlayer || !afterPlayer) continue;
+
+    const beforeSpirits = beforePlayer.spirits;
+    const afterSpirits = afterPlayer.spirits;
+
+    // スピリット減少を検出
+    if (beforeSpirits.length > afterSpirits.length) {
+      // 破壊されたスピリットを特定する
+      for (const spirit of beforeSpirits) {
+        if (!afterSpirits.some(s => s.def.id === spirit.def.id)) {
+          results.push({
+            description: `⚔️ ${spirit.def.name}が破壊された`,
+            type: 'destroy',
+          });
+        }
+      }
+    }
+
+    // ネクサス減少を検出
+    const beforeNexuses = beforePlayer.nexuses;
+    const afterNexuses = afterPlayer.nexuses;
+
+    if (beforeNexuses.length > afterNexuses.length) {
+      for (const nexus of beforeNexuses) {
+        if (!afterNexuses.some(n => n.def.id === nexus.def.id)) {
+          results.push({
+            description: `💥 ${nexus.def.name}が破壊された`,
+            type: 'destroy',
+          });
+        }
+      }
+    }
+  }
+
+  // BP アップを検出
+  for (let p = 0; p < 2; p++) {
+    const beforePlayer = before.players[p];
+    const afterPlayer = after.players[p];
+    if (!beforePlayer || !afterPlayer) continue;
+
+    const beforeSpirits = beforePlayer.spirits;
+    const afterSpirits = afterPlayer.spirits;
+
+    for (let i = 0; i < Math.min(beforeSpirits.length, afterSpirits.length); i++) {
+      const beforeSpirit = beforeSpirits[i];
+      const afterSpirit = afterSpirits[i];
+      if (!beforeSpirit || !afterSpirit) continue;
+
+      const beforeBp = (beforeSpirit.level === 1 ? beforeSpirit.def.lv1 : beforeSpirit.def.lv2 || beforeSpirit.def.lv1).bp + (beforeSpirit.bpBoost ?? 0) + (beforeSpirit.bpBoostBattle ?? 0);
+      const afterBp = (afterSpirit.level === 1 ? afterSpirit.def.lv1 : afterSpirit.def.lv2 || afterSpirit.def.lv1).bp + (afterSpirit.bpBoost ?? 0) + (afterSpirit.bpBoostBattle ?? 0);
+
+      if (afterBp > beforeBp) {
+        const bpIncrease = afterBp - beforeBp;
+        results.push({
+          description: `💪 ${afterSpirit.def.name}の BP が +${bpIncrease} 上がった（${beforeBp} → ${afterBp}）`,
+          type: 'boost_bp',
+        });
+      }
+    }
+  }
+
+  // ダメージを検出
+  for (let p = 0; p < 2; p++) {
+    const beforePlayer = before.players[p];
+    const afterPlayer = after.players[p];
+    if (!beforePlayer || !afterPlayer) continue;
+
+    const lifeLoss = beforePlayer.life - afterPlayer.life;
+    if (lifeLoss > 0) {
+      results.push({
+        description: `💔 P${p}は${lifeLoss}ダメージを受けた（${beforePlayer.life} → ${afterPlayer.life}）`,
+        type: 'damage',
+      });
+    }
+  }
+
+  return results;
 }
 
 function serializeState(state: GameState) {
