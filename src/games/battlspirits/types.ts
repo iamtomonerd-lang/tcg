@@ -102,6 +102,8 @@ export interface Nexus {
   soulCoreCount: number;
   /** cores placed on this nexus */
   placedCores?: number;
+  /** exhausted (疲労) — e.g. paid as an activation cost; recovers at refresh */
+  exhausted?: boolean;
 }
 
 export interface PlayerState {

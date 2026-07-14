@@ -315,15 +315,15 @@ export function applyEffect(
       break;
     }
     case 'discard_hand': {
-      // Discard card from hand with specific symbol, or up to effectValue cards
+      // Discard card from hand with specific lineage (系統, e.g. 風牙), or up to effectValue cards
       // If targetSpiritIndex is provided, use it as discardCardIndex for the selected card
-      const targetSymbol = effect.symbol;
+      const targetLineage = effect.symbol;
       const discardCount = effect.variableValue && effectValue !== undefined ? effectValue : 1;
 
       if (targetSpiritIndex !== undefined && targetSpiritIndex >= 0) {
         // Discard specific card at index
         const card = me.hand[targetSpiritIndex];
-        if (card && (!targetSymbol || card.symbolColors.includes(targetSymbol))) {
+        if (card && (!targetLineage || card.lineage?.includes(targetLineage))) {
           me.trash.push(card);
           me.hand.splice(targetSpiritIndex, 1);
         }
@@ -332,7 +332,7 @@ export function applyEffect(
         let discarded = 0;
         for (let i = me.hand.length - 1; i >= 0 && discarded < discardCount; i--) {
           const card = me.hand[i]!;
-          if (!targetSymbol || card.symbolColors.includes(targetSymbol)) {
+          if (!targetLineage || card.lineage?.includes(targetLineage)) {
             me.trash.push(card);
             me.hand.splice(i, 1);
             discarded++;
@@ -352,7 +352,12 @@ export function applyEffect(
         ? targetNexusIndex
         : eligible[0];
       if (chosenIndex !== undefined) {
+        const nexus = opponent.nexuses[chosenIndex]!;
         opponent.nexuses.splice(chosenIndex, 1);
+        // Card to trash, cores to trash (returned to reserve at refresh) — same as destroySpirit
+        opponent.trash.push(nexus.def);
+        opponent.trashCores += nexus.coreCount;
+        opponent.trashSoulCores += nexus.soulCoreCount;
       }
       break;
     }
@@ -376,6 +381,7 @@ export function triggerEffects(
   modeFilter?: 'main' | 'flash',
   targetNexusIndex?: number,
   sourceLevel?: 1 | 2,
+  sourceNexusIndex?: number, // index of the nexus whose effect is firing (for costExhaustSelf)
 ): GameState {
   let next = state;
   const effects = (card.effects ?? []).filter((e) => {
@@ -387,6 +393,23 @@ export function triggerEffects(
   });
 
   for (const effect of effects) {
+    // Activation cost (▶ compound effects): pay it first, or the effect does not fire.
+    if (effect.costAction === 'discard_hand') {
+      // Cost: discard a card (matching costSymbol lineage) chosen via discardCardIndex.
+      // No/invalid choice = the player declined (起動 abilities are optional) or can't pay.
+      const payer = next.players[sourcePlayer]!;
+      const costCard = discardCardIndex !== undefined ? payer.hand[discardCardIndex] : undefined;
+      if (!costCard || (effect.costSymbol && !costCard.lineage?.includes(effect.costSymbol))) continue;
+      payer.trash.push(costCard);
+      payer.hand.splice(discardCardIndex!, 1);
+    }
+    if (effect.costExhaustSelf) {
+      // Cost: exhaust the source nexus itself; an already-exhausted nexus can't pay again this turn
+      const sourceNexus = sourceNexusIndex !== undefined ? next.players[sourcePlayer]!.nexuses[sourceNexusIndex] : undefined;
+      if (!sourceNexus || sourceNexus.exhausted) continue;
+      sourceNexus.exhausted = true;
+    }
+
     // For discard_hand effects, use discardCardIndex as targetSpiritIndex if provided
     const targetIdx = effect.action === 'discard_hand' && discardCardIndex !== undefined ? discardCardIndex : targetSpiritIndex;
 

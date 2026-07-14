@@ -334,3 +334,125 @@ describe('Spirit index staleness after mid-flash destruction', () => {
     }).not.toThrow();
   });
 });
+
+describe('destroy_nexus conservation', () => {
+  it('destroyed nexus card goes to trash and its cores (incl. soul) go to trash cores', () => {
+    const caster = makePlayer([]);
+    caster.hand = [CARD_DB.magic_break_claw!];
+    caster.cores = 10;
+    const defender = makePlayer([]);
+    defender.nexuses = [{ def: CARD_DB.nexus_ukiyo_rock!, level: 1, coreCount: 2, soulCoreCount: 1 }];
+    defender.soulCores = 0; // their only soul core sits on the nexus
+
+    let state: GameState = {
+      players: [caster, defender],
+      currentPlayer: 0,
+      turnCount: 2,
+      phase: 'main',
+      battle: null,
+      result: null,
+    };
+
+    const useMagic = game.legalActions(state).find((a) => a.type === 'use_magic');
+    expect(useMagic).toBeDefined();
+    state = game.applyAction(state, useMagic!, new Mulberry32(1));
+
+    const d = state.players[1];
+    expect(d.nexuses.length).toBe(0);
+    expect(d.trash.map((c) => c.id)).toContain('nexus_ukiyo_rock');
+    expect(d.trashCores).toBe(2);
+    expect(d.trashSoulCores).toBe(1);
+  });
+});
+
+describe('Compound activation costs (▶ effects)', () => {
+  function setupGraipherAttack(hand: PlayerState['hand']): GameState {
+    const graipher: Spirit = { def: CARD_DB.spirit_graipher!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const p0 = makePlayer([graipher]);
+    p0.hand = hand;
+    const p1 = makePlayer([]);
+    p1.hand = []; // no flash response possible
+    return {
+      players: [p0, p1],
+      currentPlayer: 0,
+      turnCount: 2,
+      phase: 'attack',
+      battle: null,
+      result: null,
+    };
+  }
+
+  it('paying the discard cost applies the BP boost and discards the 風牙 card', () => {
+    const windFangCard = CARD_DB.spirit_moon_shacco!; // lineage 風牙
+    let state = setupGraipherAttack([windFangCard]);
+
+    const attackWithDiscard = game
+      .legalActions(state)
+      .find((a) => a.type === 'attack' && a.discardCardIndex === 0);
+    expect(attackWithDiscard).toBeDefined();
+
+    state = game.applyAction(state, attackWithDiscard!, new Mulberry32(1));
+    const p0 = state.players[0];
+    expect(p0.hand.length).toBe(0);
+    expect(p0.trash.map((c) => c.id)).toContain('spirit_moon_shacco');
+    expect(p0.spirits[0]!.bpBoost).toBe(3000);
+  });
+
+  it('attacking without paying the cost neither discards nor boosts', () => {
+    const windFangCard = CARD_DB.spirit_moon_shacco!;
+    let state = setupGraipherAttack([windFangCard]);
+
+    const plainAttack = game
+      .legalActions(state)
+      .find((a) => a.type === 'attack' && a.discardCardIndex === undefined);
+    expect(plainAttack).toBeDefined();
+
+    state = game.applyAction(state, plainAttack!, new Mulberry32(1));
+    const p0 = state.players[0];
+    expect(p0.hand.length).toBe(1);
+    expect(p0.spirits[0]!.bpBoost ?? 0).toBe(0);
+  });
+
+  it('a non-風牙 card cannot be chosen as the discard cost', () => {
+    const nonWindFang = { ...CARD_DB.spirit_moon_shacco!, lineage: [] };
+    const state = setupGraipherAttack([nonWindFang]);
+
+    const discardChoices = game
+      .legalActions(state)
+      .filter((a) => a.type === 'attack' && a.discardCardIndex !== undefined);
+    expect(discardChoices.length).toBe(0);
+  });
+
+  it('風牙岩 exhausts itself to boost the attacker, and cannot fire again while exhausted', () => {
+    const attacker1: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const attacker2: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const p0 = makePlayer([attacker1, attacker2]);
+    p0.nexuses = [{ def: CARD_DB.nexus_wind_fang_rock!, level: 1, coreCount: 1, soulCoreCount: 0 }];
+    const p1 = makePlayer([]);
+    p1.hand = [];
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0,
+      turnCount: 2,
+      phase: 'attack',
+      battle: null,
+      result: null,
+    };
+
+    // First attack: nexus pays its exhaustion, attacker gets +2000
+    const attackA = game.legalActions(state).find((a) => a.type === 'attack' && a.spiritIndex === 0)!;
+    state = game.applyAction(state, attackA, new Mulberry32(1));
+    expect(state.players[0].spirits[0]!.bpBoost).toBe(2000);
+    expect(state.players[0].nexuses[0]!.exhausted).toBe(true);
+
+    // Resolve the attack (opponent takes damage), control returns to player 0
+    const takeDamage = game.legalActions(state).find((a) => a.type === 'take_damage')!;
+    state = game.applyAction(state, takeDamage, new Mulberry32(1));
+
+    // Second attack in the same turn: exhausted nexus cannot pay again
+    const attackB = game.legalActions(state).find((a) => a.type === 'attack' && a.spiritIndex === 1)!;
+    state = game.applyAction(state, attackB, new Mulberry32(1));
+    expect(state.players[0].spirits[1]!.bpBoost ?? 0).toBe(0);
+    expect(state.players[0].nexuses[0]!.exhausted).toBe(true);
+  });
+});

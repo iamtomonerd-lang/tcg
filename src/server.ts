@@ -487,6 +487,7 @@ function serializeState(state: GameState) {
         soulCoreCount: n.soulCoreCount || 0,
         coresForLv2: n.def.lv2 ? n.def.lv2.cost : null,
         imagePath: n.def.imagePath,
+        exhausted: !!n.exhausted,
       })),
       trash: {
         count: p.trash.length,

@@ -301,6 +301,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             spirit.cannotAttackUntilNextTurn = false;
             spirit.cannotDefendUntilNextTurn = false;
           }
+          // Refresh exhausted nexuses (paid as activation costs)
+          for (const nexus of p.nexuses) {
+            nexus.exhausted = false;
+          }
           // Return cores from trash to reserve
           p.cores += p.trashCores;
           p.soulCores += p.trashSoulCores;
@@ -586,34 +590,32 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     for (let i = 0; i < me.spirits.length; i++) {
       const s = me.spirits[i]!;
       if (s.canAttack && !s.cannotAttackUntilNextTurn) {
-        // Check if this spirit has effects that require target selection
+        // Check if this spirit has effects that require target selection.
+        // A discard can be the effect itself (action) or an activation cost (costAction, ▶ compound effects).
         const discardEffect = s.def.effects?.find(
-          (e) => e.trigger === 'attack' && e.action === 'discard_hand' && e.level?.includes(s.level)
+          (e) => e.trigger === 'attack' && (e.action === 'discard_hand' || e.costAction === 'discard_hand') && e.level?.includes(s.level)
         );
         const placeCoreEffect = s.def.effects?.find(
           (e) => e.trigger === 'attack' && e.action === 'place_core' && e.requiresTarget && e.level?.includes(s.level)
         );
 
         if (discardEffect) {
-          // Find cards in hand that match the discard effect symbol
-          const targetSymbol = discardEffect.symbol;
+          // Find cards in hand that match the discard lineage (系統, e.g. 風牙)
+          const targetLineage = discardEffect.costAction === 'discard_hand' ? discardEffect.costSymbol : discardEffect.symbol;
           const validCardIndices: number[] = [];
           for (let j = 0; j < me.hand.length; j++) {
             const card = me.hand[j]!;
-            if (!targetSymbol || card.symbolColors.includes(targetSymbol)) {
+            if (!targetLineage || card.lineage?.includes(targetLineage)) {
               validCardIndices.push(j);
             }
           }
 
-          if (validCardIndices.length > 0) {
-            // Generate one attack action for each valid card choice
-            for (const cardIndex of validCardIndices) {
-              actions.push({ type: 'attack', spiritIndex: i, discardCardIndex: cardIndex });
-            }
-          } else {
-            // No valid cards to discard - can still attack but effect won't trigger
-            actions.push({ type: 'attack', spiritIndex: i });
+          // Generate one attack action for each valid card choice
+          for (const cardIndex of validCardIndices) {
+            actions.push({ type: 'attack', spiritIndex: i, discardCardIndex: cardIndex });
           }
+          // Activated (起動) abilities are optional: always allow attacking without paying the cost
+          actions.push({ type: 'attack', spiritIndex: i });
         } else if (placeCoreEffect) {
           // place_core effect requires target spirit selection
           // Generate one attack action for each own spirit (except the attacker)
@@ -1219,7 +1221,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const attackerNow = next.players[next.currentPlayer]!;
         for (let ni = 0; ni < attackerNow.nexuses.length; ni++) {
           const nexus = attackerNow.nexuses[ni]!;
-          next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, action.spiritIndex, undefined, undefined, undefined, undefined, undefined, nexus.level);
+          next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, action.spiritIndex, undefined, undefined, undefined, undefined, undefined, nexus.level, ni);
         }
 
         // Create pending attack opportunity for opponent to defend
@@ -1428,7 +1430,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (action.effectValue !== undefined) key += `V${action.effectValue}`;
         return key;
       }
-      case 'attack': return `A${action.spiritIndex}`;
+      case 'attack': {
+        let key = `A${action.spiritIndex}`;
+        if (action.discardCardIndex !== undefined) key += `D${action.discardCardIndex}`;
+        if (action.effectTargetIndex !== undefined) key += `E${action.effectTargetIndex}`;
+        return key;
+      }
       case 'block': return `B${action.spiritIndex}`;
       case 'defend': return `D${action.spiritIndex}`;
       case 'take_damage': return 'TD';
@@ -1497,7 +1504,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'attack': {
         const spirit = me.spirits[action.spiritIndex];
-        return `${spirit?.def.name ?? '?'}でアタック`;
+        let desc = `${spirit?.def.name ?? '?'}でアタック`;
+        if (action.discardCardIndex !== undefined) {
+          const discardCard = me.hand[action.discardCardIndex];
+          desc += `（${discardCard?.name ?? '?'}を破棄して起動）`;
+        }
+        if (action.effectTargetIndex !== undefined) {
+          const target = me.spirits[action.effectTargetIndex];
+          desc += `（対象: ${target?.def.name ?? '?'}）`;
+        }
+        return desc;
       }
       case 'block': {
         const spirit = me.spirits[action.spiritIndex];
