@@ -37,7 +37,7 @@ export const CARD_DB: Record<string, CardDef> = {
     name: 'ムーシャッコ',
     cardType: 'spirit',
     cost: 3,
-    reductionCost: 3,
+    reductionCost: 1,
     symbolCount: 1,
     symbolColors: ['red'],
     lineage: ['風牙'],
