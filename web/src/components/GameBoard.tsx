@@ -926,12 +926,18 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
 
             {state.pendingDraw.toHandIndices.length > 0 && (
               <div className="offering-section">
-                <div className="offering-section-title">手札に追加するカード（最大2枚選択）</div>
+                <div className="offering-section-title">
+                  手札に追加するカード（最大2枚選択）
+                  {state.pendingDraw.selectableIndices && state.pendingDraw.selectableIndices.length < state.pendingDraw.toHandIndices.length && (
+                    <span className="offering-filter-hint">※ 系統「風牙」のみ</span>
+                  )}
+                </div>
                 <div className="offering-hand">
                   {state.pendingDraw.toHandIndices.map((idx) => {
                     const card = state.pendingDraw.openedCards[idx];
+                    const isSelectable = !state.pendingDraw.selectableIndices || state.pendingDraw.selectableIndices.includes(idx);
                     const isSelected = selectedHandIndices.has(idx);
-                    const canSelect = isSelected || selectedHandIndices.size < 2;
+                    const canSelect = isSelectable && (isSelected || selectedHandIndices.size < 2);
                     return (
                       <div
                         key={`hand-${idx}`}
@@ -947,10 +953,14 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                           setSelectedHandIndices(newSelected);
                         }}
                         style={{ cursor: canSelect ? 'pointer' : 'not-allowed' }}
+                        title={isSelectable ? card.name : `${card.name}\n（系統「風牙」ではありません）`}
                       >
                         {card.imagePath ? <img src={card.imagePath} alt={card.name} /> : null}
                         <span className="offering-card-name">{card.name}</span>
                         <span className="offering-card-cost">コスト{card.cost}</span>
+                        {card.lineage?.includes('風牙') && (
+                          <span className="offering-card-lineage">風牙</span>
+                        )}
                         {isSelected && <span className="offering-checkmark">✓</span>}
                       </div>
                     );
