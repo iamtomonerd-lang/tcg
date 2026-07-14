@@ -19,11 +19,22 @@ interface DeckRating {
 
 interface RankMatchProps {
   onBack?: () => void;
+  onStartGame?: (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number, p0DeckId?: string, p1DeckId?: string) => void;
 }
 
 const LOCAL_DECKS_KEY = 'bs-saved-decks';
 
-export default function RankMatch({ onBack }: RankMatchProps) {
+function getAIDifficultyFromRating(rating: number): 'ai-easy' | 'ai-medium' | 'ai-hard' {
+  if (rating < 1400) {
+    return 'ai-easy';
+  } else if (rating < 1600) {
+    return 'ai-medium';
+  } else {
+    return 'ai-hard';
+  }
+}
+
+export default function RankMatch({ onBack, onStartGame }: RankMatchProps) {
   const [decks, setDecks] = useState<DeckRating[]>([]);
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -152,11 +163,13 @@ export default function RankMatch({ onBack }: RankMatchProps) {
               <button
                 className="start-button"
                 onClick={() => {
-                  // 対戦開始処理はここに実装
-                  alert('対戦開始機能は準備中です');
+                  if (onStartGame && selectedDeck) {
+                    const aiDifficulty = getAIDifficultyFromRating(selected.rating);
+                    onStartGame('human', 'mcts', 100, 200, selectedDeck, aiDifficulty);
+                  }
                 }}
               >
-                対戦開始
+                🏆 対戦開始
               </button>
             </div>
           ) : (

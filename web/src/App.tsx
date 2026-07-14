@@ -95,7 +95,7 @@ export default function App() {
       )}
 
       {screen === 'rank-match' && (
-        <RankMatch onBack={handleBackToHome} />
+        <RankMatch onBack={handleBackToHome} onStartGame={handleStartGame} />
       )}
 
       {screen === 'achievements' && (
