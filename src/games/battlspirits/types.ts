@@ -22,6 +22,9 @@ export interface CardEffect {
   mode?: 'main' | 'flash'; // for immediate triggers: 'main' (Main phase) or 'flash' (Flash timing)
   multiTarget?: boolean; // effect applies to multiple creatures/spirits
   targetType?: 'inheritance' | 'fatigued' | 'attacking'; // specific target selection criteria
+  costAction?: EffectAction; // cost to activate this effect (e.g., discard_hand for ▶ effects)
+  costValue?: number; // value for cost action
+  costSymbol?: string; // symbol requirement for cost action
   condition?: {
     minHandSize?: number;
     maxHandSize?: number; // maximum hand size for effect to activate
