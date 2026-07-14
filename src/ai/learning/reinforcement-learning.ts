@@ -64,7 +64,7 @@ export class ReinforcementLearning {
   /**
    * ゲーム結果からカード価値を更新（Q学習）
    */
-  private updateCardValues(result: GameResult): void {
+  updateCardValues(result: GameResult): void {
     const winnerDeck = result.winnerId === 0 ? result.player0Deck : result.player1Deck;
     const loserDeck = result.winnerId === 0 ? result.player1Deck : result.player0Deck;
     const winnerPlayed = result.winnerId === 0 ? result.player0CardsPlayed : result.player1CardsPlayed;

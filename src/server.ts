@@ -169,6 +169,16 @@ app.get('/api/game/:sessionId/state', (req, res) => {
     };
 
     gameLogger.recordGameResult(result);
+
+    // 強化学習を更新
+    reinforcementLearning.updateCardValues(result);
+
+    // ニューラルネットを定期的に訓練（50ゲームごと）
+    const allResults = gameLogger.getGameResults();
+    if (allResults.length % 50 === 0) {
+      neuralEvaluator.learnFromGameResults();
+    }
+
     session.resultLogged = true;
   }
 
