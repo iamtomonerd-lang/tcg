@@ -11,6 +11,7 @@ import './App.css';
 interface GameSession {
   sessionId: string;
   state: any;
+  p1Rating?: number;
 }
 
 type AppScreen = 'home' | 'setup' | 'deck-build' | 'ai-training' | 'rank-match' | 'achievements' | 'game';
@@ -48,6 +49,7 @@ export default function App() {
       setSession({
         sessionId: data.sessionId,
         state: data.state,
+        p1Rating: data.p1Rating,
       });
       setScreen('game');
     } catch (error) {
@@ -104,7 +106,7 @@ export default function App() {
 
       {screen === 'game' && (
         <main className="main-game">
-          <GameBoard sessionId={session!.sessionId} onEndGame={handleEndGame} />
+          <GameBoard sessionId={session!.sessionId} p1Rating={session!.p1Rating} onEndGame={handleEndGame} />
         </main>
       )}
     </div>

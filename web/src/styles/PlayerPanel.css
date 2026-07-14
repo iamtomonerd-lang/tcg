@@ -56,6 +56,17 @@
   font-size: 0.8rem;
 }
 
+.rating-badge {
+  margin-left: 0.4rem;
+  background: linear-gradient(135deg, #667eea, #64b5f6);
+  color: #fff;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
 .turn-badge {
   margin-left: 0.5rem;
   background: #ffd700;

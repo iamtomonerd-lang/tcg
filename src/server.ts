@@ -52,10 +52,11 @@ app.post('/api/game/new', async (req, res) => {
   // Calculate AI rating and iterations if ranked match
   let actualP1Iters = p1Iters || 100;
   let actualP1DeckId = p1DeckId;
+  let p1Rating: number | undefined;
 
   if (p0Rating !== undefined && p1DeckId === 'ai-auto') {
     // Generate AI rating using Gaussian distribution (±300 range is enforced later)
-    const p1Rating = generateAIRating(p0Rating, rng);
+    p1Rating = generateAIRating(p0Rating, rng);
     // Calculate AI iterations based on rating (higher rating = more iterations)
     // Formula: base 100 + (rating - 1500) * 0.15
     actualP1Iters = Math.max(50, Math.floor(100 + (p1Rating - 1500) * 0.15));
@@ -95,6 +96,7 @@ app.post('/api/game/new', async (req, res) => {
     sessionId,
     state: serializeState(state),
     playerTypes,
+    p1Rating,
   });
 });
 

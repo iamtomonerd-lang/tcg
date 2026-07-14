@@ -10,6 +10,7 @@ interface PlayerPanelProps {
   position: 'top' | 'bottom';
   isHumanTurn: boolean;
   legalActions: Array<{ index: number; description: string }>;
+  playerRating?: number;
   onDragStart?: (data: any) => void;
   onDragEnd?: () => void;
   onDrop?: (data: any) => void;
@@ -126,6 +127,7 @@ export default function PlayerPanel({
   position,
   isHumanTurn,
   legalActions: _legalActions,
+  playerRating,
   onDragStart,
   onDragEnd,
   onDrop,
@@ -140,6 +142,7 @@ export default function PlayerPanel({
       <div className="player-bar">
         <span className={`pname ${isCurrent ? 'active' : ''}`}>
           P{playerNumber} <span className="ptype">{typeLabel}</span>
+          {playerRating !== undefined && <span className="rating-badge">📊 {playerRating}</span>}
           {isCurrent && <span className="turn-badge">▶ ターン中</span>}
         </span>
         <span className={`pstat life ${player.life <= 5 ? 'low' : ''}`} title="ライフ">❤️ {player.life}</span>

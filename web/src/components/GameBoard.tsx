@@ -4,6 +4,7 @@ import '../styles/GameBoard.css';
 
 interface GameBoardProps {
   sessionId: string;
+  p1Rating?: number;
   onEndGame: () => void;
 }
 
@@ -12,7 +13,7 @@ interface LegalAction {
   description: string;
 }
 
-export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
+export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardProps) {
   const [state, setState] = useState<any>(null);
   const [isTerminal, setIsTerminal] = useState(false);
   const [currentPlayer, setCurrentPlayer] = useState(0);
@@ -435,6 +436,7 @@ export default function GameBoard({ sessionId, onEndGame }: GameBoardProps) {
           isCurrent={currentPlayer === topPlayer}
           showHand={showHand(topPlayer)}
           typeLabel={playerLabel(topPlayer)}
+          playerRating={topPlayer === 1 ? p1Rating : undefined}
           position="top"
           isHumanTurn={isHumanTurn}
           legalActions={legalActions}
