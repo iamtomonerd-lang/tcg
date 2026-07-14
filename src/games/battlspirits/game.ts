@@ -803,7 +803,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Calculate cost after reductions
         const fieldSymbols = this.getFieldSymbols(me);
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
+        const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+        const usedInheritance = card.inheritance && costWithoutInheritance > actualCost && hasEXInTrash;
 
         // Need enough cores to pay the cost AND move Lv1 maintenance cores onto the spirit
         const totalAvailable = this.getTotalAvailableCores(me);
@@ -813,6 +815,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
         this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
+
+        // If inheritance was used, remove one EX symbol card from trash
+        if (usedInheritance) {
+          const exIndex = me.trash.findIndex((c) => c.exSymbol);
+          if (exIndex !== -1) {
+            me.trash.splice(exIndex, 1);
+          }
+        }
 
         // 乗せるコア: MOVE Lv1 maintenance cores from reserve onto the spirit
         // (moved, not paid — they stay on the spirit as assets)
@@ -1012,7 +1022,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Calculate cost after reductions
         const fieldSymbols = this.getFieldSymbols(me);
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
+        const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+        const usedInheritance = card.inheritance && costWithoutInheritance > actualCost && hasEXInTrash;
 
         // Need enough cores to pay the cost AND move Lv1 maintenance cores onto the nexus
         const totalAvailable = this.getTotalAvailableCores(me);
@@ -1022,6 +1034,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
         this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
+
+        // If inheritance was used, remove one EX symbol card from trash
+        if (usedInheritance) {
+          const exIndex = me.trash.findIndex((c) => c.exSymbol);
+          if (exIndex !== -1) {
+            me.trash.splice(exIndex, 1);
+          }
+        }
 
         // 乗せるコア: MOVE Lv1 maintenance cores from reserve onto the nexus
         let nexusToPlace = card.lv1.cost;
@@ -1064,7 +1084,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Calculate cost after reductions
         const fieldSymbols = this.getFieldSymbols(me);
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
+        const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
         const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+        const usedInheritance = card.inheritance && costWithoutInheritance > actualCost && hasEXInTrash;
 
         // Check if player has enough cores (including from spirits)
         const totalAvailable = this.getTotalAvailableCores(me);
@@ -1074,6 +1096,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
         this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
+
+        // If inheritance was used, remove one EX symbol card from trash
+        if (usedInheritance) {
+          const exIndex = me.trash.findIndex((c) => c.exSymbol);
+          if (exIndex !== -1) {
+            me.trash.splice(exIndex, 1);
+          }
+        }
+
         me.trash.push(card);
 
         // Special handling for オファーリングドロー
