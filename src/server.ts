@@ -39,15 +39,29 @@ const sessions = new Map<string, GameSession>();
 /**
  * Create a new game session
  */
-app.post('/api/game/new', (req, res) => {
-  const { p0Type, p1Type, p0Iters, p1Iters } = req.body;
+app.post('/api/game/new', async (req, res) => {
+  const { p0Type, p1Type, p0Iters, p1Iters, p0DeckId, p1DeckId } = req.body;
 
   const sessionId = Math.random().toString(36).substring(7);
   const rng = new Mulberry32(Date.now() & 0xffffffff);
   const game = new BattlSpiritsGame();
-  const state = game.createInitialState(rng);
+  let state = game.createInitialState(rng);
 
   const playerTypes: [string, string] = [p0Type || 'human', p1Type || 'mcts'];
+
+  // Load decks if provided
+  try {
+    if (p0DeckId) {
+      const deck0 = await loadDeckForGame(p0DeckId);
+      if (deck0) state.players[0].deck = deck0;
+    }
+    if (p1DeckId) {
+      const deck1 = await loadDeckForGame(p1DeckId);
+      if (deck1) state.players[1].deck = deck1;
+    }
+  } catch (error) {
+    console.error('Error loading decks:', error);
+  }
 
   // Create AI agents ('human' players have no agent)
   const p0Agent = createAgent(playerTypes[0], p0Iters || 100, rng);
@@ -834,6 +848,110 @@ app.post('/api/achievements/update-card', async (req, res) => {
     res.status(500).json({ error: 'Failed to update achievement' });
   }
 });
+
+/**
+ * AI デッキプリセット定義
+ * 難易度ごとに異なるカード配分のデッキを生成
+ */
+function getAIDeckPreset(difficulty: 'ai-easy' | 'ai-medium' | 'ai-hard'): { cardId: string; count: number }[] {
+  const allCards = Object.entries(CARD_DB);
+  if (allCards.length === 0) return [];
+
+  if (difficulty === 'ai-easy') {
+    // イージー: ランダムな40枚デッキ
+    const selected: { [key: string]: number } = {};
+    for (let i = 0; i < 40; i++) {
+      const entry = allCards[Math.floor(Math.random() * allCards.length)];
+      if (!entry) break;
+      const [cardId] = entry;
+      selected[cardId] = (selected[cardId] || 0) + 1;
+      if (selected[cardId] > 3) {
+        i--;
+        selected[cardId]--;
+      }
+    }
+    return Object.entries(selected).map(([cardId, count]) => ({ cardId, count }));
+  } else if (difficulty === 'ai-medium') {
+    // ノーマル: バランス型デッキ（低コスト・中コストカードを多く）
+    const selected: { [key: string]: number } = {};
+    const mediumCards = allCards.filter(([_, card]) => {
+      return (card.cardType === 'spirit' || card.cardType === 'magic') && card.cost <= 4;
+    });
+    const cardsToUse = mediumCards.length > 0 ? mediumCards : allCards;
+    for (let i = 0; i < 40; i++) {
+      const entry = cardsToUse[Math.floor(Math.random() * cardsToUse.length)];
+      if (!entry) break;
+      const [cardId] = entry;
+      selected[cardId] = (selected[cardId] || 0) + 1;
+      if (selected[cardId] > 3) {
+        i--;
+        selected[cardId]--;
+      }
+    }
+    return Object.entries(selected).map(([cardId, count]) => ({ cardId, count }));
+  } else {
+    // ハード: 高コストカード中心（上級戦闘）
+    const selected: { [key: string]: number } = {};
+    const hardCards = allCards.filter(([_, card]) => {
+      return (card.cardType === 'spirit' || card.cardType === 'magic') && card.cost >= 3;
+    });
+    const cardsToUse = hardCards.length > 0 ? hardCards : allCards;
+    for (let i = 0; i < 40; i++) {
+      const entry = cardsToUse[Math.floor(Math.random() * cardsToUse.length)];
+      if (!entry) break;
+      const [cardId] = entry;
+      selected[cardId] = (selected[cardId] || 0) + 1;
+      if (selected[cardId] > 3) {
+        i--;
+        selected[cardId]--;
+      }
+    }
+    return Object.entries(selected).map(([cardId, count]) => ({ cardId, count }));
+  }
+}
+
+/**
+ * デッキIDに基づいてゲーム用デッキを読み込む
+ * ユーザーデッキまたはAIプリセットデッキを返す
+ */
+async function loadDeckForGame(deckId: string): Promise<any[] | null> {
+  try {
+    // AIプリセットデッキの場合
+    if (deckId.startsWith('ai-')) {
+      const difficulty = deckId as 'ai-easy' | 'ai-medium' | 'ai-hard';
+      const cardList = getAIDeckPreset(difficulty);
+      const deck: any[] = [];
+      for (const { cardId, count } of cardList) {
+        const card = CARD_DB[cardId as any];
+        if (card) {
+          for (let i = 0; i < count; i++) {
+            deck.push(card);
+          }
+        }
+      }
+      return deck.length > 0 ? deck : null;
+    }
+
+    // ユーザーが保存したデッキの場合
+    const data = await loadDecks();
+    const savedDeck = data.decks[deckId];
+    if (!savedDeck) return null;
+
+    const deck: any[] = [];
+    for (const { cardId, count } of savedDeck.cards) {
+      const card = CARD_DB[cardId as any];
+      if (card) {
+        for (let i = 0; i < count; i++) {
+          deck.push(card);
+        }
+      }
+    }
+    return deck.length > 0 ? deck : null;
+  } catch (error) {
+    console.error('Error loading deck:', error);
+    return null;
+  }
+}
 
 // Catch-all: serve React app (Express 5 no longer accepts '*' as a route path)
 // ※ 必ず全APIルートの後に登録すること

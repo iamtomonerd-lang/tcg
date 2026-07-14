@@ -1,8 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import '../styles/GameSetup.css';
 
+interface SavedDeck {
+  id: string;
+  name: string;
+  cards: any[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AIDeck {
+  id: string;
+  name: string;
+}
+
 interface GameSetupProps {
-  onStartGame: (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number) => void;
+  onStartGame: (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number, p0DeckId?: string, p1DeckId?: string) => void;
   onBack?: () => void;
 }
 
@@ -11,9 +24,40 @@ export default function GameSetup({ onStartGame, onBack }: GameSetupProps) {
   const [p1Type, setP1Type] = useState('mcts');
   const [p0Iters, setP0Iters] = useState(100);
   const [p1Iters, setP1Iters] = useState(100);
+  const [savedDecks, setSavedDecks] = useState<SavedDeck[]>([]);
+  const [aiDecks] = useState<AIDeck[]>([
+    { id: 'ai-easy', name: '🟢 イージー' },
+    { id: 'ai-medium', name: '🟡 ノーマル' },
+    { id: 'ai-hard', name: '🔴 ハード' },
+  ]);
+  const [p0DeckId, setP0DeckId] = useState<string>('');
+  const [p1DeckId, setP1DeckId] = useState<string>('ai-medium');
+
+  useEffect(() => {
+    loadDecks();
+  }, []);
+
+  const loadDecks = async () => {
+    try {
+      const response = await fetch('/api/decks');
+      if (response.ok) {
+        const data = await response.json();
+        setSavedDecks(data.decks || []);
+        if (data.decks && data.decks.length > 0) {
+          setP0DeckId(data.decks[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load decks:', error);
+    }
+  };
 
   const handleStart = () => {
-    onStartGame(p0Type, p1Type, p0Iters, p1Iters);
+    if (p0Type === 'human' && !p0DeckId) {
+      alert('⚠️ プレイヤー0（先手）のデッキを選択してください');
+      return;
+    }
+    onStartGame(p0Type, p1Type, p0Iters, p1Iters, p0DeckId || undefined, p1DeckId);
   };
 
   return (
@@ -32,6 +76,19 @@ export default function GameSetup({ onStartGame, onBack }: GameSetupProps) {
                 <option value="random">ランダム</option>
               </select>
             </div>
+            {p0Type !== 'mcts' && p0Type !== 'random' && (
+              <div className="setting-group">
+                <label>デッキを選択：</label>
+                <select value={p0DeckId} onChange={(e) => setP0DeckId(e.target.value)}>
+                  <option value="">-- デッキを選択してください --</option>
+                  {savedDecks.map((deck) => (
+                    <option key={deck.id} value={deck.id}>
+                      {deck.name} ({deck.cards.length}/40枚)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {p0Type === 'mcts' && (
               <div className="setting-group">
                 <label>探索反復数：</label>
@@ -58,6 +115,31 @@ export default function GameSetup({ onStartGame, onBack }: GameSetupProps) {
                 <option value="random">ランダム</option>
               </select>
             </div>
+            {(p1Type === 'mcts' || p1Type === 'random') && (
+              <div className="setting-group">
+                <label>AIの難易度：</label>
+                <select value={p1DeckId} onChange={(e) => setP1DeckId(e.target.value)}>
+                  {aiDecks.map((deck) => (
+                    <option key={deck.id} value={deck.id}>
+                      {deck.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {p1Type !== 'mcts' && p1Type !== 'random' && (
+              <div className="setting-group">
+                <label>デッキを選択：</label>
+                <select value={p1DeckId} onChange={(e) => setP1DeckId(e.target.value)}>
+                  <option value="">-- デッキを選択してください --</option>
+                  {savedDecks.map((deck) => (
+                    <option key={deck.id} value={deck.id}>
+                      {deck.name} ({deck.cards.length}/40枚)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {p1Type === 'mcts' && (
               <div className="setting-group">
                 <label>探索反復数：</label>
