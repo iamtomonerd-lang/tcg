@@ -1030,13 +1030,24 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             }
           }
 
+          // Identify remaining cards (non-selectable) that will go back to deck bottom
+          const toRearrangeIndices: number[] = [];
+          for (let i = 0; i < openedCards.length; i++) {
+            if (!selectableIndices.includes(i)) {
+              toRearrangeIndices.push(i);
+            }
+          }
+
           // Set pending draw for player to select and arrange cards
           // Player can select up to 2 from selectableIndices
           next.pendingDraw = {
             openedCards,
-            toHandIndices: [], // Will be filled by player selection
-            toRearrangeIndices: [], // Will be filled by player selection
+            toHandIndices: selectableIndices, // Show selectable cards for player to choose from
+            toRearrangeIndices, // Non-selectable cards to arrange back to deck
             selectableIndices, // Cards that can be selected for hand (風牙 lineage)
+            castCard: card, // Store the card so we can trigger effects after selection
+            targetSpiritIndex: action.targetSpiritIndex, // Store for later effect processing
+            effectValue: action.effectValue, // Store for later effect processing
           };
           return next; // Stop here, player must select cards
         }

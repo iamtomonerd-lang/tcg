@@ -139,6 +139,9 @@ export interface PendingDraw {
   toHandIndices: number[]; // indices of cards that go to hand (player selects from selectableIndices)
   toRearrangeIndices: number[]; // indices of cards to be rearranged and put back to deck bottom
   selectableIndices?: number[]; // indices of cards that can be selected for hand (風牙系統かつオファーリングドロー以外)
+  castCard?: CardDef; // the card that triggered this draw (to trigger effects after selection)
+  targetSpiritIndex?: number; // from original use_magic action
+  effectValue?: number; // from original use_magic action
 }
 
 export interface GameState {
