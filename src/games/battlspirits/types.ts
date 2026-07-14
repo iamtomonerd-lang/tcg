@@ -68,6 +68,7 @@ export interface CardDef {
   exSymbol?: boolean; // has decoration on symbol (EX symbol)
   inheritance?: boolean; // can use EX symbols from trash for cost reduction
   imagePath?: string; // path to card image file
+  cardSet?: string; // card set information (e.g., "26RSD01 バトスピエントリーデッキ 赫焔ノ風牙")
   // For spirits and nexuses: Lv1 and Lv2
   lv1: LvStats;
   lv2?: LvStats;
