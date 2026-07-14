@@ -9,6 +9,7 @@ import { CARD_DB } from './games/battlspirits/cards.js';
 import type { GameState, Action } from './games/battlspirits/types.js';
 import { Mulberry32 } from './core/rng.js';
 import { IsmctsAgent } from './ai/ismcts.js';
+import { cardToRulebook } from './games/battlspirits/cardRulebook.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -291,6 +292,20 @@ app.get('/api/cards/:cardId', (req, res) => {
   }
 
   res.json(card);
+});
+
+/**
+ * Get card rulebook HTML
+ */
+app.get('/api/cards/:cardId/rulebook', (req, res) => {
+  const card = CARD_DB[req.params.cardId];
+  if (!card) {
+    return res.status(404).json({ error: 'Card not found' });
+  }
+
+  const html = cardToRulebook(card);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
 });
 
 /**

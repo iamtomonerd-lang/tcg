@@ -15,7 +15,7 @@ interface PlayerPanelProps {
   onDragEnd?: () => void;
   onDrop?: (data: any) => void;
   dragOverCard?: string | null;
-  onCardRightClick?: (imagePath: string | undefined, name: string) => void;
+  onCardRightClick?: (cardId: string, imagePath: string | undefined, name: string) => void;
 }
 
 function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
@@ -196,7 +196,7 @@ export default function PlayerPanel({
             }}
             onContextMenu={(e) => {
               e.preventDefault();
-              onCardRightClick?.(nexus.imagePath, nexus.name);
+              onCardRightClick?.(nexus.id, nexus.imagePath, nexus.name);
             }}
           >
             <CardImage imagePath={nexus.imagePath} name={nexus.name} />
@@ -247,7 +247,7 @@ export default function PlayerPanel({
             }}
             onContextMenu={(e) => {
               e.preventDefault();
-              onCardRightClick?.(spirit.imagePath, spirit.name);
+              onCardRightClick?.(spirit.id, spirit.imagePath, spirit.name);
             }}
           >
             <CardImage imagePath={spirit.imagePath} name={spirit.name} />
@@ -298,7 +298,7 @@ export default function PlayerPanel({
             onDragEnd={onDragEnd}
             onContextMenu={(e) => {
               e.preventDefault();
-              onCardRightClick?.(card.imagePath, card.name);
+              onCardRightClick?.(card.id, card.imagePath, card.name);
             }}
           >
             <CardImage imagePath={card.imagePath} name={card.name} />

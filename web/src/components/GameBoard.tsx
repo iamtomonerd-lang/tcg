@@ -501,6 +501,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     }
   };
 
+  const handleShowCardRulebook = (cardId: string, imagePath: string | undefined, name: string) => {
+    // Open rulebook in a new window
+    window.open(`/api/cards/${cardId}/rulebook`, `card-rulebook-${cardId}`, 'width=800,height=1000,scrollbars=yes');
+  };
+
   return (
     <div className="game-screen">
       {/* ===== Battle area (left) ===== */}
@@ -519,7 +524,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           onDragEnd={handleDragEnd}
           onDrop={handleDrop}
           dragOverCard={dragOverCard}
-          onCardRightClick={(imagePath, name) => setSelectedCardImage({ imagePath: imagePath || '', name })}
+          onCardRightClick={(cardId, imagePath, name) => handleShowCardRulebook(cardId, imagePath, name)}
         />
 
         <div className="center-bar">
@@ -551,7 +556,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           onDragEnd={handleDragEnd}
           onDrop={handleDrop}
           dragOverCard={dragOverCard}
-          onCardRightClick={(imagePath, name) => setSelectedCardImage({ imagePath: imagePath || '', name })}
+          onCardRightClick={(cardId, imagePath, name) => handleShowCardRulebook(cardId, imagePath, name)}
         />
       </div>
 
