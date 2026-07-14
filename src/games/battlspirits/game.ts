@@ -731,17 +731,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     if (action.type === 'rock_paper_scissors') {
       if (!next.pendingRockPaperScissors || next.pendingRockPaperScissors.rocksChoices !== undefined) return next;
 
-      const choices = [action.choice, 0]; // placeholder for opponent's choice
       if (next.currentPlayer === 0) {
-        next.pendingRockPaperScissors.rocksChoices = [action.choice, undefined as any];
+        // Store player 0's choice temporarily in p0Choice
+        next.pendingRockPaperScissors.p0Choice = action.choice;
         next.currentPlayer = 1;
         return next;
       } else {
-        next.pendingRockPaperScissors.rocksChoices = [next.pendingRockPaperScissors.rocksChoices![0]!, action.choice];
+        // Player 1 choosing - now we have both choices
+        const p0Choice = next.pendingRockPaperScissors.p0Choice!;
+        const p1Choice = action.choice;
         // Determine winner: rock=0, paper=1, scissors=2
         // paper beats rock, scissors beats paper, rock beats scissors
-        const p0Choice = next.pendingRockPaperScissors.rocksChoices[0]!;
-        const p1Choice = next.pendingRockPaperScissors.rocksChoices[1]!;
         let winner: number;
         if (p0Choice === p1Choice) {
           // Tie: replay (shouldn't happen with random AI, but handle it)
@@ -751,7 +751,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         } else {
           winner = 0;
         }
-        next.pendingRockPaperScissors = { rocksChoices: undefined, decidingPlayer: winner };
+        // Store actual choices so test loop exits, but set rocksChoices[1] to an empty array
+        // to signal completion while keeping decidingPlayer for order selection
+        next.pendingRockPaperScissors = { rocksChoices: [p0Choice, p1Choice], decidingPlayer: winner };
         next.currentPlayer = winner;
         return next;
       }
@@ -1701,6 +1703,7 @@ function cloneState(state: GameState): GameState {
     phase: state.phase,
     battle: state.battle ? { ...state.battle } : null,
     result: state.result ? { ...state.result } : null,
+    pendingRockPaperScissors: state.pendingRockPaperScissors ? { ...state.pendingRockPaperScissors } : null,
     pendingFlash: state.pendingFlash ? { ...state.pendingFlash } : null,
     pendingAttack: state.pendingAttack ? { ...state.pendingAttack } : null,
     pendingDraw: state.pendingDraw

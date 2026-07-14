@@ -161,6 +161,7 @@ export interface PendingDraw {
 
 export interface PendingRockPaperScissors {
   rocksChoices?: (0 | 1 | 2)[]; // 0=rock, 1=paper, 2=scissors; undefined = awaiting choice
+  p0Choice?: 0 | 1 | 2; // temporary storage for player 0's choice while waiting for player 1
   decidingPlayer: number; // player who must choose order (0 or 1) after winning RPS
 }
 
