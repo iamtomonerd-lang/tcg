@@ -188,8 +188,8 @@ export type Action =
   | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number; discardCardIndex?: number; effectTargetIndex?: number } // discardCardIndex for effects requiring card selection; effectTargetIndex for effects requiring an own-spirit target (e.g. place_core)
-  | { type: 'defend'; spiritIndex: number } // respond to pending attack with defense
-  | { type: 'take_damage' } // accept attack damage without defending
+  | { type: 'block'; spiritIndex: number } // ブロック：相手の攻撃に対してスピリットで迎撃
+  | { type: 'take_damage' } // ダメージ受け入れ：防御せずにダメージを受ける
   | { type: 'pass' } // end current action phase
   | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; targetNexusIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number } // activate a flash magic card
   | { type: 'skip_flash' } // pass on flash opportunity

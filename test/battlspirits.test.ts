@@ -281,10 +281,10 @@ describe('Spirit index staleness after mid-flash destruction', () => {
     expect(state.pendingAttack).toEqual({ attackerPlayer: 0, attackerSpiritIndex: 0, damage: 1 });
   });
 
-  it('end-to-end: flashing destroy_creature on an earlier attacker spirit no longer crashes defend resolution', () => {
+  it('end-to-end: flashing destroy_creature on an earlier attacker spirit no longer crashes block resolution', () => {
     // Reproduces the original crash: player 0 has two spirits and attacks with
     // the second one; player 1 flashes フレイムハリケーン to destroy the first
-    // one, shifting the attacker down to index 0. Resolving defend/take_damage
+    // one, shifting the attacker down to index 0. Resolving block/take_damage
     // must not throw.
     const attacker = makeSpirit();
     const filler = makeSpirit();
@@ -515,9 +515,9 @@ describe('BP boost durations', () => {
     // Resolve the attack by blocking: 2000+3000 vs 2000 — defender wins, boost persists (turn duration)
     const skip = game.legalActions(state).find((a) => a.type === 'skip_flash');
     if (skip) state = game.applyAction(state, skip, new Mulberry32(1));
-    const defend = game.legalActions(state).find((a) => a.type === 'defend');
-    expect(defend).toBeDefined();
-    state = game.applyAction(state, defend!, new Mulberry32(1));
+    const block = game.legalActions(state).find((a) => a.type === 'block');
+    expect(block).toBeDefined();
+    state = game.applyAction(state, block!, new Mulberry32(1));
 
     // Attacker (BP2000) destroyed, defender (BP5000) survives with its turn boost intact
     expect(state.players[0].spirits.length).toBe(0);

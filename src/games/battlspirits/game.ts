@@ -466,7 +466,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       for (let i = 0; i < me.spirits.length; i++) {
         const s = me.spirits[i]!;
         if (s.canAttack && !s.cannotDefendUntilNextTurn) {
-          actions.push({ type: 'defend', spiritIndex: i });
+          actions.push({ type: 'block', spiritIndex: i });
         }
       }
       // Always can take damage
@@ -808,7 +808,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
 
     // Handle attack defense
-    if (action.type === 'defend') {
+    if (action.type === 'block') {
       const defender = me.spirits[action.spiritIndex];
       if (!defender || !next.pendingAttack) return next;
 
@@ -1486,7 +1486,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (action.effectTargetIndex !== undefined) key += `E${action.effectTargetIndex}`;
         return key;
       }
-      case 'defend': return `D${action.spiritIndex}`;
+      case 'block': return `D${action.spiritIndex}`;
       case 'take_damage': return 'TD';
       case 'pass': return 'P';
       case 'flash': {
@@ -1564,7 +1564,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
         return desc;
       }
-      case 'defend': {
+      case 'block': {
         const spirit = me.spirits[action.spiritIndex];
         return `${spirit?.def.name ?? '?'}でブロック（防御）`;
       }
