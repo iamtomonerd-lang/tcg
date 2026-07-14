@@ -2,7 +2,7 @@
  * Battle Spirits effect engine. Processes all card effects from data.
  */
 
-import type { CardDef, CardEffect, GameState, PlayerState, Spirit } from './types.js';
+import type { CardDef, CardEffect, GameState, PendingAttack, PlayerState, Spirit } from './types.js';
 
 /**
  * Recompute a spirit's level from the cores placed on it.
@@ -69,6 +69,31 @@ export function removeDeadSpirit(owner: PlayerState, spiritIndex: number): Spiri
   owner.trash.push(spirit.def);
   // No cores go to trash (they're already at 0 or were already removed)
   return spirit;
+}
+
+/**
+ * After a spirit is removed from `player`'s spirits array at `removedIndex`
+ * (via destroySpirit/removeDeadSpirit), any index-based reference to a spirit
+ * later in that same array is now stale — indices after the removed slot have
+ * shifted down by one. Fix up pendingAttack (and a stashed attack waiting
+ * behind an open flash window) so they keep pointing at the right spirit.
+ * If the removed spirit was itself the pending attacker, the attack has
+ * nothing left to resolve and is cancelled.
+ */
+export function fixupSpiritIndicesAfterRemoval(state: GameState, player: number, removedIndex: number): void {
+  const fixOne = (pa: PendingAttack | null | undefined): PendingAttack | null | undefined => {
+    if (!pa || pa.attackerPlayer !== player) return pa;
+    if (pa.attackerSpiritIndex === removedIndex) return null; // the attacker itself was destroyed
+    if (pa.attackerSpiritIndex > removedIndex) return { ...pa, attackerSpiritIndex: pa.attackerSpiritIndex - 1 };
+    return pa;
+  };
+
+  if (state.pendingAttack) {
+    state.pendingAttack = fixOne(state.pendingAttack) ?? null;
+  }
+  if (state.pendingFlash?.stashedAttack) {
+    state.pendingFlash.stashedAttack = fixOne(state.pendingFlash.stashedAttack) ?? undefined;
+  }
 }
 
 /**
@@ -215,6 +240,7 @@ export function applyEffect(
       if (targetIndex >= 0 && targetIndex < opponent.spirits.length) {
         // Card to trash, cores back to reserve (official rule)
         destroySpirit(opponent, targetIndex);
+        fixupSpiritIndicesAfterRemoval(next, 1 - sourcePlayer, targetIndex);
       }
       break;
     }

@@ -1,7 +1,7 @@
 import type { Game, Rng } from '../../core/game.js';
 import { CARD_DB, getStarterDeck } from './cards.js';
 import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack } from './types.js';
-import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel } from './effects.js';
+import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval } from './effects.js';
 
 /**
  * Battle Spirits Phase 1: simplified rules.
@@ -341,11 +341,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   }
 
   /** Remove all spirits that have 0 cores (not destruction, no effects triggered) */
-  private removeDeadSpirits(player: PlayerState): void {
+  private removeDeadSpirits(state: GameState, playerIndex: number): void {
+    const player = state.players[playerIndex]!;
     for (let i = player.spirits.length - 1; i >= 0; i--) {
       const spirit = player.spirits[i]!;
       if (spirit.coreCount === 0 && spirit.soulCoreCount === 0) {
         removeDeadSpirit(player, i);
+        fixupSpiritIndicesAfterRemoval(state, playerIndex, i);
       }
     }
   }
@@ -682,16 +684,19 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const totalAvailable = this.getTotalAvailableCores(me);
       if (actualCost > totalAvailable) return next;
 
-      const stashedAttack = next.pendingFlash?.stashedAttack;
-
       // Use the magic card as flash
       me.hand.splice(action.handIndex, 1);
       this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
-      this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
+      this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
       me.trash.push(card);
       next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex);
       checkResult(next);
       if (next.result) return next;
+
+      // Re-read after the above effects: a destroy_creature (etc.) effect may have
+      // removed the stashed attacker, in which case fixupSpiritIndicesAfterRemoval
+      // already cancelled it (set to undefined) or shifted its index.
+      const stashedAttack = next.pendingFlash?.stashedAttack;
 
       // Give opponent counter-timing (stack flash opportunity)
       const opponentHasFlash = this.hasAffordableFlash(opponent);
@@ -857,7 +862,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // 支払うコア: pay only the summon cost (paid cores go to trash)
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
-        this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
+        this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
 
         // If inheritance was used, remove one EX symbol card from trash
         if (usedInheritance) {
@@ -1054,7 +1059,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         putCore();
 
         // Spirits/nexuses that lost their last core are depleted (消滅 — no destroy effects)
-        this.removeDeadSpirits(me);
+        this.removeDeadSpirits(next, next.currentPlayer);
         this.removeDeadNexuses(me);
         break;
       }
@@ -1076,7 +1081,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // 支払うコア: pay only the placement cost (paid cores go to trash)
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
-        this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
+        this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
 
         // If inheritance was used, remove one EX symbol card from trash
         if (usedInheritance) {
@@ -1138,7 +1143,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Pay cost using specified regular/soul core distribution
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
-        this.removeDeadSpirits(me); // Remove spirits that reached 0 cores
+        this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
 
         // If inheritance was used, remove one EX symbol card from trash
         if (usedInheritance) {

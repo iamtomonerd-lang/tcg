@@ -1,9 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { Mulberry32 } from '../src/core/rng.js';
 import { BattlSpiritsGame } from '../src/games/battlspirits/game.js';
-import type { GameState } from '../src/games/battlspirits/types.js';
+import { CARD_DB } from '../src/games/battlspirits/cards.js';
+import { destroySpirit, fixupSpiritIndicesAfterRemoval } from '../src/games/battlspirits/effects.js';
+import type { GameState, PlayerState, Spirit } from '../src/games/battlspirits/types.js';
 
 const game = new BattlSpiritsGame();
+
+function makeSpirit(): Spirit {
+  return { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+}
+
+function makePlayer(spirits: Spirit[]): PlayerState {
+  return { life: 20, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [] };
+}
 
 /** Resolve both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */
 function skipMulligan(state: GameState, rng: Mulberry32): GameState {
@@ -194,5 +204,133 @@ describe('Battle Spirits Summon', () => {
       // (Core phase recovery might also add cores if it ran)
       expect(coresAfterRefresh).toBeGreaterThanOrEqual(coresAfterSummon + trashAfterSummon);
     }
+  });
+});
+
+describe('Spirit index staleness after mid-flash destruction', () => {
+  // Regression test for a crash found via random self-play: a flash effect
+  // (e.g. destroy_creature) destroying a spirit before the attacker's own
+  // index left pendingAttack/stashedAttack pointing at the wrong (or a
+  // now out-of-bounds) spirit.
+
+  it('shifts a pending attacker index down when an earlier spirit is destroyed', () => {
+    const spiritA = makeSpirit(); // will be destroyed, at index 0
+    const spiritB = makeSpirit(); // the attacker, at index 1
+    const p0 = makePlayer([spiritA, spiritB]);
+    const p1 = makePlayer([]);
+    const state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 1,
+      turnCount: 1,
+      phase: 'attack',
+      battle: null,
+      result: null,
+      pendingFlash: {
+        trigger: 'opponent_attack',
+        cardId: '',
+        initiatingPlayer: 0,
+        stashedAttack: { attackerPlayer: 0, attackerSpiritIndex: 1, damage: 1 },
+      },
+    };
+
+    destroySpirit(p0, 0);
+    fixupSpiritIndicesAfterRemoval(state, 0, 0);
+
+    expect(state.pendingFlash!.stashedAttack).toEqual({ attackerPlayer: 0, attackerSpiritIndex: 0, damage: 1 });
+    // The spirit now at index 0 is spiritB, the intended attacker.
+    expect(p0.spirits[state.pendingFlash!.stashedAttack!.attackerSpiritIndex]).toBe(spiritB);
+  });
+
+  it('cancels the pending attack if the attacking spirit itself is destroyed', () => {
+    const spiritA = makeSpirit(); // the attacker, at index 0
+    const p0 = makePlayer([spiritA]);
+    const p1 = makePlayer([]);
+    const state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0,
+      turnCount: 1,
+      phase: 'attack',
+      battle: null,
+      result: null,
+      pendingAttack: { attackerPlayer: 0, attackerSpiritIndex: 0, damage: 1 },
+    };
+
+    destroySpirit(p0, 0);
+    fixupSpiritIndicesAfterRemoval(state, 0, 0);
+
+    expect(state.pendingAttack).toBeNull();
+  });
+
+  it('leaves an unrelated pending attack untouched when the removal is on the other player', () => {
+    const attacker = makeSpirit();
+    const p0 = makePlayer([attacker]);
+    const p1 = makePlayer([makeSpirit(), makeSpirit()]);
+    const state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 1,
+      turnCount: 1,
+      phase: 'attack',
+      battle: null,
+      result: null,
+      pendingAttack: { attackerPlayer: 0, attackerSpiritIndex: 0, damage: 1 },
+    };
+
+    destroySpirit(p1, 0);
+    fixupSpiritIndicesAfterRemoval(state, 1, 0);
+
+    expect(state.pendingAttack).toEqual({ attackerPlayer: 0, attackerSpiritIndex: 0, damage: 1 });
+  });
+
+  it('end-to-end: flashing destroy_creature on an earlier attacker spirit no longer crashes defend resolution', () => {
+    // Reproduces the original crash: player 0 has two spirits and attacks with
+    // the second one; player 1 flashes フレイムハリケーン to destroy the first
+    // one, shifting the attacker down to index 0. Resolving defend/take_damage
+    // must not throw.
+    const attacker = makeSpirit();
+    const filler = makeSpirit();
+    const p0 = makePlayer([filler, attacker]); // attacker at index 1
+    const flameHurricane = CARD_DB.magic_flame_hurricane!;
+    const p1: PlayerState = {
+      ...makePlayer([]),
+      soulCores: 10,
+      hand: [flameHurricane],
+    };
+    // Give player 0 a red symbol on the field (required by flame hurricane's condition)
+    p0.spirits[0]!.def = { ...p0.spirits[0]!.def, symbolColors: ['red'] };
+
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 1,
+      turnCount: 1,
+      phase: 'attack',
+      battle: null,
+      result: null,
+      pendingFlash: {
+        trigger: 'opponent_attack',
+        cardId: '',
+        initiatingPlayer: 0,
+        stashedAttack: { attackerPlayer: 0, attackerSpiritIndex: 1, damage: 1 },
+      },
+    };
+
+    const flashActions = game.legalActions(state).filter((a) => a.type === 'flash');
+    expect(flashActions.length).toBeGreaterThan(0);
+    const flashAction = flashActions.find((a) => a.type === 'flash' && a.handIndex === 0)!;
+
+    expect(() => {
+      state = game.applyAction(state, { ...flashAction, targetSpiritIndex: 0 }, new Mulberry32(1));
+    }).not.toThrow();
+
+    // filler (originally index 0) was destroyed; attacker shifted to index 0.
+    expect(state.players[0].spirits.length).toBe(1);
+    expect(state.players[0].spirits[0]!.def.id).toBe(attacker.def.id);
+
+    // Close the flash window and resolve the attack; this must not crash.
+    expect(() => {
+      const skip = game.legalActions(state).find((a) => a.type === 'skip_flash');
+      if (skip) state = game.applyAction(state, skip, new Mulberry32(1));
+      const takeDamage = game.legalActions(state).find((a) => a.type === 'take_damage');
+      if (takeDamage) state = game.applyAction(state, takeDamage, new Mulberry32(1));
+    }).not.toThrow();
   });
 });
