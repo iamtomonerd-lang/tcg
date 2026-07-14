@@ -489,17 +489,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (flashEffects.length === 0) continue;
 
         // Check if can afford flash cost
-        let canAfford = true;
         const flashEffect = flashEffects[0];
         if (flashEffect?.skill === 'ソウルマジック：赤') {
-          // Soul Magic: Red costs 1 soul core
+          // Soul Magic: Red can be paid with:
+          // 1. Soul core: 1 soul core from reserve or spirits
+          // 2. Normal cost: regular cores (6 cores after reduction)
           const canPaySoulCore = me.soulCores >= 1 || me.spirits.some(s => s.soulCoreCount > 0);
-          if (!canPaySoulCore) continue;
-          // Also check the life condition (ライフが減った)
-          if (!me.damageThisTurn || me.damageThisTurn === 0) {
-            // Without life damage, BP limit is 7000; with damage, it's 10000
-            // But still need to have a valid target
-          }
+          const canPayNormalCost = this.effectiveCost(me, card) <= totalCores;
+          if (!canPaySoulCore && !canPayNormalCost) continue;
         } else if (this.effectiveCost(me, card) > totalCores) {
           continue;
         }
