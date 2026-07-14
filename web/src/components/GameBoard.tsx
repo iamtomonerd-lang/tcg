@@ -34,8 +34,10 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     paidRegular: number;
     paidSoul: number;
     cardName: string;
+    useInheritance?: boolean;
   } | null>(null);
   const [selectedCardImage, setSelectedCardImage] = useState<{ imagePath: string; name: string } | null>(null);
+  const [trashViewPlayer, setTrashViewPlayer] = useState<number | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
   const isHumanTurn = !isTerminal && (
@@ -156,7 +158,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     }
   };
 
-  const executeAction = async (actionIndex: number, options?: { cardIndices?: number[]; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; coreType?: 'regular' | 'soul' }) => {
+  const executeAction = async (actionIndex: number, options?: { cardIndices?: number[]; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean }) => {
     if (isBusy) return;
     setIsBusy(true);
     try {
@@ -172,6 +174,15 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       }
       if (options?.coreType !== undefined) {
         body.coreType = options.coreType;
+      }
+      if (options?.paidRegularCores !== undefined) {
+        body.paidRegularCores = options.paidRegularCores;
+      }
+      if (options?.paidSoulCores !== undefined) {
+        body.paidSoulCores = options.paidSoulCores;
+      }
+      if (options?.useInheritance !== undefined) {
+        body.useInheritance = options.useInheritance;
       }
       const response = await fetch(`/api/game/${sessionId}/action`, {
         method: 'POST',
@@ -282,6 +293,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             executeAction(actionIndex, {
               paidRegularCores: newPaidRegular,
               paidSoulCores: newPaidSoul,
+              useInheritance: pendingCoreCost.useInheritance,
             });
           }, 50);
         }
@@ -531,6 +543,9 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           onDrop={handleDrop}
           dragOverCard={dragOverCard}
           onCardRightClick={(cardId, imagePath, name) => handleShowCardRulebook(cardId, imagePath, name)}
+          onViewTrash={() => setTrashViewPlayer(topPlayer)}
+          attackingSpiritPlayer={state.pendingAttack?.attackerPlayer}
+          attackingSpiritIndex={state.pendingAttack?.attackerSpiritIndex}
         />
 
         <div className="center-bar">
@@ -563,6 +578,9 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           onDrop={handleDrop}
           dragOverCard={dragOverCard}
           onCardRightClick={(cardId, imagePath, name) => handleShowCardRulebook(cardId, imagePath, name)}
+          onViewTrash={() => setTrashViewPlayer(bottomPlayer)}
+          attackingSpiritPlayer={state.pendingAttack?.attackerPlayer}
+          attackingSpiritIndex={state.pendingAttack?.attackerSpiritIndex}
         />
       </div>
 
@@ -676,7 +694,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                       if (newTotal >= pendingCoreCost.requiredCores) {
                         const actionIndex = pendingCoreCost.actionIndex;
                         setTimeout(() => {
-                          executeAction(actionIndex, { coreType: 'regular' });
+                          executeAction(actionIndex, {
+                            paidRegularCores: newPaid,
+                            paidSoulCores: pendingCoreCost.paidSoul,
+                            useInheritance: pendingCoreCost.useInheritance,
+                          });
                           setPendingCoreCost(null);
                         }, 50);
                       }
@@ -732,7 +754,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                       if (newTotal >= pendingCoreCost.requiredCores) {
                         const actionIndex = pendingCoreCost.actionIndex;
                         setTimeout(() => {
-                          executeAction(actionIndex, { coreType: 'soul' });
+                          executeAction(actionIndex, {
+                            paidRegularCores: pendingCoreCost.paidRegular,
+                            paidSoulCores: newPaid,
+                            useInheritance: pendingCoreCost.useInheritance,
+                          });
                           setPendingCoreCost(null);
                         }, 50);
                       }
@@ -774,6 +800,33 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                   </button>
                 )}
               </div>
+            </div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.6rem',
+              padding: '0.6rem',
+              backgroundColor: '#fff5f7',
+              borderRadius: '4px',
+              fontSize: '0.85rem',
+              fontWeight: 500,
+              marginBottom: '0.8rem',
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={pendingCoreCost.useInheritance ?? false}
+                  onChange={(e) => {
+                    setPendingCoreCost({
+                      ...pendingCoreCost,
+                      useInheritance: e.target.checked,
+                    });
+                  }}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span>継承を使用する</span>
+              </label>
             </div>
             <div style={{ fontSize: '0.8rem', color: '#666', textAlign: 'center', padding: '0.6rem', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
               ドラッグまたはボタンで支払い（キャンセルは「リセット」ボタン）
@@ -1033,6 +1086,37 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             >
               確定
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Trash viewing modal ===== */}
+      {trashViewPlayer !== null && state && (
+        <div className="card-image-modal" onClick={() => setTrashViewPlayer(null)}>
+          <div className="card-image-modal-content trash-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="card-image-modal-title">
+              P{trashViewPlayer} のトラッシュ（{state.players[trashViewPlayer].trash.count}枚）
+            </div>
+            <div className="trash-modal-body">
+              {state.players[trashViewPlayer].trash.cards && state.players[trashViewPlayer].trash.cards.length > 0 ? (
+                <div className="trash-grid">
+                  {state.players[trashViewPlayer].trash.cards.map((card: any, idx: number) => (
+                    <div key={`trash-${idx}`} className="trash-card" title={`${card.name}\nコスト${card.cost}`}>
+                      {card.imagePath ? (
+                        <img src={`/${card.imagePath}`} alt={card.name} />
+                      ) : null}
+                      <div className="trash-card-info">
+                        <div className="trash-card-name">{card.name}</div>
+                        <div className="trash-card-cost">コスト{card.cost}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="trash-empty">トラッシュにカードがありません</div>
+              )}
+            </div>
+            <div className="card-image-modal-hint">クリックまたは Esc で閉じる</div>
           </div>
         </div>
       )}

@@ -16,6 +16,9 @@ interface PlayerPanelProps {
   onDrop?: (data: any) => void;
   dragOverCard?: string | null;
   onCardRightClick?: (cardId: string, imagePath: string | undefined, name: string) => void;
+  onViewTrash?: () => void;
+  attackingSpiritPlayer?: number;
+  attackingSpiritIndex?: number;
 }
 
 function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
@@ -133,6 +136,9 @@ export default function PlayerPanel({
   onDrop,
   dragOverCard,
   onCardRightClick,
+  onViewTrash,
+  attackingSpiritPlayer,
+  attackingSpiritIndex,
 }: PlayerPanelProps) {
   // Cores can be manipulated only on the human player's own panel during their turn
   const canMoveCores = isHumanTurn && isCurrent;
@@ -148,7 +154,23 @@ export default function PlayerPanel({
         <span className={`pstat life ${player.life <= 5 ? 'low' : ''}`} title="ライフ">❤️ {player.life}</span>
         <span className="pstat" title="手札">🃏 {player.handSize}</span>
         <span className="pstat" title="デッキ残り">📚 {player.deck.count}</span>
-        <span className="pstat" title="トラッシュ">🗑️ {player.trash.count}</span>
+        <button
+          className="pstat-button"
+          onClick={onViewTrash}
+          title="トラッシュを表示"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#cfd5e4',
+            cursor: 'pointer',
+            padding: '0 0.2rem',
+            fontWeight: 700,
+            fontSize: '0.88rem',
+            textDecoration: 'underline',
+          }}
+        >
+          🗑️ {player.trash.count}
+        </button>
       </div>
       <CoreReserve
         cores={player.cores}
@@ -222,8 +244,8 @@ export default function PlayerPanel({
       {player.spirits.map((spirit: any, i: number) => (
         <div key={`s${i}`} className="fcard-wrap">
           <div
-            className={`fcard spirit ${spirit.canAttack ? '' : 'tapped'} ${dragOverCard === `spirit-${i}` ? 'drag-over' : ''}`}
-            title={`${spirit.name}｜Lv${spirit.level}｜BP${spirit.bp}｜コア${spirit.coreCount + (spirit.soulCoreCount ?? 0)}${spirit.canAttack ? '' : '｜疲労'}`}
+            className={`fcard spirit ${spirit.canAttack ? '' : 'spirit-fatigued'} ${dragOverCard === `spirit-${i}` ? 'drag-over' : ''} ${attackingSpiritPlayer === playerNumber && attackingSpiritIndex === i ? 'attacking' : ''}`}
+            title={`${spirit.name}｜Lv${spirit.level}｜BP${spirit.bp}｜コア${spirit.coreCount + (spirit.soulCoreCount ?? 0)}${spirit.canAttack ? '' : '｜疲労'}${attackingSpiritPlayer === playerNumber && attackingSpiritIndex === i ? '｜アタック中' : ''}`}
             draggable={isHumanTurn}
             onDragStart={(e) => {
               if (isHumanTurn && onDragStart) {
@@ -256,7 +278,6 @@ export default function PlayerPanel({
               <span className="chip bp">BP{spirit.bp}</span>
             </div>
             <div className="fcard-name">{spirit.name}</div>
-            {!spirit.canAttack && <div className="tap-overlay">疲労</div>}
           </div>
           <CoreTray
             zone="spirit"

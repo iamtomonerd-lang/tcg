@@ -238,10 +238,23 @@
   z-index: 2;
 }
 
-/* Fatigued (tapped) spirits */
-.fcard.tapped {
-  opacity: 0.55;
-  filter: grayscale(0.7);
+/* Fatigued (rotated) spirits */
+.fcard.spirit-fatigued {
+  transform: rotate(-90deg);
+  transition: transform 0.3s ease;
+}
+
+/* Attacking spirits */
+.fcard.spirit.attacking {
+  border-color: #ff6b6b;
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.7);
+  background: rgba(255, 107, 107, 0.1);
+  animation: pulse-attack 1s infinite;
+}
+
+@keyframes pulse-attack {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 107, 107, 0.7); }
+  50% { box-shadow: 0 0 20px rgba(255, 107, 107, 1); }
 }
 
 /* Wrapper: field card + its core tray stacked vertically */
