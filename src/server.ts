@@ -477,7 +477,7 @@ function serializeState(state: GameState) {
         lv2CoreType: s.def.lv2?.coreType,
         canAttack: s.canAttack,
         imagePath: s.def.imagePath,
-        bp: (s.level === 1 ? s.def.lv1 : s.def.lv2 || s.def.lv1).bp + (s.bpBoost ?? 0),
+        bp: (s.level === 1 ? s.def.lv1 : s.def.lv2 || s.def.lv1).bp + (s.bpBoost ?? 0) + (s.bpBoostBattle ?? 0),
       })),
       nexuses: p.nexuses.map((n) => ({
         id: n.def.id,

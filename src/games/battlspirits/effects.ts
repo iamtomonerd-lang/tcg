@@ -72,6 +72,17 @@ export function removeDeadSpirit(owner: PlayerState, spiritIndex: number): Spiri
 }
 
 /**
+ * BP threshold for a destroy_creature effect ("BP◯◯以下").
+ * Soul Magic red raises the limit to 10000 if the player took damage this turn.
+ */
+export function destroyCreatureBpLimit(effect: CardEffect, me: PlayerState): number | undefined {
+  if (effect.skill === 'ソウルマジック：赤' && (me.damageThisTurn ?? 0) > 0) {
+    return 10000;
+  }
+  return effect.value;
+}
+
+/**
  * After a spirit is removed from `player`'s spirits array at `removedIndex`
  * (via destroySpirit/removeDeadSpirit), any index-based reference to a spirit
  * later in that same array is now stale — indices after the removed slot have
@@ -125,6 +136,16 @@ export function applyEffect(
     }
     if (effect.condition.maxHandSize && me.hand.length > effect.condition.maxHandSize) {
       return next;
+    }
+    if (effect.condition.requiresSymbol) {
+      // Requires a symbol of this color on the player's field (spirits or nexuses)
+      const color = effect.condition.requiresSymbol;
+      const hasSymbol =
+        me.spirits.some((s) => s.def.symbolColors?.includes(color)) ||
+        me.nexuses.some((n) => n.def.symbolColors?.includes(color));
+      if (!hasSymbol) {
+        return next;
+      }
     }
     if (effect.condition.requiresFatiguedRed) {
       // Check if there's a fatigued (canAttack: false) red spirit
@@ -194,7 +215,13 @@ export function applyEffect(
       // Boost the spirit's BP temporarily (stored as a modifier in spirit state)
       const boostValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       if (selfSpirit) {
-        selfSpirit.bpBoost = (selfSpirit.bpBoost ?? 0) + boostValue;
+        if (effect.duration === 'battle') {
+          // このバトル中: expires when the current battle resolves
+          selfSpirit.bpBoostBattle = (selfSpirit.bpBoostBattle ?? 0) + boostValue;
+        } else {
+          // このターン中 (default): expires at end of turn
+          selfSpirit.bpBoost = (selfSpirit.bpBoost ?? 0) + boostValue;
+        }
       }
       break;
     }
@@ -221,23 +248,23 @@ export function applyEffect(
     }
     case 'destroy_creature': {
       // Destroy opponent's spirit at targetSpiritIndex, or weakest destroyable one
-      let bpLimit = effect.value; // e.g. 3000 = "BP3000以下"
-      // Soul Magic red: if player took damage this turn, modify BP threshold
-      if (effect.skill === 'ソウルマジック：赤' && (me.damageThisTurn ?? 0) > 0) {
-        bpLimit = 10000; // change from 7000 to 10000 if damage taken
-      }
+      const bpLimit = destroyCreatureBpLimit(effect, me);
+      const spiritBp = (sp: Spirit) => {
+        const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
+        return stats.bp + (sp.bpBoost ?? 0) + (sp.bpBoostBattle ?? 0);
+      };
       let targetIndex = targetSpiritIndex ?? -1;
       if (targetIndex === -1) {
         for (let i = 0; i < opponent.spirits.length; i++) {
-          const sp = opponent.spirits[i]!;
-          const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
-          if (bpLimit === undefined || stats.bp + (sp.bpBoost ?? 0) <= bpLimit) {
+          if (bpLimit === undefined || spiritBp(opponent.spirits[i]!) <= bpLimit) {
             targetIndex = i;
             break;
           }
         }
       }
       if (targetIndex >= 0 && targetIndex < opponent.spirits.length) {
+        // Enforce the BP limit for explicitly chosen targets too ("BP◯◯以下" is a hard restriction)
+        if (bpLimit !== undefined && spiritBp(opponent.spirits[targetIndex]!) > bpLimit) break;
         // Card to trash, cores back to reserve (official rule)
         destroySpirit(opponent, targetIndex);
         fixupSpiritIndicesAfterRemoval(next, 1 - sourcePlayer, targetIndex);

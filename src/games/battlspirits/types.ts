@@ -26,6 +26,7 @@ export interface CardEffect {
   costValue?: number; // value for cost action
   costSymbol?: string; // symbol requirement for cost action
   costExhaustSelf?: boolean; // cost to activate this effect: exhaust the source card itself (e.g., nexus "疲労させる")
+  duration?: 'battle' | 'turn'; // for boost_bp: 'battle' (このバトル中, expires when the battle ends) or 'turn' (このターン中, default)
   condition?: {
     minHandSize?: number;
     maxHandSize?: number; // maximum hand size for effect to activate
@@ -82,8 +83,10 @@ export interface Spirit {
   soulCoreCount: number;
   /** true = ready to attack, false = fatigued */
   canAttack: boolean;
-  /** temporary BP boost from effects */
+  /** temporary BP boost from effects (このターン中; reset at end of turn) */
   bpBoost?: number;
+  /** temporary BP boost lasting only the current battle (このバトル中; reset when the battle resolves) */
+  bpBoostBattle?: number;
   /** cores placed on this spirit */
   placedCores?: number;
   /** cannot attack until next turn */
@@ -185,7 +188,6 @@ export type Action =
   | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
   | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number; discardCardIndex?: number; effectTargetIndex?: number } // discardCardIndex for effects requiring card selection; effectTargetIndex for effects requiring an own-spirit target (e.g. place_core)
-  | { type: 'block'; spiritIndex: number }
   | { type: 'defend'; spiritIndex: number } // respond to pending attack with defense
   | { type: 'take_damage' } // accept attack damage without defending
   | { type: 'pass' } // end current action phase

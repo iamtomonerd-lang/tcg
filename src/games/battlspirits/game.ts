@@ -1,7 +1,7 @@
 import type { Game, Rng } from '../../core/game.js';
 import { CARD_DB, getStarterDeck } from './cards.js';
 import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack } from './types.js';
-import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval } from './effects.js';
+import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit } from './effects.js';
 
 /**
  * Battle Spirits Phase 1: simplified rules.
@@ -332,6 +332,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
     }
 
+    // Nexuses provide symbols too (official rule)
+    for (const nexus of player.nexuses) {
+      for (const color of nexus.def.symbolColors) {
+        symbolMap.set(color, (symbolMap.get(color) ?? 0) + nexus.def.symbolCount);
+      }
+    }
+
     // Convert to array format
     return Array.from(symbolMap.entries()).map(([color, count]) => ({ color, count }));
   }
@@ -342,6 +349,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       total += spirit.coreCount + spirit.soulCoreCount;
     }
     return total;
+  }
+
+  /** Expire all このバトル中 (battle-duration) BP boosts on both players' spirits */
+  private clearBattleBoosts(state: GameState): void {
+    for (const p of state.players) {
+      for (const s of p.spirits) {
+        s.bpBoostBattle = 0;
+      }
+    }
   }
 
   /** Remove all spirits that have 0 cores (not destruction, no effects triggered) */
@@ -461,17 +477,50 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     // If there's a pending flash opportunity, only flash or skip_flash actions are legal
     if (state.pendingFlash) {
       const me = state.players[state.currentPlayer]!;
+      const opponent = state.players[1 - state.currentPlayer]!;
       const totalCores = this.getTotalAvailableCores(me);
       const actions: Action[] = [];
       // Can activate flash magic cards (only if affordable)
       for (let i = 0; i < me.hand.length; i++) {
         const card = me.hand[i]!;
-        if (card.cardType === 'magic') {
-          // Filter effects by mode: either mode 'flash' or no mode specified (for backward compatibility)
-          const flashEffects = card.effects?.filter(e => (e.isFlash || !e.mode || e.mode === 'flash')) ?? [];
-          if (flashEffects.length > 0 && this.effectiveCost(me, card) <= totalCores) {
-            actions.push({ type: 'flash', handIndex: i });
+        if (card.cardType !== 'magic') continue;
+        // Filter effects by mode: either mode 'flash' or no mode specified (for backward compatibility)
+        const flashEffects = card.effects?.filter(e => (e.isFlash || !e.mode || e.mode === 'flash')) ?? [];
+        if (flashEffects.length === 0 || this.effectiveCost(me, card) > totalCores) continue;
+
+        const destroyEffect = flashEffects.find((e) => e.action === 'destroy_creature');
+        const boostEffect = flashEffects.find((e) => e.action === 'boost_bp' && e.requiresTarget);
+
+        if (destroyEffect) {
+          // Condition gate (e.g. フレイムハリケーン requires a red symbol on the field)
+          if (destroyEffect.condition?.requiresSymbol) {
+            const color = destroyEffect.condition.requiresSymbol;
+            const hasSymbol =
+              me.spirits.some((s) => s.def.symbolColors?.includes(color)) ||
+              me.nexuses.some((n) => n.def.symbolColors?.includes(color));
+            if (!hasSymbol) continue;
           }
+          // Target an opponent spirit within the BP limit (BP◯◯以下)
+          const bpLimit = destroyCreatureBpLimit(destroyEffect, me);
+          let hasTarget = false;
+          for (let t = 0; t < opponent.spirits.length; t++) {
+            const sp = opponent.spirits[t]!;
+            const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
+            const bp = stats.bp + (sp.bpBoost ?? 0) + (sp.bpBoostBattle ?? 0);
+            if (bpLimit === undefined || bp <= bpLimit) {
+              actions.push({ type: 'flash', handIndex: i, targetSpiritIndex: t });
+              hasTarget = true;
+            }
+          }
+          if (!hasTarget) continue; // no legal target: the flash cannot be declared usefully
+        } else if (boostEffect) {
+          // Target one of the player's own spirits for the BP boost
+          if (me.spirits.length === 0) continue; // nothing to boost
+          for (let t = 0; t < me.spirits.length; t++) {
+            actions.push({ type: 'flash', handIndex: i, targetSpiritIndex: t });
+          }
+        } else {
+          actions.push({ type: 'flash', handIndex: i });
         }
       }
       // Always can skip flash
@@ -766,10 +815,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const pendingAttack = next.pendingAttack;
       const attacker = next.players[pendingAttack.attackerPlayer]!.spirits[pendingAttack.attackerSpiritIndex]!;
       const attackerStats = attacker.level === 1 ? attacker.def.lv1 : attacker.def.lv2 || attacker.def.lv1;
-      const attackBP = attackerStats.bp + (attacker.bpBoost ?? 0);
+      const attackBP = attackerStats.bp + (attacker.bpBoost ?? 0) + (attacker.bpBoostBattle ?? 0);
 
       const defenderStats = defender.level === 1 ? defender.def.lv1 : defender.def.lv2 || defender.def.lv1;
-      const defendBP = defenderStats.bp + (defender.bpBoost ?? 0);
+      const defendBP = defenderStats.bp + (defender.bpBoost ?? 0) + (defender.bpBoostBattle ?? 0);
 
       // Both spirits become fatigued
       defender.canAttack = false;
@@ -816,6 +865,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
       next = triggerEffects(next, 'battle_end', defender.def, next.currentPlayer);
 
+      // このバトル中 boosts expire now that the battle has resolved
+      this.clearBattleBoosts(next);
+
       next.pendingAttack = null;
       next.currentPlayer = 1 - next.currentPlayer; // Return turn to original player
       checkResult(next);
@@ -838,6 +890,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // Trigger battle_end effects
       next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
+
+      // このバトル中 boosts expire now that the battle has resolved
+      this.clearBattleBoosts(next);
 
       next.pendingAttack = null;
       next.currentPlayer = 1 - next.currentPlayer; // Return turn to original player
@@ -1251,13 +1306,6 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         next.currentPlayer = defenderIndex;
         return next;
       }
-      case 'block': {
-        const spirit = me.spirits[action.spiritIndex];
-        if (!spirit || !spirit.canAttack) return next;
-        // Block triggers effects on the blocking spirit
-        next = triggerEffects(next, 'block', spirit.def, next.currentPlayer, action.spiritIndex, undefined, undefined, undefined, undefined, undefined, spirit.level);
-        break;
-      }
       case 'select_draw_arrange': {
         if (!next.pendingDraw) return next;
 
@@ -1312,6 +1360,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             for (const p of next.players) {
               for (const s of p.spirits) {
                 s.bpBoost = 0;
+                s.bpBoostBattle = 0;
               }
             }
 
@@ -1349,6 +1398,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           for (const p of next.players) {
             for (const s of p.spirits) {
               s.bpBoost = 0;
+              s.bpBoostBattle = 0;
             }
           }
 
@@ -1436,7 +1486,6 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (action.effectTargetIndex !== undefined) key += `E${action.effectTargetIndex}`;
         return key;
       }
-      case 'block': return `B${action.spiritIndex}`;
       case 'defend': return `D${action.spiritIndex}`;
       case 'take_damage': return 'TD';
       case 'pass': return 'P';
@@ -1515,10 +1564,6 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
         return desc;
       }
-      case 'block': {
-        const spirit = me.spirits[action.spiritIndex];
-        return `${spirit?.def.name ?? '?'}でブロック`;
-      }
       case 'defend': {
         const spirit = me.spirits[action.spiritIndex];
         return `${spirit?.def.name ?? '?'}でブロック（防御）`;
@@ -1534,8 +1579,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const card = me.hand[action.handIndex];
         let desc = `フラッシュ: ${card?.name ?? '?'}`;
         if (action.targetSpiritIndex !== undefined) {
-          const opponent = state.players[1 - state.currentPlayer]!;
-          const target = opponent.spirits[action.targetSpiritIndex];
+          // Destroy effects target opponent spirits; boost effects target own spirits
+          const flashEffects = card?.effects?.filter((e) => e.isFlash || !e.mode || e.mode === 'flash') ?? [];
+          const targetsOwn = flashEffects.some((e) => e.action === 'boost_bp' && e.requiresTarget);
+          const owner = targetsOwn ? me : state.players[1 - state.currentPlayer]!;
+          const target = owner.spirits[action.targetSpiritIndex];
           desc += `（対象: ${target?.def.name ?? '?'}）`;
         }
         if (action.effectValue !== undefined) {

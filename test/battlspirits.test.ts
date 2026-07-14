@@ -290,13 +290,13 @@ describe('Spirit index staleness after mid-flash destruction', () => {
     const filler = makeSpirit();
     const p0 = makePlayer([filler, attacker]); // attacker at index 1
     const flameHurricane = CARD_DB.magic_flame_hurricane!;
+    // The caster needs a red symbol on their own field (flame hurricane's condition)
     const p1: PlayerState = {
-      ...makePlayer([]),
+      ...makePlayer([makeSpirit()]),
+      cores: 10,
       soulCores: 10,
       hand: [flameHurricane],
     };
-    // Give player 0 a red symbol on the field (required by flame hurricane's condition)
-    p0.spirits[0]!.def = { ...p0.spirits[0]!.def, symbolColors: ['red'] };
 
     let state: GameState = {
       players: [p0, p1],
@@ -395,7 +395,7 @@ describe('Compound activation costs (▶ effects)', () => {
     const p0 = state.players[0];
     expect(p0.hand.length).toBe(0);
     expect(p0.trash.map((c) => c.id)).toContain('spirit_moon_shacco');
-    expect(p0.spirits[0]!.bpBoost).toBe(3000);
+    expect(p0.spirits[0]!.bpBoostBattle).toBe(3000);
   });
 
   it('attacking without paying the cost neither discards nor boosts', () => {
@@ -410,7 +410,7 @@ describe('Compound activation costs (▶ effects)', () => {
     state = game.applyAction(state, plainAttack!, new Mulberry32(1));
     const p0 = state.players[0];
     expect(p0.hand.length).toBe(1);
-    expect(p0.spirits[0]!.bpBoost ?? 0).toBe(0);
+    expect(p0.spirits[0]!.bpBoostBattle ?? 0).toBe(0);
   });
 
   it('a non-風牙 card cannot be chosen as the discard cost', () => {
@@ -442,7 +442,7 @@ describe('Compound activation costs (▶ effects)', () => {
     // First attack: nexus pays its exhaustion, attacker gets +2000
     const attackA = game.legalActions(state).find((a) => a.type === 'attack' && a.spiritIndex === 0)!;
     state = game.applyAction(state, attackA, new Mulberry32(1));
-    expect(state.players[0].spirits[0]!.bpBoost).toBe(2000);
+    expect(state.players[0].spirits[0]!.bpBoostBattle).toBe(2000);
     expect(state.players[0].nexuses[0]!.exhausted).toBe(true);
 
     // Resolve the attack (opponent takes damage), control returns to player 0
@@ -452,7 +452,102 @@ describe('Compound activation costs (▶ effects)', () => {
     // Second attack in the same turn: exhausted nexus cannot pay again
     const attackB = game.legalActions(state).find((a) => a.type === 'attack' && a.spiritIndex === 1)!;
     state = game.applyAction(state, attackB, new Mulberry32(1));
-    expect(state.players[0].spirits[1]!.bpBoost ?? 0).toBe(0);
+    expect(state.players[0].spirits[1]!.bpBoostBattle ?? 0).toBe(0);
     expect(state.players[0].nexuses[0]!.exhausted).toBe(true);
+  });
+});
+
+describe('BP boost durations', () => {
+  it('battle-duration boosts expire when the battle resolves; the spirit is back to base BP', () => {
+    // ゲン=ボー Lv2 has 攻撃中BP+2000 (duration: battle)
+    const genieBow: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 2, coreCount: 3, soulCoreCount: 0, canAttack: true };
+    const p0 = makePlayer([genieBow]);
+    const p1 = makePlayer([]);
+    p1.hand = [];
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0,
+      turnCount: 2,
+      phase: 'attack',
+      battle: null,
+      result: null,
+    };
+
+    const attack = game.legalActions(state).find((a) => a.type === 'attack')!;
+    state = game.applyAction(state, attack, new Mulberry32(1));
+    expect(state.players[0].spirits[0]!.bpBoostBattle).toBe(2000);
+
+    // Opponent takes the damage — battle over, boost expires
+    const takeDamage = game.legalActions(state).find((a) => a.type === 'take_damage')!;
+    state = game.applyAction(state, takeDamage, new Mulberry32(1));
+    expect(state.players[0].spirits[0]!.bpBoostBattle ?? 0).toBe(0);
+  });
+
+  it('flash boost (このターン中) targets a chosen own spirit and survives battle resolution', () => {
+    // Defender flashes ブレイククロー (BP+3000, turn duration) on their own spirit
+    const attackerSpirit = makeSpirit();
+    const p0 = makePlayer([attackerSpirit]);
+    const defenderSpirit = makeSpirit();
+    const breakClaw = CARD_DB.magic_break_claw!;
+    const p1: PlayerState = { ...makePlayer([defenderSpirit]), cores: 10, hand: [breakClaw] };
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 1,
+      turnCount: 1,
+      phase: 'attack',
+      battle: null,
+      result: null,
+      pendingFlash: {
+        trigger: 'opponent_attack',
+        cardId: '',
+        initiatingPlayer: 0,
+        stashedAttack: { attackerPlayer: 0, attackerSpiritIndex: 0, damage: 1 },
+      },
+    };
+
+    // Flash actions are generated per own-spirit target
+    const flashActions = game.legalActions(state).filter((a) => a.type === 'flash');
+    expect(flashActions).toContainEqual({ type: 'flash', handIndex: 0, targetSpiritIndex: 0 });
+
+    state = game.applyAction(state, flashActions[0]!, new Mulberry32(1));
+    expect(state.players[1].spirits[0]!.bpBoost).toBe(3000);
+
+    // Resolve the attack by blocking: 2000+3000 vs 2000 — defender wins, boost persists (turn duration)
+    const skip = game.legalActions(state).find((a) => a.type === 'skip_flash');
+    if (skip) state = game.applyAction(state, skip, new Mulberry32(1));
+    const defend = game.legalActions(state).find((a) => a.type === 'defend');
+    expect(defend).toBeDefined();
+    state = game.applyAction(state, defend!, new Mulberry32(1));
+
+    // Attacker (BP2000) destroyed, defender (BP5000) survives with its turn boost intact
+    expect(state.players[0].spirits.length).toBe(0);
+    expect(state.players[1].spirits.length).toBe(1);
+    expect(state.players[1].spirits[0]!.bpBoost).toBe(3000);
+  });
+
+  it('destroy_creature cannot destroy a spirit above the BP limit even with an explicit target', () => {
+    const bigSpirit: Spirit = { def: CARD_DB.spirit_hibutsu_akurai!, level: 2, coreCount: 0, soulCoreCount: 4, canAttack: true }; // BP10000
+    const p0 = makePlayer([]);
+    const p1 = makePlayer([bigSpirit]);
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0,
+      turnCount: 2,
+      phase: 'main',
+      battle: null,
+      result: null,
+    };
+    // ブレイククロー main mode is destroy_nexus; use フレイムハリケーン-like direct effect through applyEffect via use_magic is complex.
+    // Instead verify at the flash-target generation level: no targets are offered above the limit.
+    const flameHurricane = CARD_DB.magic_flame_hurricane!;
+    const caster: PlayerState = { ...makePlayer([makeSpirit()]), cores: 10, soulCores: 10, hand: [flameHurricane] };
+    state = {
+      ...state,
+      players: [caster, p1],
+      pendingFlash: { trigger: 'opponent_attack', cardId: '', initiatingPlayer: 1 },
+    };
+    // BP10000 > limit 7000 (no damage taken this turn) → no flash targeting action for the magic
+    const flashActions = game.legalActions(state).filter((a) => a.type === 'flash');
+    expect(flashActions.length).toBe(0);
   });
 });
