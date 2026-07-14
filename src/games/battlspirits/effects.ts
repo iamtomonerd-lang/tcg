@@ -17,7 +17,7 @@ export function updateSpiritLevel(spirit: Spirit): void {
   }
 
   // Check if spirit has 真界放 skill
-  const hasShinkaihouSkill = spirit.def.effects?.some(e => e.skill === '真界放');
+  const hasShinkaihouSkill = spirit.def.skill === '真界放';
 
   if (hasShinkaihouSkill) {
     // 真界放: ソウルコアのみで Lv2 に到達

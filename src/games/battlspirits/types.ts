@@ -69,6 +69,7 @@ export interface CardDef {
   inheritance?: boolean; // can use EX symbols from trash for cost reduction
   imagePath?: string; // path to card image file
   cardSet?: string; // card set information (e.g., "26RSD01 バトスピエントリーデッキ 赫焔ノ風牙")
+  skill?: string; // card skill (e.g., "真界放", "継召", "ソウルマジック：赤")
   // For spirits and nexuses: Lv1 and Lv2
   lv1: LvStats;
   lv2?: LvStats;
