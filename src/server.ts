@@ -10,6 +10,10 @@ import type { GameState, Action } from './games/battlspirits/types.js';
 import { Mulberry32 } from './core/rng.js';
 import { IsmctsAgent } from './ai/ismcts.js';
 import { cardToRulebook } from './games/battlspirits/cardRulebook.js';
+import { deckOptimizer } from './ai/learning/deck-optimizer.js';
+import { gameLogger } from './ai/learning/game-logger.js';
+import { reinforcementLearning } from './ai/learning/reinforcement-learning.js';
+import { neuralEvaluator } from './ai/learning/neural-learning.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -992,92 +996,16 @@ function getOptimalDeck(): { cardId: string; count: number }[] {
 }
 
 /**
- * Generate AI deck based on rating with synergy degradation
- * Higher ratings = closer to optimal with high synergy
- * Lower ratings = more synergy breaking, reduced construction precision
+ * Generate AI deck based on rating using machine learning
+ * Combines 3 learning methods: statistical, reinforcement, and neural
  *
  * Same rating + different sessionSeed = different decks (natural variation)
  * Same rating + same sessionSeed = same deck (reproducibility within session)
  */
 function getAIDeckForRating(rating: number, sessionSeed?: number): { cardId: string; count: number }[] {
-  const allCards = Object.entries(CARD_DB);
-  if (allCards.length === 0) return [];
-
-  // Combine rating and session seed for deterministic variation
-  // Same rating but different sessions = different decks
-  const seed = sessionSeed !== undefined
-    ? (Math.abs(rating) * 10000 + sessionSeed) & 0xffffffff
-    : Math.abs(rating);
-  const rng = new Mulberry32(seed);
-
-  // Get optimal deck as the baseline
-  const optimalDeck = getOptimalDeck();
-
-  // Calculate construction precision: 1 = perfect at rating 1700, degrades toward 0 at 1200 or 1500+
-  // Reference rating for optimal construction is 1700
-  const optimalRating = 1700;
-  const precisionRange = 200; // precision fully drops after ±200 points
-  const precision = Math.max(0, 1 - Math.abs(rating - optimalRating) / precisionRange);
-
-  // Syneergy breaking chance increases as precision decreases
-  const synergBreakChance = 1 - precision; // 0 at rating 1700, 1 at rating < 1500 or > 1900
-
-  // Build deck starting from optimal, with progressive synergy breaking
-  const selected: { [key: string]: number } = {};
-  const deckCardIds = new Set<string>();
-
-  // First pass: add optimal cards, but potentially break synergies
-  for (const { cardId, count } of optimalDeck) {
-    for (let i = 0; i < count; i++) {
-      if (rng.next() > synergBreakChance) {
-        // Keep card from optimal deck (preserve synergy)
-        selected[cardId] = (selected[cardId] || 0) + 1;
-        deckCardIds.add(cardId);
-      }
-    }
-  }
-
-  // Second pass: fill remaining slots with degraded precision
-  // As precision decreases, card choices become less optimal
-  const currentCount = Object.values(selected).reduce((a, b) => a + b, 0);
-  const remainingSlots = 40 - currentCount;
-
-  for (let i = 0; i < remainingSlots; i++) {
-    let card: [string, any] | undefined;
-
-    // Card selection based on precision
-    if (precision > 0.7) {
-      // High precision: prefer high-cost cards (optimal strategy)
-      const filtered = allCards.filter(([_, c]) => c.cost >= 3);
-      card = filtered.length > 0 ? filtered[rng.int(filtered.length)] : undefined;
-    } else if (precision > 0.4) {
-      // Medium precision: balanced selection with slight high-cost preference
-      if (rng.next() > 0.3) {
-        const filtered = allCards.filter(([_, c]) => c.cost >= 3);
-        card = filtered.length > 0 ? filtered[rng.int(filtered.length)] : undefined;
-      } else {
-        card = allCards[rng.int(allCards.length)];
-      }
-    } else {
-      // Low precision: mostly random selection (synergies heavily broken)
-      card = allCards[rng.int(allCards.length)];
-    }
-
-    if (!card) {
-      card = allCards[rng.int(allCards.length)];
-    }
-
-    if (card) {
-      const [cardId] = card;
-      selected[cardId] = (selected[cardId] || 0) + 1;
-      if (selected[cardId] > 3) {
-        i--;
-        selected[cardId]--;
-      }
-    }
-  }
-
-  return Object.entries(selected).map(([cardId, count]) => ({ cardId, count }));
+  // 機械学習ベースのデッキ推奨を取得
+  const recommendation = deckOptimizer.getBestDeck(rating, 40);
+  return recommendation.deck;
 }
 
 /**
