@@ -25,6 +25,7 @@ export interface CardEffect {
   costAction?: EffectAction; // cost to activate this effect (e.g., discard_hand for ▶ effects)
   costValue?: number; // value for cost action
   costSymbol?: string; // symbol requirement for cost action
+  costExhaustSelf?: boolean; // cost to activate this effect: exhaust the source card itself (e.g., nexus "疲労させる")
   condition?: {
     minHandSize?: number;
     maxHandSize?: number; // maximum hand size for effect to activate
