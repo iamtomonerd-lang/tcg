@@ -826,6 +826,17 @@ function serializeState(state: GameState) {
           destructedNexusIndices: state.pendingSpellChain.destructedNexusIndices,
         }
       : null,
+    pendingNexusDepletion: state.pendingNexusDepletion
+      ? {
+          nexusIndex: state.pendingNexusDepletion.nexusIndex,
+          nexusCard: {
+            id: state.pendingNexusDepletion.nexusCard.id,
+            name: state.pendingNexusDepletion.nexusCard.name,
+          },
+          requiredCores: state.pendingNexusDepletion.requiredCores,
+          currentCores: state.pendingNexusDepletion.currentCores,
+        }
+      : null,
   };
 }
 

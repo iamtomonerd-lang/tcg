@@ -531,6 +531,22 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       return actions;
     }
 
+    // Nexus depletion confirmation: user can add cores to cancel, or confirm to deplete
+    if (state.pendingNexusDepletion) {
+      const actions: Action[] = [
+        { type: 'confirm_nexus_depletion', proceed: true }, // Proceed with depletion
+      ];
+
+      // Allow adding cores to cancel depletion
+      const me = state.players[state.currentPlayer]!;
+      const totalCores = this.getTotalAvailableCores(me);
+      if (totalCores > 0) {
+        actions.push({ type: 'add_core', nexusIndex: state.pendingNexusDepletion.nexusIndex });
+      }
+
+      return actions;
+    }
+
     // If there are opened cards from draw phase, must select one
     if (state.pendingDraw) {
       // Return arrangement action marker
@@ -1253,10 +1269,35 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         next = triggerEffects(next, 'summon', card, next.currentPlayer, newSpiritIndex, undefined, undefined, undefined, undefined, undefined, newSpirit.level);
         break;
       }
+      case 'confirm_nexus_depletion': {
+        if (!next.pendingNexusDepletion) return next;
+
+        const { proceed } = action;
+        const pending = next.pendingNexusDepletion;
+        const me = next.players[next.currentPlayer]!;
+
+        next.pendingNexusDepletion = null;
+
+        if (proceed) {
+          // User confirmed: deplete the nexus
+          const nexus = me.nexuses[pending.nexusIndex];
+          if (nexus) {
+            me.nexuses.splice(pending.nexusIndex, 1);
+            me.trash.push(nexus.def);
+          }
+        }
+        // If user cancelled (by adding core), nexus was already placed and core added
+        break;
+      }
       case 'add_core': {
         // If spell chain is pending and user adds core, clear it (cancels destruction)
         if (next.pendingSpellChain) {
           next.pendingSpellChain = null;
+        }
+
+        // If nexus depletion is pending and user adds core, clear it (cancels depletion)
+        if (next.pendingNexusDepletion) {
+          next.pendingNexusDepletion = null;
         }
 
         const totalCores = this.getTotalAvailableCores(me);
@@ -1311,6 +1352,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             }
           }
           updateSpiritLevel(nexus as any); // Update nexus level if applicable
+
+          // Check if nexus still meets minimum core requirement (after core movement)
+          // This only checks existing nexuses; newly placed nexuses are handled in place_nexus
         }
         break;
       }
@@ -1455,8 +1499,20 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           nexusToPlace -= 1;
         }
 
-        // A nexus that could not receive all required maintenance cores is immediately depleted (消滅)
-        if (nexusRegular + nexusSoul < card.lv1.cost) {
+        // A nexus that could not receive all required maintenance cores needs confirmation in main phase
+        const totalCoresPlaced = nexusRegular + nexusSoul;
+        if (totalCoresPlaced < card.lv1.cost) {
+          // In main phase, ask player before depleting
+          if (next.phase === 'main') {
+            next.pendingNexusDepletion = {
+              nexusIndex: me.nexuses.length, // will be added after confirmation
+              nexusCard: card,
+              requiredCores: card.lv1.cost,
+              currentCores: totalCoresPlaced,
+            };
+            return next; // Stop here, player must confirm
+          }
+          // In other phases, auto-deplete
           me.trash.push(card);
           break;
         }
@@ -1999,6 +2055,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const targets = [...spiritNames, ...nexusNames].join('、');
         return `${targets}の消滅を実行`;
       }
+      case 'confirm_nexus_depletion': {
+        if (!state.pendingNexusDepletion) return '?';
+        const pending = state.pendingNexusDepletion;
+        if (!action.proceed) return '?'; // Should not happen now
+        return `${pending.nexusCard.name}を消滅させる（コア: ${pending.currentCores}/${pending.requiredCores}）`;
+      }
       case 'select_draw_arrange': {
         if (!state.pendingDraw) return 'カード選択';
         const cardName = state.pendingDraw.castCard?.name || 'オファーリングドロー';
@@ -2037,6 +2099,7 @@ function cloneState(state: GameState): GameState {
       : null,
     pendingMulligan: state.pendingMulligan ? { ...state.pendingMulligan } : null,
     pendingSpellChain: state.pendingSpellChain ? { ...state.pendingSpellChain } : null,
+    pendingNexusDepletion: state.pendingNexusDepletion ? { ...state.pendingNexusDepletion } : null,
   };
 }
 
