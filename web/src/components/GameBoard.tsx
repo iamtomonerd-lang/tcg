@@ -1146,6 +1146,90 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         </div>
       )}
 
+      {/* ===== Dice roll overlay ===== */}
+      {!isTerminal && state.pendingDiceRoll && (
+        <div className="game-over">
+          <div className="game-over-content dice-roll-content" style={{
+            padding: '3rem 2rem',
+            textAlign: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '12px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+          }}>
+            {state.pendingDiceRoll.winner === undefined || state.pendingDiceRoll.winner === null ? (
+              <>
+                <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🎲 サイコロを振っています...</h2>
+                <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '2rem' }}>両プレイヤーのサイコロが自動で振られています</p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '2rem' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>🎲</div>
+                    <div style={{ fontSize: '1rem', color: '#666' }}>Player 0</div>
+                    {state.pendingDiceRoll.p0Roll && <div style={{ fontSize: '1.5rem', fontWeight: 'bold', marginTop: '0.5rem' }}>{state.pendingDiceRoll.p0Roll}</div>}
+                  </div>
+                  <div style={{ fontSize: '2rem', color: '#999', display: 'flex', alignItems: 'center' }}>VS</div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>🎲</div>
+                    <div style={{ fontSize: '1rem', color: '#666' }}>Player 1</div>
+                    {state.pendingDiceRoll.p1Roll && <div style={{ fontSize: '1.5rem', fontWeight: 'bold', marginTop: '0.5rem' }}>{state.pendingDiceRoll.p1Roll}</div>}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🎲 サイコロ結果</h2>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '1.5rem', marginBottom: '2rem' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Player 0</div>
+                    <div style={{ fontSize: '3rem', fontWeight: 'bold', color: state.pendingDiceRoll.winner === 0 ? '#4CAF50' : '#999' }}>
+                      {state.pendingDiceRoll.p0Roll}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '2rem', color: '#999', display: 'flex', alignItems: 'center' }}>VS</div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Player 1</div>
+                    <div style={{ fontSize: '3rem', fontWeight: 'bold', color: state.pendingDiceRoll.winner === 1 ? '#4CAF50' : '#999' }}>
+                      {state.pendingDiceRoll.p1Roll}
+                    </div>
+                  </div>
+                </div>
+                <p style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '2rem', color: '#333' }}>
+                  🏆 先手はPlayer {state.pendingDiceRoll.winner}です
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                  {legalActions.map((a) => (
+                    <button
+                      key={a.index}
+                      onClick={() => executeAction(a.index)}
+                      disabled={isBusy}
+                      style={{
+                        padding: '1rem',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        backgroundColor: '#2196F3',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: isBusy ? 'default' : 'pointer',
+                        opacity: isBusy ? 0.6 : 1,
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isBusy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1976D2';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isBusy) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#2196F3';
+                      }}
+                    >
+                      {a.description}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ===== Opening hand mulligan overlay ===== */}
       {!isTerminal && state.pendingMulligan && playerTypes[state.pendingMulligan.player] === 'human' && (
         <div className="game-over">
