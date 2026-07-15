@@ -965,7 +965,27 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         )}
 
         <div className="side-actions">
-          {!state.pendingDraw && !state.pendingSpellChain && isHumanTurn ? (
+          {/* Order selection after RPS */}
+          {legalActions.some(a => a.description.includes('先手')) ? (
+            <>
+              <div className="side-actions-title">
+                🎲 先手後手を選択
+              </div>
+              <div className="action-buttons">
+                {legalActions.map((action) => (
+                  <button
+                    key={action.index}
+                    className="action-button"
+                    onClick={() => executeAction(action.index)}
+                    disabled={isBusy}
+                    style={{ marginBottom: '0.3rem', backgroundColor: '#ff6b6b', borderColor: '#d92525' }}
+                  >
+                    {action.description}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : !state.pendingDraw && !state.pendingSpellChain && isHumanTurn ? (
             <>
               <div className="side-actions-title">
                 🎯 あなたの番です

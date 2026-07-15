@@ -1885,6 +1885,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   describeAction(state: GameState, action: Action): string {
     const me = state.players[state.currentPlayer]!;
     switch (action.type) {
+      case 'choose_order': {
+        return action.goFirst ? '先手を選択' : '後手を選択';
+      }
       case 'summon': {
         const card = me.hand[action.handIndex];
         // Only show payment cost, not Lv1 placement cost
