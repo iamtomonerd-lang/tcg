@@ -877,6 +877,7 @@ function serializeState(state: GameState) {
           currentCores: state.pendingNexusDepletion.currentCores,
         }
       : null,
+    pendingDiceRoll: state.pendingDiceRoll || null,
   };
 }
 
