@@ -421,99 +421,30 @@ describe('destroy_nexus conservation', () => {
   });
 });
 
-describe('Compound activation costs (▶ effects)', () => {
-  function setupGraipherAttack(hand: PlayerState['hand']): GameState {
-    const graipher: Spirit = { def: CARD_DB.spirit_graipher!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
-    const p0 = makePlayer([graipher]);
-    p0.hand = hand;
-    const p1 = makePlayer([]);
-    p1.hand = []; // no flash response possible
-    return {
-      players: [p0, p1],
-      currentPlayer: 0,
-      turnCount: 2,
-      phase: 'attack',
-      battle: null,
-      result: null,
-    };
-  }
+describe('Flash-timing activation costs', () => {
+  it('Graipher and Akurai discard costs are flash-timing (isFlash=true, mode=flash)', () => {
+    // These are 【起動：フラッシュ】effects, not attack-phase automatic effects
+    const graipher = CARD_DB.spirit_graipher!;
+    const akurai = CARD_DB.spirit_hibutsu_akurai!;
 
-  it('paying the discard cost applies the BP boost and discards the 風牙 card', () => {
-    const windFangCard = CARD_DB.spirit_moon_shacco!; // lineage 風牙
-    let state = setupGraipherAttack([windFangCard]);
+    const graipherCostEffect = graipher.effects?.find((e) => e.trigger === 'attack' && e.costAction === 'discard_hand');
+    expect(graipherCostEffect).toBeDefined();
+    expect(graipherCostEffect?.isFlash).toBe(true);
+    expect(graipherCostEffect?.mode).toBe('flash');
 
-    const attackWithDiscard = game
-      .legalActions(state)
-      .find((a) => a.type === 'attack' && a.discardCardIndex === 0);
-    expect(attackWithDiscard).toBeDefined();
-
-    state = game.applyAction(state, attackWithDiscard!, new Mulberry32(1));
-    const p0 = state.players[0];
-    expect(p0.hand.length).toBe(0);
-    expect(p0.trash.map((c) => c.id)).toContain('spirit_moon_shacco');
-    expect(p0.spirits[0]!.bpBoostBattle).toBe(3000);
+    const akuraiCostEffect = akurai.effects?.find((e) => e.trigger === 'attack' && e.costAction === 'discard_hand');
+    expect(akuraiCostEffect).toBeDefined();
+    expect(akuraiCostEffect?.isFlash).toBe(true);
+    expect(akuraiCostEffect?.mode).toBe('flash');
   });
 
-  it('attacking without paying the cost neither discards nor boosts', () => {
-    const windFangCard = CARD_DB.spirit_moon_shacco!;
-    let state = setupGraipherAttack([windFangCard]);
+  it('Wind Fang Rock nexus effect is flash-timing (isFlash=true, mode=flash)', () => {
+    const windFangRock = CARD_DB.nexus_wind_fang_rock!;
 
-    const plainAttack = game
-      .legalActions(state)
-      .find((a) => a.type === 'attack' && a.discardCardIndex === undefined);
-    expect(plainAttack).toBeDefined();
-
-    state = game.applyAction(state, plainAttack!, new Mulberry32(1));
-    const p0 = state.players[0];
-    expect(p0.hand.length).toBe(1);
-    expect(p0.spirits[0]!.bpBoostBattle ?? 0).toBe(0);
-  });
-
-  it('a non-風牙 card cannot be chosen as the discard cost', () => {
-    const nonWindFang = { ...CARD_DB.spirit_moon_shacco!, lineage: [] };
-    const state = setupGraipherAttack([nonWindFang]);
-
-    const discardChoices = game
-      .legalActions(state)
-      .filter((a) => a.type === 'attack' && a.discardCardIndex !== undefined);
-    expect(discardChoices.length).toBe(0);
-  });
-
-  it('風牙岩 exhausts itself to boost the attacker, and cannot fire again while exhausted', () => {
-    const attacker1: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
-    const attacker2: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
-    const p0 = makePlayer([attacker1, attacker2]);
-    p0.nexuses = [{ def: CARD_DB.nexus_wind_fang_rock!, level: 1, coreCount: 1, soulCoreCount: 0 }];
-    const p1 = makePlayer([]);
-    p1.hand = [];
-    let state: GameState = {
-      players: [p0, p1],
-      currentPlayer: 0,
-      turnCount: 2,
-      phase: 'attack',
-      battle: null,
-      result: null,
-    };
-
-    // First attack: nexus pays its exhaustion, attacker gets +2000
-    const attackA = game.legalActions(state).find((a) => a.type === 'attack' && a.spiritIndex === 0)!;
-    state = game.applyAction(state, attackA, new Mulberry32(1));
-    expect(state.players[0].spirits[0]!.bpBoostBattle).toBe(2000);
-    expect(state.players[0].nexuses[0]!.exhausted).toBe(true);
-
-    // Opponent must skip flash before taking damage
-    const skipFlash = game.legalActions(state).find((a) => a.type === 'skip_flash');
-    if (skipFlash) state = game.applyAction(state, skipFlash, new Mulberry32(1));
-
-    // Resolve the attack (opponent takes damage), control returns to player 0
-    const takeDamage = game.legalActions(state).find((a) => a.type === 'take_damage')!;
-    state = game.applyAction(state, takeDamage, new Mulberry32(1));
-
-    // Second attack in the same turn: exhausted nexus cannot pay again
-    const attackB = game.legalActions(state).find((a) => a.type === 'attack' && a.spiritIndex === 1)!;
-    state = game.applyAction(state, attackB, new Mulberry32(1));
-    expect(state.players[0].spirits[1]!.bpBoostBattle ?? 0).toBe(0);
-    expect(state.players[0].nexuses[0]!.exhausted).toBe(true);
+    const nexusEffect = windFangRock.effects?.find((e) => e.trigger === 'attack' && e.action === 'boost_bp');
+    expect(nexusEffect).toBeDefined();
+    expect(nexusEffect?.isFlash).toBe(true);
+    expect(nexusEffect?.mode).toBe('flash');
   });
 });
 

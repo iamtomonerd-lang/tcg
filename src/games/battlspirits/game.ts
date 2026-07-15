@@ -980,8 +980,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       if (s.canAttack && !s.cannotAttackUntilNextTurn) {
         // Check if this spirit has effects that require target selection.
         // A discard can be the effect itself (action) or an activation cost (costAction, ▶ compound effects).
+        // Exclude flash-timing effects (isFlash=true, mode='flash') from attack-phase generation
         const discardEffect = s.def.effects?.find(
-          (e) => e.trigger === 'attack' && (e.action === 'discard_hand' || e.costAction === 'discard_hand') && e.level?.includes(s.level)
+          (e) => e.trigger === 'attack' && (e.action === 'discard_hand' || e.costAction === 'discard_hand') && e.level?.includes(s.level) && !e.isFlash
         );
         const placeCoreEffect = s.def.effects?.find(
           (e) => e.trigger === 'attack' && e.action === 'place_core' && e.requiresTarget && e.level?.includes(s.level)
