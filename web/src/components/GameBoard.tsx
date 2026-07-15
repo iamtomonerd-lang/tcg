@@ -592,7 +592,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
 
         <div className="center-bar">
           <span className="turn-chip">ターン {state.turnCount + 1}</span>
-          {state.pendingAttack ? (
+          {state.pendingSpellChain ? (
+            <span className="center-alert spell-chain">
+              ⚠️ 効果チェーン確認: 「{state.pendingSpellChain.summonedCard.name}」の効果で消滅対象あり
+            </span>
+          ) : state.pendingAttack ? (
             <span className="center-alert attack">
               ⚔️ 「{state.pendingAttack.attackerName}」がアタック中！（ライフダメージ {state.pendingAttack.damage}）
             </span>
@@ -924,15 +928,57 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           </div>
         )}
 
+        {/* Spell Chain Confirmation Dialog */}
+        {state.pendingSpellChain && isHumanTurn && (
+          <div style={{
+            backgroundColor: '#fff9e6',
+            border: '2px solid #ff6b6b',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '1rem',
+          }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#d92525', marginBottom: '0.5rem' }}>
+              ⚠️ 効果チェーン確認
+            </div>
+            <div style={{ fontSize: '0.95rem', color: '#333', marginBottom: '0.8rem', lineHeight: '1.5' }}>
+              「{state.pendingSpellChain.summonedCard.name}」の召喚効果により、以下が消滅します：
+              <br />
+              <strong>
+                {[
+                  ...state.pendingSpellChain.destructedSpiritIndices.map(i => state.players[1 - state.currentPlayer].spirits[i]?.def.name),
+                  ...state.pendingSpellChain.destructedNexusIndices.map(i => state.players[1 - state.currentPlayer].nexuses[i]?.def.name),
+                ].filter(Boolean).join('、')}
+              </strong>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                className="action-button"
+                onClick={() => executeAction(legalActions.findIndex(a => a.action?.type === 'confirm_spell_chain' && a.action?.proceed === true))}
+                style={{ flex: 1, backgroundColor: '#d92525', borderColor: '#a01f1f' }}
+              >
+                消滅を実行
+              </button>
+              <button
+                className="action-button"
+                onClick={() => executeAction(legalActions.findIndex(a => a.action?.type === 'confirm_spell_chain' && a.action?.proceed === false))}
+                style={{ flex: 1, backgroundColor: '#6c757d', borderColor: '#515661' }}
+              >
+                キャンセル（コア配置可）
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="side-actions">
-          {!state.pendingDraw && isHumanTurn ? (
+          {!state.pendingDraw && !state.pendingSpellChain && isHumanTurn ? (
             <>
               <div className="side-actions-title">
                 🎯 あなたの番です
+                {state.pendingSpellChain && <span className="hint spell-chain">効果チェーン確認</span>}
                 {state.pendingAttack && <span className="hint attack">防御するか選択</span>}
                 {state.pendingFlash && <span className="hint flash">フラッシュ使用可</span>}
               </div>
-              {!state.pendingAttack && !state.pendingFlash && (
+              {!state.pendingAttack && !state.pendingFlash && !state.pendingSpellChain && (
                 <div style={{ fontSize: '0.8rem', color: '#666', padding: '0.5rem 0.8rem', backgroundColor: '#f0f0f0', borderRadius: '4px', marginBottom: '0.8rem', lineHeight: '1.4' }}>
                   <div style={{ fontWeight: 600, marginBottom: '0.3rem' }}>プレイ手順:</div>
                   <div style={{ color: '#1e7e4d', fontWeight: 500 }}>1️⃣ カードをドラッグ → 2️⃣ コアをドラッグして支払い</div>

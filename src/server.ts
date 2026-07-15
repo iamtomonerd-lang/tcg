@@ -814,6 +814,17 @@ function serializeState(state: GameState) {
           originAttackSpiritIndex: state.pendingDraw.originAttackSpiritIndex,
         }
       : null,
+    pendingSpellChain: state.pendingSpellChain
+      ? {
+          summonedSpiritIndex: state.pendingSpellChain.summonedSpiritIndex,
+          summonedCard: {
+            id: state.pendingSpellChain.summonedCard.id,
+            name: state.pendingSpellChain.summonedCard.name,
+          },
+          destructedSpiritIndices: state.pendingSpellChain.destructedSpiritIndices,
+          destructedNexusIndices: state.pendingSpellChain.destructedNexusIndices,
+        }
+      : null,
   };
 }
 

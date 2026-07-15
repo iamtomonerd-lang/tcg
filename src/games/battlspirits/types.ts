@@ -176,6 +176,13 @@ export interface PendingMulligan {
   firstPlayer: number; // player who goes first (determined in order choice)
 }
 
+export interface PendingSpellChain {
+  summonedSpiritIndex: number; // index of the newly summoned spirit
+  summonedCard: CardDef; // card definition of the newly summoned spirit
+  destructedSpiritIndices: number[]; // indices of spirits that will be destroyed by the summon effect(s)
+  destructedNexusIndices: number[]; // indices of nexuses that will be destroyed
+}
+
 export interface EffectResult {
   description: string; // 日本語での効果結果の説明
   type: 'draw' | 'boost_bp' | 'damage' | 'heal' | 'destroy' | 'place_core' | 'other';
@@ -194,6 +201,7 @@ export interface GameState {
   pendingAttack?: PendingAttack | null; // if set, defending player can choose to block
   pendingDraw?: PendingDraw | null; // if set, player must select card(s) from opened deck
   pendingMulligan?: PendingMulligan | null; // if set, a player must decide to keep or redraw their opening hand
+  pendingSpellChain?: PendingSpellChain | null; // if set, confirm if summon effects should destroy opponent's spirits/nexuses
 }
 
 export type Action =
@@ -218,4 +226,5 @@ export type Action =
   | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; targetNexusIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number } // activate a flash magic card
   | { type: 'skip_flash' } // pass on flash opportunity
   | { type: 'select_draw_arrange'; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; cardIndices?: number[] } // arrange and select cards for offering draw
-  | { type: 'mulligan'; redraw: boolean }; // opening hand: keep as-is, or shuffle it back and redraw (no selection)
+  | { type: 'mulligan'; redraw: boolean } // opening hand: keep as-is, or shuffle it back and redraw (no selection)
+  | { type: 'confirm_spell_chain'; proceed: boolean }; // confirm if summon effects should destroy opponent's spirits/nexuses (true=proceed, false=cancel)

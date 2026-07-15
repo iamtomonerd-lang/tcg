@@ -506,6 +506,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       ];
     }
 
+    // Spell chain confirmation: user must confirm if summon effects should destroy opponent's spirits/nexuses
+    if (state.pendingSpellChain) {
+      return [
+        { type: 'confirm_spell_chain', proceed: true },
+        { type: 'confirm_spell_chain', proceed: false },
+      ];
+    }
+
     // If there are opened cards from draw phase, must select one
     if (state.pendingDraw) {
       // Return arrangement action marker
@@ -1151,8 +1159,72 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const newSpiritIndex = me.spirits.length;
         me.spirits.push(spirit);
 
+        // Check if summon effects will destroy opponent's spirits/nexuses
+        const hasDestructiveEffect =
+          card.effects?.some((e) => e.trigger === 'summon' && (e.action === 'destroy_creature' || e.action === 'destroy_nexus')) ?? false;
+
+        if (hasDestructiveEffect) {
+          // Simulate effects to detect destructions
+          const simState = cloneState(next);
+          triggerEffects(simState, 'summon', card, next.currentPlayer, newSpiritIndex, undefined, undefined, undefined, undefined, undefined, spirit.level);
+
+          // Detect which opponent spirits/nexuses would be destroyed
+          const opponent = simState.players[1 - next.currentPlayer]!;
+          const originalOpponent = next.players[1 - next.currentPlayer]!;
+
+          const destructedSpiritIndices: number[] = [];
+          const destructedNexusIndices: number[] = [];
+
+          // Find destroyed spirits
+          for (let i = 0; i < originalOpponent.spirits.length; i++) {
+            if (!opponent.spirits[i]) {
+              destructedSpiritIndices.push(i);
+            }
+          }
+
+          // Find destroyed nexuses
+          for (let i = 0; i < originalOpponent.nexuses.length; i++) {
+            if (!opponent.nexuses[i]) {
+              destructedNexusIndices.push(i);
+            }
+          }
+
+          // If destructions are detected, set pending state and wait for confirmation
+          if (destructedSpiritIndices.length > 0 || destructedNexusIndices.length > 0) {
+            next.pendingSpellChain = {
+              summonedSpiritIndex: newSpiritIndex,
+              summonedCard: card,
+              destructedSpiritIndices,
+              destructedNexusIndices,
+            };
+            break;
+          }
+        }
+
         // Trigger summon effects
         next = triggerEffects(next, 'summon', card, next.currentPlayer, newSpiritIndex, undefined, undefined, undefined, undefined, undefined, spirit.level);
+        break;
+      }
+      case 'confirm_spell_chain': {
+        if (!next.pendingSpellChain) return next;
+
+        const { proceed } = action;
+        const pending = next.pendingSpellChain;
+        const newSpiritIndex = pending.summonedSpiritIndex;
+        const card = pending.summonedCard;
+        const me = next.players[next.currentPlayer]!;
+        const newSpirit = me.spirits[newSpiritIndex]!;
+
+        next.pendingSpellChain = null;
+
+        if (!proceed) {
+          // User cancelled: remove the newly summoned spirit and put it back to hand/trash
+          // (for now, just keep it placed so user can add cores or take other actions)
+          return next;
+        }
+
+        // User confirmed: trigger the summon effects
+        next = triggerEffects(next, 'summon', card, next.currentPlayer, newSpiritIndex, undefined, undefined, undefined, undefined, undefined, newSpirit.level);
         break;
       }
       case 'add_core': {
@@ -1881,6 +1953,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'skip_flash': return 'フラッシュを使わない';
       case 'mulligan': return action.redraw ? '初手をシャッフルして引き直す' : '初手を維持する';
+      case 'confirm_spell_chain': {
+        if (!state.pendingSpellChain) return '?';
+        const pending = state.pendingSpellChain;
+        const opponent = state.players[1 - state.currentPlayer]!;
+        const spiritNames = pending.destructedSpiritIndices.map(i => opponent.spirits[i]?.def.name).filter(n => n);
+        const nexusNames = pending.destructedNexusIndices.map(i => opponent.nexuses[i]?.def.name).filter(n => n);
+        const targets = [...spiritNames, ...nexusNames].join('、');
+        return action.proceed ? `${targets}の消滅を実行` : `${targets}の消滅をキャンセル（コア配置など別のアクションができます）`;
+      }
       case 'select_draw_arrange': {
         if (!state.pendingDraw) return 'カード選択';
         const cardName = state.pendingDraw.castCard?.name || 'オファーリングドロー';
@@ -1918,6 +1999,7 @@ function cloneState(state: GameState): GameState {
         }
       : null,
     pendingMulligan: state.pendingMulligan ? { ...state.pendingMulligan } : null,
+    pendingSpellChain: state.pendingSpellChain ? { ...state.pendingSpellChain } : null,
   };
 }
 
