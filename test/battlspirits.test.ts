@@ -666,3 +666,72 @@ describe('ブレイククロー destroy_nexus', () => {
     expect(destroyNexusEffect?.mode).toBe('main');
   });
 });
+
+describe('Attack-time search_deck effects', () => {
+  it('ハーリア (Lv2) attack triggers search_deck and creates pendingDraw', () => {
+    // Setup: Haria at Lv2 attacks
+    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const p0 = makePlayer([haria]);
+
+    // Deck with 5 cards: 2 wind fang spirits, 3 others
+    const windFang1 = CARD_DB.spirit_moon_shacco!;
+    const windFang2 = CARD_DB.spirit_ro_meek!;
+    const other1 = CARD_DB.magic_offering_draw!;
+    const other2 = CARD_DB.magic_flame_hurricane!;
+    const other3 = CARD_DB.magic_break_claw!;
+    p0.deck = [windFang1, other1, windFang2, other2, other3];
+
+    const p1 = makePlayer([]);
+    p1.hand = [];
+
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0,
+      turnCount: 2,
+      phase: 'attack',
+      battle: null,
+      result: null,
+    };
+
+    const attackAction = game.legalActions(state).find(a => a.type === 'attack' && a.spiritIndex === 0);
+    expect(attackAction).toBeDefined();
+
+    state = game.applyAction(state, attackAction!, new Mulberry32(1));
+
+    // Should have pendingDraw set for card selection
+    expect(state.pendingDraw).toBeDefined();
+    expect(state.pendingDraw!.openedCards.length).toBe(2); // 2 cards opened
+    expect(state.pendingDraw!.castCard?.id).toBe('spirit_haria'); // cast card is Haria
+    expect(state.pendingDraw!.maxSelectable).toBe(1); // select 1 card
+    expect(state.pendingDraw!.returnDestination).toBe('trash'); // remaining go to trash
+  });
+
+  it('ハーリア card selection has correct pendingDraw setup with returnDestination', () => {
+    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const p0 = makePlayer([haria]);
+
+    const windFang1 = CARD_DB.spirit_moon_shacco!; // Wind Fang 系統
+    const other1 = CARD_DB.magic_offering_draw!;
+    p0.deck = [windFang1, other1];
+
+    const p1 = makePlayer([]);
+    p1.hand = [];
+
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0,
+      turnCount: 2,
+      phase: 'attack',
+      battle: null,
+      result: null,
+    };
+
+    const attackAction = game.legalActions(state).find(a => a.type === 'attack' && a.spiritIndex === 0);
+    state = game.applyAction(state, attackAction!, new Mulberry32(1));
+
+    expect(state.pendingDraw).toBeDefined();
+    expect(state.pendingDraw!.openedCards.length).toBe(2);
+    expect(state.pendingDraw!.returnDestination).toBe('trash'); // Attack search_deck uses trash destination
+    expect(state.pendingDraw!.maxSelectable).toBe(1); // Only 1 card should be selectable
+  });
+});
