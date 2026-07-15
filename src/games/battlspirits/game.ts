@@ -16,9 +16,11 @@ function calculateCostAfterReduction(
   hasInheritance: boolean,
 ): number {
   let cost = card.cost;
+  // reductionRemaining tracks the shared reduction limit (e.g., 2)
+  // Both field symbols and inheritance (EX symbols) draw from this same pool
   let reductionRemaining = card.reductionCost;
 
-  // Reduce cost from field symbols
+  // Reduce cost from field symbols (consumes shared reduction limit)
   for (const sym of fieldSymbols) {
     if (reductionRemaining <= 0) break;
     const canReduce = card.reductionCost > 0 && card.symbolColors?.includes(sym.color);
@@ -29,7 +31,8 @@ function calculateCostAfterReduction(
     }
   }
 
-  // If card has inheritance, can use EX symbols from trash
+  // If card has inheritance, can use EX symbols from trash for remaining reduction limit
+  // (shared with field symbols, not added on top)
   if (hasInheritance && reductionRemaining > 0 && hasEXSymbolsInTrash) {
     cost = Math.max(0, cost - reductionRemaining);
   }
