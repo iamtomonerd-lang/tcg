@@ -633,6 +633,30 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
         }
       } else if (card.cardType === 'magic') {
+        // Check if the magic card can be afforded (considering inheritance)
+        let canAfford = false;
+        let useInheritanceIfAvailable = false;
+
+        if (card.inheritance) {
+          const costWithInheritance = this.effectiveCostWithFlag(me, card, true);
+          const costWithoutInheritance = this.effectiveCostWithFlag(me, card, false);
+
+          if (costWithoutInheritance <= totalCores) {
+            canAfford = true;
+          }
+          if (costWithInheritance <= totalCores && costWithInheritance < costWithoutInheritance) {
+            useInheritanceIfAvailable = true;
+            canAfford = true;
+          }
+        } else {
+          const effectiveMagicCost = this.effectiveCost(me, card);
+          if (effectiveMagicCost <= totalCores) {
+            canAfford = true;
+          }
+        }
+
+        if (!canAfford) continue; // Can't afford this magic card
+
         // Filter effects by mode (main phase effects only: mode 'main' or no mode specified)
         const mainEffects = card.effects?.filter(e => !e.mode || e.mode === 'main') ?? [];
         if (mainEffects.length === 0) continue; // No main-phase effects for this card
@@ -654,27 +678,27 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
           if (validNexusIndices.length > 0) {
             for (const nexusIndex of validNexusIndices) {
-              actions.push({ type: 'use_magic', handIndex: i, targetNexusIndex: nexusIndex });
+              actions.push({ type: 'use_magic', handIndex: i, targetNexusIndex: nexusIndex, useInheritance: useInheritanceIfAvailable });
             }
           } else {
             // No valid nexus targets, but card can still be used (effect won't trigger)
-            actions.push({ type: 'use_magic', handIndex: i });
+            actions.push({ type: 'use_magic', handIndex: i, useInheritance: useInheritanceIfAvailable });
           }
         } else if (hasOtherTargetEffect) {
           // Generate targeting actions for opponent spirits
           const opponent = state.players[1 - state.currentPlayer]!;
           for (let t = 0; t < opponent.spirits.length; t++) {
-            actions.push({ type: 'use_magic', handIndex: i, targetSpiritIndex: t });
+            actions.push({ type: 'use_magic', handIndex: i, targetSpiritIndex: t, useInheritance: useInheritanceIfAvailable });
           }
         } else if (hasVariableEffect) {
           // Generate variable value actions (0 to max, typically hand size or some reasonable max)
           const maxValue = Math.min(me.hand.length, 5); // Reasonable max for discards
           for (let v = 0; v <= maxValue; v++) {
-            actions.push({ type: 'use_magic', handIndex: i, effectValue: v });
+            actions.push({ type: 'use_magic', handIndex: i, effectValue: v, useInheritance: useInheritanceIfAvailable });
           }
         } else {
           // No targeting or variable values needed
-          actions.push({ type: 'use_magic', handIndex: i });
+          actions.push({ type: 'use_magic', handIndex: i, useInheritance: useInheritanceIfAvailable });
         }
       }
     }
