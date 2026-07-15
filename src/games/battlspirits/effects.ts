@@ -398,10 +398,15 @@ export function applyEffect(
     }
     case 'destroy_nexus': {
       // Destroy opponent's nexus when magic is used (immediate trigger).
-      // Excludes nexuses that have reached Lv2 ("真界放していない" nexus only).
+      // Excludes nexuses that have reached Lv2 or have excluded skill ("真界放していない" nexus only).
+      const excludeSkill = effect.condition?.excludeTargetSkill;
       const eligible = opponent.nexuses
         .map((n, idx) => ({ n, idx }))
-        .filter(({ n }) => n.level !== 2)
+        .filter(({ n }) => {
+          if (n.level === 2) return false; // Cannot destroy Lv2 nexuses
+          if (excludeSkill && n.def.skill === excludeSkill) return false; // Cannot destroy if has excluded skill
+          return true;
+        })
         .map(({ idx }) => idx);
       const chosenIndex = targetNexusIndex !== undefined && eligible.includes(targetNexusIndex)
         ? targetNexusIndex

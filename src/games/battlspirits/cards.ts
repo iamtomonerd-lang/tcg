@@ -465,6 +465,7 @@ export const CARD_DB: Record<string, CardDef> = {
         action: 'destroy_nexus',
         requiresTarget: true,
         mode: 'main',
+        condition: { excludeTargetSkill: '真界放' },
         description: 'メイン: 真界放していない相手のネクサス1つを指定する。それを破壊する',
       },
       {

@@ -40,6 +40,7 @@ export interface CardEffect {
     requiresSpirit?: { lineage?: string; count?: number }; // requires specific spirit(s)
     opponentHasNexus?: boolean; // opponent must have nexus
     requiresSkill?: string; // requires card with specific skill (e.g., "継召")
+    excludeTargetSkill?: string; // for destroy_nexus: exclude targets with this skill (e.g., "真界放")
     maxCost?: number; // for trash_to_hand: only cards with cost <= this value are eligible
   };
   symbol?: string; // for search_deck/trash_to_hand: symbol to search for
