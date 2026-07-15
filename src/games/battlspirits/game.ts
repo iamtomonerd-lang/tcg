@@ -432,6 +432,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     return calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
   }
 
+  /** Calculate cost with or without inheritance */
+  private effectiveCostWithFlag(player: PlayerState, card: any, useInheritance: boolean): number {
+    const fieldSymbols = this.getFieldSymbols(player);
+    const hasEXInTrash = player.trash.some((c) => c.exSymbol);
+    return calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, useInheritance && !!card.inheritance);
+  }
+
   /** Does the player have a flash magic card they can actually afford? */
   private hasAffordableFlash(player: PlayerState): boolean {
     const totalCores = this.getTotalAvailableCores(player);
@@ -585,12 +592,45 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       if (card.cardType === 'spirit') {
         // Payment covers only the card's cost, but the player must also be able to
         // MOVE Lv1 maintenance cores onto the spirit for the summon to be legal
-        if (this.effectiveCost(me, card) + card.lv1.cost > totalCores) continue;
-        actions.push({ type: 'summon', handIndex: i });
+        // Check if inheritance can save cores
+        if (card.inheritance) {
+          const costWithInheritance = this.effectiveCostWithFlag(me, card, true);
+          const costWithoutInheritance = this.effectiveCostWithFlag(me, card, false);
+          const canWithInheritance = costWithInheritance + card.lv1.cost <= totalCores;
+          const canWithoutInheritance = costWithoutInheritance + card.lv1.cost <= totalCores;
+
+          if (canWithoutInheritance) {
+            actions.push({ type: 'summon', handIndex: i, useInheritance: false });
+          }
+          if (canWithInheritance && costWithInheritance < costWithoutInheritance) {
+            // Only add inheritance option if it actually saves cores
+            actions.push({ type: 'summon', handIndex: i, useInheritance: true });
+          }
+        } else {
+          // No inheritance possible, just add normal summon
+          if (this.effectiveCost(me, card) + card.lv1.cost <= totalCores) {
+            actions.push({ type: 'summon', handIndex: i });
+          }
+        }
       } else if (card.cardType === 'nexus') {
         // Must also be able to move Lv1 maintenance cores onto the nexus
-        if (this.effectiveCost(me, card) + card.lv1.cost > totalCores) continue;
-        actions.push({ type: 'place_nexus', handIndex: i });
+        if (card.inheritance) {
+          const costWithInheritance = this.effectiveCostWithFlag(me, card, true);
+          const costWithoutInheritance = this.effectiveCostWithFlag(me, card, false);
+          const canWithInheritance = costWithInheritance + card.lv1.cost <= totalCores;
+          const canWithoutInheritance = costWithoutInheritance + card.lv1.cost <= totalCores;
+
+          if (canWithoutInheritance) {
+            actions.push({ type: 'place_nexus', handIndex: i, useInheritance: false });
+          }
+          if (canWithInheritance && costWithInheritance < costWithoutInheritance) {
+            actions.push({ type: 'place_nexus', handIndex: i, useInheritance: true });
+          }
+        } else {
+          if (this.effectiveCost(me, card) + card.lv1.cost <= totalCores) {
+            actions.push({ type: 'place_nexus', handIndex: i });
+          }
+        }
       } else if (card.cardType === 'magic') {
         // Filter effects by mode (main phase effects only: mode 'main' or no mode specified)
         const mainEffects = card.effects?.filter(e => !e.mode || e.mode === 'main') ?? [];
@@ -994,8 +1034,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const fieldSymbols = this.getFieldSymbols(me);
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
-        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
-        const usedInheritance = card.inheritance && costWithoutInheritance > actualCost && hasEXInTrash;
+        const useInheritance = action.useInheritance !== false && !!card.inheritance;
+        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, useInheritance);
+        const usedInheritance = useInheritance && costWithoutInheritance > actualCost && hasEXInTrash;
 
         // Need enough cores to pay the cost AND move Lv1 maintenance cores onto the spirit
         const totalAvailable = this.getTotalAvailableCores(me);
@@ -1213,8 +1254,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const fieldSymbols = this.getFieldSymbols(me);
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
-        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
-        const usedInheritance = card.inheritance && costWithoutInheritance > actualCost && hasEXInTrash;
+        const useInheritance = action.useInheritance !== false && !!card.inheritance;
+        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, useInheritance);
+        const usedInheritance = useInheritance && costWithoutInheritance > actualCost && hasEXInTrash;
 
         // Need enough cores to pay the cost AND move Lv1 maintenance cores onto the nexus
         const totalAvailable = this.getTotalAvailableCores(me);
@@ -1275,8 +1317,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const fieldSymbols = this.getFieldSymbols(me);
         const hasEXInTrash = me.trash.some((c) => c.exSymbol);
         const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
-        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
-        const usedInheritance = card.inheritance && costWithoutInheritance > actualCost && hasEXInTrash;
+        const useInheritance = action.useInheritance !== false && !!card.inheritance;
+        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, useInheritance);
+        const usedInheritance = useInheritance && costWithoutInheritance > actualCost && hasEXInTrash;
 
         // Check if player has enough cores (including from spirits)
         const totalAvailable = this.getTotalAvailableCores(me);

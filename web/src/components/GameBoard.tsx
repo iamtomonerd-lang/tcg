@@ -35,6 +35,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     paidSoul: number;
     cardName: string;
     useInheritance?: boolean;
+    hasInheritance?: boolean;
   } | null>(null);
   const [selectedCardImage, setSelectedCardImage] = useState<{ imagePath: string; name: string } | null>(null);
   const [trashViewPlayer, setTrashViewPlayer] = useState<number | null>(null);
@@ -377,6 +378,8 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                 paidRegular: 0,
                 paidSoul: 0,
                 cardName: dragData.card.name,
+                useInheritance: dragData.card.inheritance ?? false, // Default to using inheritance if available
+                hasInheritance: dragData.card.inheritance ?? false,
               });
               setError(`【支払うコア】「${dragData.card.name}」のコスト${cost}個を支払ってください。通常コア（🟢）またはソウルコア（🟣）をドラッグまたはボタンで選択します。`);
             } else {
@@ -716,6 +719,53 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             }}>
               残り {Math.max(0, pendingCoreCost.requiredCores - pendingCoreCost.paidRegular - pendingCoreCost.paidSoul)}個
             </div>
+            {pendingCoreCost.hasInheritance && (
+              <div style={{
+                marginBottom: '0.8rem',
+                padding: '0.8rem',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderRadius: '6px',
+                border: '2px solid #f59e0b',
+              }}>
+                <div style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  marginBottom: '0.4rem',
+                  color: '#d97706',
+                }}>
+                  ⭐ 継承を使用
+                </div>
+                <button
+                  onClick={() => {
+                    if (pendingCoreCost) {
+                      setPendingCoreCost({
+                        ...pendingCoreCost,
+                        useInheritance: !pendingCoreCost.useInheritance,
+                      });
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem',
+                    backgroundColor: pendingCoreCost.useInheritance ? '#fbbf24' : '#f3f4f6',
+                    color: pendingCoreCost.useInheritance ? '#78350f' : '#6b7280',
+                    border: '2px solid #f59e0b',
+                    borderRadius: '4px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = pendingCoreCost.useInheritance ? '#f97316' : '#e5e7eb';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = pendingCoreCost.useInheritance ? '#fbbf24' : '#f3f4f6';
+                  }}
+                >
+                  {pendingCoreCost.useInheritance ? '✓ 継承を使用' : '継承を使用しない'}
+                </button>
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.8rem' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 <button

@@ -193,7 +193,7 @@ export interface GameState {
 export type Action =
   | { type: 'rock_paper_scissors'; choice: 0 | 1 | 2 } // 0=rock, 1=paper, 2=scissors
   | { type: 'choose_order'; goFirst: boolean } // winner chooses to go first or second
-  | { type: 'summon'; handIndex: number; targetNexusIndex?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number }
+  | { type: 'summon'; handIndex: number; targetNexusIndex?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean }
   | { type: 'add_core'; spiritIndex?: number; nexusIndex?: number; coreType?: 'regular' | 'soul' } // move 1 core from reserve onto a spirit or nexus (level-up)
   | {
       type: 'move_core'; // freely move 1 core between reserve/spirit/nexus (main steps only, via drag & drop)
