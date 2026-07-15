@@ -940,7 +940,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#d92525', marginBottom: '0.5rem' }}>
               ⚠️ 効果チェーン確認
             </div>
-            <div style={{ fontSize: '0.95rem', color: '#333', marginBottom: '0.8rem', lineHeight: '1.5' }}>
+            <div style={{ fontSize: '0.95rem', color: '#333', marginBottom: '1rem', lineHeight: '1.6' }}>
               「{state.pendingSpellChain.summonedCard.name}」の召喚効果により、以下が消滅します：
               <br />
               <strong>
@@ -949,23 +949,18 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                   ...state.pendingSpellChain.destructedNexusIndices.map(i => state.players[1 - state.currentPlayer].nexuses[i]?.def.name),
                 ].filter(Boolean).join('、')}
               </strong>
+              <br />
+              <span style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem', display: 'block' }}>
+                💡 コアを置くと消滅がキャンセルされます
+              </span>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                className="action-button"
-                onClick={() => executeAction(legalActions.findIndex(a => a.action?.type === 'confirm_spell_chain' && a.action?.proceed === true))}
-                style={{ flex: 1, backgroundColor: '#d92525', borderColor: '#a01f1f' }}
-              >
-                消滅を実行
-              </button>
-              <button
-                className="action-button"
-                onClick={() => executeAction(legalActions.findIndex(a => a.action?.type === 'confirm_spell_chain' && a.action?.proceed === false))}
-                style={{ flex: 1, backgroundColor: '#6c757d', borderColor: '#515661' }}
-              >
-                キャンセル（コア配置可）
-              </button>
-            </div>
+            <button
+              className="action-button"
+              onClick={() => executeAction(legalActions.findIndex(a => a.action?.type === 'confirm_spell_chain' && a.action?.proceed === true))}
+              style={{ width: '100%', backgroundColor: '#d92525', borderColor: '#a01f1f' }}
+            >
+              消滅を実行
+            </button>
           </div>
         )}
 

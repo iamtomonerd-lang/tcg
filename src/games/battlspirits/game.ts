@@ -506,12 +506,28 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       ];
     }
 
-    // Spell chain confirmation: user must confirm if summon effects should destroy opponent's spirits/nexuses
+    // Spell chain confirmation: user can add cores to cancel, or confirm to proceed with destruction
     if (state.pendingSpellChain) {
-      return [
-        { type: 'confirm_spell_chain', proceed: true },
-        { type: 'confirm_spell_chain', proceed: false },
+      const actions: Action[] = [
+        { type: 'confirm_spell_chain', proceed: true }, // Proceed with destruction
       ];
+
+      // Allow adding cores to cancel destruction
+      const me = state.players[state.currentPlayer]!;
+      const totalCores = this.getTotalAvailableCores(me);
+      if (totalCores > 0) {
+        // Add core to newly summoned spirit
+        const newSpirit = me.spirits[state.pendingSpellChain.summonedSpiritIndex];
+        if (newSpirit) {
+          actions.push({ type: 'add_core', spiritIndex: state.pendingSpellChain.summonedSpiritIndex });
+        }
+        // Add core to any nexus
+        for (let i = 0; i < me.nexuses.length; i++) {
+          actions.push({ type: 'add_core', nexusIndex: i });
+        }
+      }
+
+      return actions;
     }
 
     // If there are opened cards from draw phase, must select one
@@ -1228,6 +1244,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         break;
       }
       case 'add_core': {
+        // If spell chain is pending and user adds core, clear it (cancels destruction)
+        if (next.pendingSpellChain) {
+          next.pendingSpellChain = null;
+        }
+
         const totalCores = this.getTotalAvailableCores(me);
         if (totalCores <= 0) return next;
 
@@ -1955,12 +1976,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'mulligan': return action.redraw ? '初手をシャッフルして引き直す' : '初手を維持する';
       case 'confirm_spell_chain': {
         if (!state.pendingSpellChain) return '?';
+        if (!action.proceed) return '?'; // Should not happen now
         const pending = state.pendingSpellChain;
         const opponent = state.players[1 - state.currentPlayer]!;
         const spiritNames = pending.destructedSpiritIndices.map(i => opponent.spirits[i]?.def.name).filter(n => n);
         const nexusNames = pending.destructedNexusIndices.map(i => opponent.nexuses[i]?.def.name).filter(n => n);
         const targets = [...spiritNames, ...nexusNames].join('、');
-        return action.proceed ? `${targets}の消滅を実行` : `${targets}の消滅をキャンセル（コア配置など別のアクションができます）`;
+        return `${targets}の消滅を実行`;
       }
       case 'select_draw_arrange': {
         if (!state.pendingDraw) return 'カード選択';
