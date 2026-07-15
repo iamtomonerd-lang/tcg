@@ -18,8 +18,15 @@ function makePlayer(spirits: Spirit[]): PlayerState {
 /** Resolve both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */
 function skipToMainPhase(state: GameState, rng: Mulberry32): GameState {
   let s = state;
-  // Skip first player decision: first player goes first
-  if (s.decideFirstPlayerPlayer !== undefined && s.decideFirstPlayerPlayer !== null) {
+  // Skip rock-paper-scissors: both players make random choices
+  while (s.pendingRockPaperScissors && s.pendingRockPaperScissors.rocksChoices === undefined) {
+    const actions = game.legalActions(s);
+    const rpsAction = actions.find((a) => a.type === 'rock_paper_scissors');
+    if (!rpsAction || rpsAction.type !== 'rock_paper_scissors') break;
+    s = game.applyAction(s, rpsAction, rng);
+  }
+  // Skip order choice: winner goes first
+  if (s.pendingRockPaperScissors && s.pendingRockPaperScissors.decidingPlayer >= 0) {
     s = game.applyAction(s, { type: 'choose_order', goFirst: true }, rng);
   }
   // Skip mulligan: both players keep their hand
@@ -37,24 +44,18 @@ function skipToMainPhase(state: GameState, rng: Mulberry32): GameState {
 }
 
 describe('Battle Spirits Mulligan', () => {
-  it('opening hand starts in first player decision phase with random decider', () => {
+  it('opening hand starts in rock-paper-scissors phase', () => {
     const s = game.createInitialState(new Mulberry32(1));
     expect(s.phase).toBe('start');
-    expect(s.decideFirstPlayerPlayer).toBeDefined(); // First player decision phase
-    expect([0, 1]).toContain(s.decideFirstPlayerPlayer); // Randomly assigned
+    expect(s.pendingRockPaperScissors).toBeDefined(); // RPS phase
+    expect(s.pendingRockPaperScissors?.rocksChoices).toBeUndefined(); // Both players must choose
     expect(s.players[0].hand.length).toBe(4);
     const actions = game.legalActions(s);
     expect(actions).toEqual([
-      { type: 'choose_order', goFirst: true },
-      { type: 'choose_order', goFirst: false },
+      { type: 'rock_paper_scissors', choice: 0 },
+      { type: 'rock_paper_scissors', choice: 1 },
+      { type: 'rock_paper_scissors', choice: 2 },
     ]);
-
-    // After choosing order, mulligan phase should activate
-    const s2 = game.applyAction(s, { type: 'choose_order', goFirst: true }, new Mulberry32(1));
-    expect(s2.decideFirstPlayerPlayer).toBeFalsy();
-    expect(s2.pendingMulligan).toBeDefined();
-    expect(s2.pendingMulligan?.player).toBe(s2.currentPlayer); // Current player does mulligan
-    expect([0, 1]).toContain(s2.pendingMulligan?.firstPlayer);
   });
 
   it('keeping the hand for both players completes mulligan and removes pendingMulligan', () => {

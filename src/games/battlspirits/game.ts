@@ -46,17 +46,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   createInitialState(rng: Rng): GameState {
     const players: [any, any] = [this.newPlayer(rng), this.newPlayer(rng)];
 
-    // Randomly give one player the right to decide who goes first
-    const decideFirstPlayerPlayer = rng.int(2); // 0 or 1
-
     const state: GameState = {
       players: players as [any, any],
-      currentPlayer: decideFirstPlayerPlayer,
+      currentPlayer: 0, // Player 0 starts the RPS phase
       turnCount: 0,
       phase: 'start',
       battle: null,
       result: null,
-      decideFirstPlayerPlayer,
+      pendingRockPaperScissors: { rocksChoices: undefined as any, decidingPlayer: -1 }, // Start RPS phase
     };
     // Draw opening hand of 4 cards each
     for (const p of players) {
