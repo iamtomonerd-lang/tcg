@@ -163,6 +163,25 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Auto-roll dice during dice roll phase
+  useEffect(() => {
+    if (!state || isBusy || !state.pendingDiceRoll || state.pendingDiceRoll.winner !== undefined) {
+      return;
+    }
+
+    // Auto-play dice roll: randomly choose 1-6
+    const timer = setTimeout(() => {
+      const legalActionsForDice = legalActions.filter((a) => a.action?.type === 'dice_roll');
+      if (legalActionsForDice.length > 0) {
+        const randomIndex = Math.floor(Math.random() * legalActionsForDice.length);
+        const actionToExecute = legalActions.indexOf(legalActionsForDice[randomIndex]);
+        executeAction(actionToExecute);
+      }
+    }, 1000); // 1秒後に自動実行
+
+    return () => clearTimeout(timer);
+  }, [state?.pendingDiceRoll, legalActions, isBusy]);
+
   const playAITurn = async () => {
     if (isBusy) return;
     setIsBusy(true);
@@ -969,25 +988,12 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           {legalActions.some(a => a.action?.type === 'dice_roll') ? (
             <>
               <div className="side-actions-title">
-                🎲 サイコロを振る
+                🎲 サイコロを振っています...
               </div>
               <div style={{ fontSize: '0.9rem', color: '#333', marginBottom: '0.8rem', padding: '0.6rem', backgroundColor: '#f0f0f0', borderRadius: '4px', lineHeight: '1.5' }}>
-                サイコロ（1-6）を選んでください。
+                両プレイヤーのサイコロが自動で振られています。
                 <br />
-                大きい数が勝ちです！
-              </div>
-              <div className="action-buttons">
-                {legalActions.map((action) => (
-                  <button
-                    key={action.index}
-                    className="action-button"
-                    onClick={() => executeAction(action.index)}
-                    disabled={isBusy}
-                    style={{ marginBottom: '0.3rem', backgroundColor: '#4ecdc4', borderColor: '#2a9b8e' }}
-                  >
-                    🎲 {action.description}
-                  </button>
-                ))}
+                大きい数が勝ちます。
               </div>
             </>
           ) : legalActions.some(a => a.description.includes('維持') || a.description.includes('引き直す')) ? (
