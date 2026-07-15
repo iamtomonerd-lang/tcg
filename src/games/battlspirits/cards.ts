@@ -517,7 +517,7 @@ export const CARD_DB: Record<string, CardDef> = {
         count: 2,
         symbol: '風牙',
         mode: 'main',
-        description: 'メイン: デッキの上から3枚をオープン。その中の系統：「風牙」を持つカード2枚を手札に加える。残りはデッキの下に戻す',
+        description: 'メイン: デッキの上から3枚をオープン。その中の系統：「風牙」を持つカード最大2枚を手札に加える。残りはデッキの下に好きな順番で置く',
       },
       {
         trigger: 'immediate',

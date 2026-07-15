@@ -1515,32 +1515,30 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             openedCards.push(me.deck.shift()!);
           }
 
-          // Identify 風牙 lineage cards (excluding オファーリングドロー) as selectable (max 2)
-          const selectableIndices: number[] = [];
+          // Identify 風牙 lineage cards (only these can be added to hand)
+          const windFangIndices: number[] = [];
           for (let i = 0; i < openedCards.length; i++) {
             const c = openedCards[i];
             const hasWindFangLineage = c.lineage && c.lineage.includes('風牙');
             const isNotOfferingDraw = c.id !== 'magic_offering_draw';
             if (hasWindFangLineage && isNotOfferingDraw) {
-              selectableIndices.push(i);
+              windFangIndices.push(i);
             }
           }
 
-          // Identify remaining cards (non-selectable) that will go back to deck bottom
+          // All opened cards can be arranged back to deck (cards selected for hand will go there)
           const toRearrangeIndices: number[] = [];
           for (let i = 0; i < openedCards.length; i++) {
-            if (!selectableIndices.includes(i)) {
-              toRearrangeIndices.push(i);
-            }
+            toRearrangeIndices.push(i);
           }
 
           // Set pending draw for player to select and arrange cards
-          // Player can select up to 2 from selectableIndices
+          // Player sees all 3 cards and can select up to 2 (but only 風牙 cards can be added to hand)
           next.pendingDraw = {
             openedCards,
-            toHandIndices: selectableIndices, // Show selectable cards for player to choose from
-            toRearrangeIndices, // Non-selectable cards to arrange back to deck
-            selectableIndices, // Cards that can be selected for hand (風牙 lineage)
+            toHandIndices: toRearrangeIndices.slice(), // Show all cards for player to choose from
+            toRearrangeIndices, // All cards can be arranged back to deck
+            selectableIndices: windFangIndices, // Only 風牙 lineage cards are eligible for hand
             castCard: card, // Store the card so we can trigger effects after selection
             maxSelectable: 2,
             returnDestination: 'deck', // Unselected cards go back to deck bottom
