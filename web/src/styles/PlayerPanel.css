@@ -98,6 +98,31 @@
   font-weight: 800;
 }
 
+.pstat-button {
+  background: none;
+  border: none;
+  color: #e8eaf0;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pstat-button:hover {
+  background: rgba(238, 143, 60, 0.3);
+  color: #ff9d5c;
+  text-decoration: none;
+}
+
+.pstat-button:active {
+  background: rgba(238, 143, 60, 0.5);
+  color: #ffc896;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }

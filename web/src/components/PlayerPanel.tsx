@@ -157,17 +157,7 @@ export default function PlayerPanel({
         <button
           className="pstat-button"
           onClick={onViewTrash}
-          title="トラッシュを表示"
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#cfd5e4',
-            cursor: 'pointer',
-            padding: '0 0.2rem',
-            fontWeight: 700,
-            fontSize: '0.88rem',
-            textDecoration: 'underline',
-          }}
+          title="クリックでトラッシュを表示"
         >
           🗑️ {player.trash.count}
         </button>
