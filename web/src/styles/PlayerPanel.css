@@ -366,6 +366,7 @@
 
 .field-row {
   position: relative;
+  overflow: hidden;
 }
 
 .field-row.drag-over-zone {
