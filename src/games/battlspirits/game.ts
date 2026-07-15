@@ -1412,6 +1412,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             toRearrangeIndices, // Non-selectable cards to arrange back to deck
             selectableIndices, // Cards that can be selected for hand (風牙 lineage)
             castCard: card, // Store the card so we can trigger effects after selection
+            maxSelectable: 2,
+            returnDestination: 'deck', // Unselected cards go back to deck bottom
             targetSpiritIndex: action.targetSpiritIndex, // Store for later effect processing
             effectValue: action.effectValue, // Store for later effect processing
           };
@@ -1533,24 +1535,25 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               me.trash.push(pd.openedCards[i]!);
             }
           }
-        } else {
-          // For magic_offering_draw: rearrange and put back to deck bottom
+        } else if (pd.returnDestination === 'deck') {
+          // For magic_offering_draw: unselected cards return to deck bottom (with optional rearrangement)
+          const unselectedIndices: number[] = [];
+          for (let i = 0; i < pd.openedCards.length; i++) {
+            if (!selectedIndices.includes(i)) {
+              unselectedIndices.push(i);
+            }
+          }
+
+          // If user provided arranged order, use that; otherwise use original order
+          const indicesToArrange = arrangedIndices.length > 0 ? arrangedIndices : unselectedIndices;
           const rearrangedCards: CardDef[] = [];
-          for (const idx of arrangedIndices) {
+          for (const idx of indicesToArrange) {
             const card = pd.openedCards[idx]!;
             me.deck.push(card);
             rearrangedCards.push(card);
           }
           // Record cards placed at bottom of deck (in order, first = closest to bottom)
           me.bottomDeckCards = [...rearrangedCards, ...me.bottomDeckCards];
-
-          // Any remaining cards (not selected or rearranged) go to trash
-          const usedIndices = new Set([...selectedIndices, ...arrangedIndices]);
-          for (let i = 0; i < pd.openedCards.length; i++) {
-            if (!usedIndices.has(i)) {
-              me.trash.push(pd.openedCards[i]!);
-            }
-          }
         }
 
         // If this search_deck came from an attack, continue with the rest of the attack flow
