@@ -241,6 +241,7 @@
 /* Fatigued (rotated) spirits */
 .fcard.spirit-fatigued {
   transform: rotate(-90deg);
+  transform-origin: center;
   transition: transform 0.3s ease;
 }
 
@@ -265,6 +266,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: 3px;
+  overflow: hidden;
 }
 
 /* .fcard inside a wrapper no longer manages its own flex sizing */
