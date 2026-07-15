@@ -160,6 +160,7 @@ export interface PendingDraw {
   effectValue?: number; // from original use_magic action
   maxSelectable?: number; // maximum number of cards that can be selected (default 2 for magic_offering_draw, 1 for attack search_deck)
   returnDestination?: 'deck' | 'trash'; // where to put remaining cards (default 'deck' for magic_offering_draw, 'trash' for attack search_deck)
+  originAttackSpiritIndex?: number; // if set, this search_deck came from an attack and should continue attack flow after selection
 }
 
 export interface PendingRockPaperScissors {

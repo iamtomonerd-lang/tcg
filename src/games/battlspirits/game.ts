@@ -1445,6 +1445,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             castCard: spirit.def,
             maxSelectable: searchDeckEffect.count ?? 1,
             returnDestination: 'trash', // attack search_deck cards go to trash, not deck bottom
+            originAttackSpiritIndex: action.spiritIndex, // track that this came from an attack
           };
           return next; // Stop here, player must select cards
         }
@@ -1520,6 +1521,48 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               me.trash.push(pd.openedCards[i]!);
             }
           }
+        }
+
+        // If this search_deck came from an attack, continue with the rest of the attack flow
+        if (pd.originAttackSpiritIndex !== undefined) {
+          next.pendingDraw = null;
+
+          const spirit = next.players[next.currentPlayer]!.spirits[pd.originAttackSpiritIndex];
+          if (!spirit) return next;
+
+          // Nexus "attack"-trigger effects (e.g. buffs during my attack step)
+          const attackerNow = next.players[next.currentPlayer]!;
+          for (let ni = 0; ni < attackerNow.nexuses.length; ni++) {
+            const nexus = attackerNow.nexuses[ni]!;
+            next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, pd.originAttackSpiritIndex, undefined, undefined, undefined, undefined, undefined, nexus.level, ni);
+          }
+
+          // Create pending attack opportunity for opponent to defend
+          const damage = spirit.def.symbolCount;
+          const pendingAttack: PendingAttack = {
+            attackerPlayer: next.currentPlayer,
+            attackerSpiritIndex: pd.originAttackSpiritIndex,
+            damage,
+          };
+
+          const defenderIndex = 1 - next.currentPlayer;
+          const defender = next.players[defenderIndex]!;
+
+          // Give the defender a flash opportunity before they must choose defend/take_damage
+          if (this.hasAffordableFlash(defender)) {
+            next.pendingFlash = {
+              trigger: 'opponent_attack',
+              cardId: '',
+              initiatingPlayer: next.currentPlayer,
+              stashedAttack: pendingAttack,
+            };
+            next.currentPlayer = defenderIndex;
+            return next;
+          }
+
+          next.pendingAttack = pendingAttack;
+          next.currentPlayer = defenderIndex;
+          return next;
         }
 
         // Clear pending draw and remain in current phase (main for magic card usage)
