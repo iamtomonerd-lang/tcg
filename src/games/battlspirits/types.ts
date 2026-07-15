@@ -198,6 +198,17 @@ export interface PendingNexusDepletion {
   currentCores: number; // current cores (regular + soul)
 }
 
+export interface PendingEffectAction {
+  effect: CardEffect; // the effect that requires target selection
+  sourceCard: CardDef; // the card that owns this effect
+  sourcePlayer: number; // player who owns the card
+  spiritIndex?: number; // index of spirit that triggered the effect (if any)
+  sourceNexusIndex?: number; // index of nexus that triggered the effect (if any)
+  validTargets: { spiritIndices: number[]; nexusIndices: number[] }; // valid target indices
+  trigger: string; // the trigger type ('end_step', etc.)
+  remainingEffects: Array<{ card: CardDef; spiritIndex?: number; nexusIndex?: number; level?: 1 | 2 }>; // remaining effects to process after this one
+}
+
 export interface EffectResult {
   description: string; // 日本語での効果結果の説明
   type: 'draw' | 'boost_bp' | 'damage' | 'heal' | 'destroy' | 'place_core' | 'other';
@@ -219,6 +230,7 @@ export interface GameState {
   pendingSpellChain?: PendingSpellChain | null; // if set, confirm if summon effects should destroy opponent's spirits/nexuses
   pendingSpiritDepletion?: PendingSpiritDepletion | null; // if set, confirm if spirit should be depleted or player adds core
   pendingNexusDepletion?: PendingNexusDepletion | null; // if set, confirm if nexus should be depleted or player adds core
+  pendingEffectAction?: PendingEffectAction | null; // if set, player must select target for an effect (e.g., end_step place_core)
 }
 
 export type Action =
@@ -246,4 +258,5 @@ export type Action =
   | { type: 'mulligan'; redraw: boolean } // opening hand: keep as-is, or shuffle it back and redraw (no selection)
   | { type: 'confirm_spell_chain'; proceed: boolean } // confirm if summon effects should destroy opponent's spirits/nexuses (true=proceed, false=cancel)
   | { type: 'confirm_spirit_depletion'; proceed: boolean } // confirm if spirit should be depleted (true=deplete, false=cancel)
-  | { type: 'confirm_nexus_depletion'; proceed: boolean }; // confirm if nexus should be depleted (true=deplete, false=cancel)
+  | { type: 'confirm_nexus_depletion'; proceed: boolean } // confirm if nexus should be depleted (true=deplete, false=cancel)
+  | { type: 'select_effect_target'; targetSpiritIndex?: number; targetNexusIndex?: number }; // select target for effect requiring target selection

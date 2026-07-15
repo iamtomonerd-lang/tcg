@@ -1,6 +1,6 @@
 import type { Game, Rng } from '../../core/game.js';
 import { CARD_DB, getStarterDeck } from './cards.js';
-import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef } from './types.js';
+import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef, CardEffect } from './types.js';
 import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit } from './effects.js';
 
 /**
@@ -430,6 +430,112 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
   }
 
+  /**
+   * Find valid targets for an effect requiring target selection
+   */
+  private findValidTargetsForEffect(state: GameState, sourcePlayer: number, effect: CardEffect): { spiritIndices: number[]; nexusIndices: number[] } {
+    const me = state.players[sourcePlayer]!;
+    const spiritIndices: number[] = [];
+    const nexusIndices: number[] = [];
+
+    // Check condition: requiresSpirit with lineage
+    if (effect.condition?.requiresSpirit?.lineage) {
+      const lineage = effect.condition.requiresSpirit.lineage;
+      for (let i = 0; i < me.spirits.length; i++) {
+        if (me.spirits[i]!.def.lineage?.includes(lineage)) {
+          spiritIndices.push(i);
+        }
+      }
+      for (let i = 0; i < me.nexuses.length; i++) {
+        if (me.nexuses[i]!.def.lineage?.includes(lineage)) {
+          nexusIndices.push(i);
+        }
+      }
+    } else {
+      // No specific condition, target any spirit or nexus
+      for (let i = 0; i < me.spirits.length; i++) {
+        spiritIndices.push(i);
+      }
+      for (let i = 0; i < me.nexuses.length; i++) {
+        nexusIndices.push(i);
+      }
+    }
+
+    return { spiritIndices, nexusIndices };
+  }
+
+  /**
+   * Process end_step effects, handling target selection for effects that require it
+   */
+  private processEndStepEffects(state: GameState): GameState {
+    let next = state;
+    const currentPlayer = next.players[next.currentPlayer]!;
+
+    // Collect all end_step effects that need processing
+    const effectsQueue: Array<{ card: CardDef; spiritIndex?: number; nexusIndex?: number; level?: 1 | 2 }> = [];
+
+    // From spirits
+    for (let si = 0; si < currentPlayer.spirits.length; si++) {
+      const spirit = currentPlayer.spirits[si]!;
+      effectsQueue.push({ card: spirit.def, spiritIndex: si, level: spirit.level });
+    }
+
+    // From nexuses
+    for (let ni = 0; ni < currentPlayer.nexuses.length; ni++) {
+      const nexus = currentPlayer.nexuses[ni]!;
+      effectsQueue.push({ card: nexus.def, nexusIndex: ni, level: nexus.level });
+    }
+
+    return this.processEndStepEffectsQueue(next, effectsQueue, 0);
+  }
+
+  /**
+   * Process a queue of end_step effects starting from a given index
+   */
+  private processEndStepEffectsQueue(state: GameState, effectsQueue: Array<{ card: CardDef; spiritIndex?: number; nexusIndex?: number; level?: 1 | 2 }>, startIndex: number): GameState {
+    let next = state;
+    let i = startIndex;
+
+    while (i < effectsQueue.length) {
+      const item = effectsQueue[i]!;
+      const card = item.card;
+      const endStepEffects = (card.effects ?? []).filter((e) => {
+        if (e.trigger !== 'end_step') return false;
+        if (item.level !== undefined && e.level && !e.level.includes(item.level)) return false;
+        return true;
+      });
+
+      for (const effect of endStepEffects) {
+        if (effect.requiresTarget) {
+          // This effect requires target selection
+          const validTargets = this.findValidTargetsForEffect(next, next.currentPlayer, effect);
+
+          // Store remaining effects to process
+          const remainingEffects = effectsQueue.slice(i + 1);
+
+          next.pendingEffectAction = {
+            effect,
+            sourceCard: card,
+            sourcePlayer: next.currentPlayer,
+            spiritIndex: item.spiritIndex,
+            sourceNexusIndex: item.nexusIndex,
+            validTargets,
+            trigger: 'end_step',
+            remainingEffects,
+          };
+          return next; // Wait for player to select target
+        } else {
+          // No target selection needed, apply the effect directly
+          next = triggerEffects(next, 'end_step', card, next.currentPlayer, item.spiritIndex, undefined, undefined, undefined, undefined, item.nexusIndex, item.level);
+        }
+      }
+
+      i++;
+    }
+
+    return next;
+  }
+
   currentPlayer(state: GameState): number {
     return state.currentPlayer;
   }
@@ -581,6 +687,24 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const totalCores = this.getTotalAvailableCores(me);
       if (totalCores > 0) {
         actions.push({ type: 'add_core', nexusIndex: state.pendingNexusDepletion.nexusIndex });
+      }
+
+      return actions;
+    }
+
+    // Effect target selection: user must select a target for the effect
+    if (state.pendingEffectAction) {
+      const actions: Action[] = [];
+      const pending = state.pendingEffectAction;
+
+      // Generate actions for each valid spirit target
+      for (const spiritIdx of pending.validTargets.spiritIndices) {
+        actions.push({ type: 'select_effect_target', targetSpiritIndex: spiritIdx });
+      }
+
+      // Generate actions for each valid nexus target
+      for (const nexusIdx of pending.validTargets.nexusIndices) {
+        actions.push({ type: 'select_effect_target', targetNexusIndex: nexusIdx });
       }
 
       return actions;
@@ -1366,6 +1490,57 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // If user cancelled (by adding core), nexus was already placed and core added
         break;
       }
+      case 'select_effect_target': {
+        if (!next.pendingEffectAction) return next;
+
+        const pending = next.pendingEffectAction;
+        const effect = pending.effect;
+
+        // Apply the effect with the selected target
+        if (pending.spiritIndex !== undefined) {
+          // Effect triggered from a spirit
+          next = triggerEffects(
+            next,
+            pending.trigger,
+            pending.sourceCard,
+            pending.sourcePlayer,
+            pending.spiritIndex,
+            action.targetSpiritIndex,
+            undefined,
+            undefined,
+            undefined,
+            action.targetNexusIndex,
+            pending.sourceCard.effects?.find((e) => e === effect) ? (effect.level?.[0] ?? 1) : undefined,
+            pending.sourceNexusIndex
+          );
+        } else if (pending.sourceNexusIndex !== undefined) {
+          // Effect triggered from a nexus
+          next = triggerEffects(
+            next,
+            pending.trigger,
+            pending.sourceCard,
+            pending.sourcePlayer,
+            undefined,
+            action.targetSpiritIndex,
+            undefined,
+            undefined,
+            undefined,
+            action.targetNexusIndex,
+            pending.sourceCard.effects?.find((e) => e === effect) ? (effect.level?.[0] ?? 1) : undefined,
+            pending.sourceNexusIndex
+          );
+        }
+
+        // Clear the pending effect action
+        next.pendingEffectAction = null;
+
+        // Process remaining effects in queue
+        if (pending.remainingEffects.length > 0) {
+          next = this.processEndStepEffectsQueue(next, pending.remainingEffects, 0);
+        }
+
+        break;
+      }
       case 'add_core': {
         // If spell chain is pending and user adds core, clear it (cancels destruction)
         if (next.pendingSpellChain) {
@@ -1887,15 +2062,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             // Skip to end phase directly (skip attack and main2)
             next.phase = 'end';
 
-            // Trigger end-of-turn effects for current player
-            const currentPlayer = next.players[next.currentPlayer]!;
-            for (let si = 0; si < currentPlayer.spirits.length; si++) {
-              const spirit = currentPlayer.spirits[si]!;
-              next = triggerEffects(next, 'end_step', spirit.def, next.currentPlayer, si, undefined, undefined, undefined, undefined, undefined, spirit.level);
+            // Process end-of-turn effects, handling target selection
+            next = this.processEndStepEffects(next);
+
+            // If there's a pending effect action, wait for player input
+            if (next.pendingEffectAction) {
+              return next;
             }
-            for (const nexus of currentPlayer.nexuses) {
-              next = triggerEffects(next, 'end_step', nexus.def, next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
-            }
+
             checkResult(next);
             if (next.result) return next;
 
@@ -1925,15 +2099,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           // Transition from Main2 to End
           next.phase = 'end';
 
-          // Trigger end-of-turn effects for current player
-          const currentPlayer = next.players[next.currentPlayer]!;
-          for (let si = 0; si < currentPlayer.spirits.length; si++) {
-            const spirit = currentPlayer.spirits[si]!;
-            next = triggerEffects(next, 'end_step', spirit.def, next.currentPlayer, si, undefined, undefined, undefined, undefined, undefined, spirit.level);
+          // Process end-of-turn effects, handling target selection
+          next = this.processEndStepEffects(next);
+
+          // If there's a pending effect action, wait for player input
+          if (next.pendingEffectAction) {
+            return next;
           }
-          for (const nexus of currentPlayer.nexuses) {
-            next = triggerEffects(next, 'end_step', nexus.def, next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
-          }
+
           checkResult(next);
           if (next.result) return next;
 
@@ -2040,6 +2213,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'skip_flash': return 'SF';
       case 'mulligan': return action.redraw ? 'MU-redraw' : 'MU-keep';
+      case 'select_effect_target': {
+        let key = 'SE';
+        if (action.targetSpiritIndex !== undefined) key += `S${action.targetSpiritIndex}`;
+        if (action.targetNexusIndex !== undefined) key += `N${action.targetNexusIndex}`;
+        return key;
+      }
+      case 'confirm_spell_chain': return `CSC${action.proceed ? '1' : '0'}`;
+      case 'confirm_spirit_depletion': return `CSD${action.proceed ? '1' : '0'}`;
+      case 'confirm_nexus_depletion': return `CND${action.proceed ? '1' : '0'}`;
+      case 'select_draw_arrange': return 'SDA';
       default: return '?';
     }
   }
@@ -2168,6 +2351,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const selectedCards = selectedIndices.map(idx => state.pendingDraw!.openedCards[idx]!.name).join(', ');
         return `${cardName}: ${selectedCards || 'なし'}を手札に加える`;
       }
+      case 'select_effect_target': {
+        if (!state.pendingEffectAction) return '効果対象選択';
+        const pending = state.pendingEffectAction;
+        let targetName = '?';
+        if (action.targetSpiritIndex !== undefined) {
+          targetName = me.spirits[action.targetSpiritIndex]?.def.name || '?';
+        } else if (action.targetNexusIndex !== undefined) {
+          targetName = me.nexuses[action.targetNexusIndex]?.def.name || '?';
+        }
+        return `${pending.sourceCard.name}の効果: ${targetName}を対象に選択`;
+      }
       default: return '?';
     }
   }
@@ -2201,6 +2395,21 @@ function cloneState(state: GameState): GameState {
     pendingSpellChain: state.pendingSpellChain ? { ...state.pendingSpellChain } : null,
     pendingSpiritDepletion: state.pendingSpiritDepletion ? { ...state.pendingSpiritDepletion } : null,
     pendingNexusDepletion: state.pendingNexusDepletion ? { ...state.pendingNexusDepletion } : null,
+    pendingEffectAction: state.pendingEffectAction
+      ? {
+          effect: state.pendingEffectAction.effect,
+          sourceCard: state.pendingEffectAction.sourceCard,
+          sourcePlayer: state.pendingEffectAction.sourcePlayer,
+          spiritIndex: state.pendingEffectAction.spiritIndex,
+          sourceNexusIndex: state.pendingEffectAction.sourceNexusIndex,
+          validTargets: {
+            spiritIndices: state.pendingEffectAction.validTargets.spiritIndices.slice(),
+            nexusIndices: state.pendingEffectAction.validTargets.nexusIndices.slice(),
+          },
+          trigger: state.pendingEffectAction.trigger,
+          remainingEffects: state.pendingEffectAction.remainingEffects.slice(),
+        }
+      : null,
   };
 }
 
