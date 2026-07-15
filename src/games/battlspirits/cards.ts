@@ -313,6 +313,7 @@ export const CARD_DB: Record<string, CardDef> = {
         target: 'opponent_creature',
         value: 7000,
         level: [1, 2],
+        requiresTarget: true,
         description: 'Lv1-2時、召喚時にBP7000以下の相手のスピリット1体を破壊',
       },
       {
