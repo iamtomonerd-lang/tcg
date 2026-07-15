@@ -287,11 +287,18 @@ app.post('/api/game/:sessionId/action', (req, res) => {
   session.state = session.game.applyAction(session.state, action, session.rng);
   const effectResults = detectEffectResults(stateBefore, session.state, action);
 
+  let actionDescription = `P${actingPlayer}: ${description}`;
+
+  // Add mulligan completion info
+  if (action.type === 'mulligan' && !session.state.pendingMulligan) {
+    actionDescription = `✓ マリガン完了 (P0: ${stateBefore.players[0].hand.length}枚, P1: ${stateBefore.players[1].hand.length}枚)`;
+  }
+
   res.json({
     state: serializeState(session.state),
     isTerminal: session.game.isTerminal(session.state),
     currentPlayer: session.game.currentPlayer(session.state),
-    actionDescription: `P${actingPlayer}: ${description}`,
+    actionDescription,
     effectResults,
   });
 });
@@ -327,11 +334,18 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
   session.state = session.game.applyAction(session.state, action, session.rng);
   const effectResults = detectEffectResults(stateBefore, session.state, action);
 
+  let actionDescription = `P${decidingPlayer}: ${description}`;
+
+  // Add mulligan completion info
+  if (action.type === 'mulligan' && !session.state.pendingMulligan) {
+    actionDescription = `✓ マリガン完了 (P0: ${stateBefore.players[0].hand.length}枚, P1: ${stateBefore.players[1].hand.length}枚)`;
+  }
+
   res.json({
     state: serializeState(session.state),
     isTerminal: session.game.isTerminal(session.state),
     currentPlayer: session.game.currentPlayer(session.state),
-    actionDescription: `P${decidingPlayer}: ${description}`,
+    actionDescription,
     effectResults,
   });
 });

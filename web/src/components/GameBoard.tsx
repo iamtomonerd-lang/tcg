@@ -82,6 +82,35 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     initGame();
   }, [fetchGameState]);
 
+  // Initialize game history with first player info and track turn starts
+  useEffect(() => {
+    if (state && gameHistory.length === 0) {
+      const p0Name = playerTypes[0] === 'human' ? 'あなた' : 'AI';
+      const p1Name = playerTypes[1] === 'human' ? 'あなた' : 'AI';
+      const firstPlayerIdx = state.pendingMulligan?.firstPlayer ?? state.currentPlayer;
+      const firstPlayerName = firstPlayerIdx === 0 ? p0Name : p1Name;
+      const secondPlayerName = firstPlayerIdx === 0 ? p1Name : p0Name;
+      setGameHistory([
+        `🎮 【ゲーム開始】`,
+        `先手（Player${firstPlayerIdx}）: ${firstPlayerName}`,
+        `後手（Player${1 - firstPlayerIdx}）: ${secondPlayerName}`,
+        '---',
+      ]);
+    }
+  }, [state?.turnCount, gameHistory.length]);
+
+  // Track turn starts
+  const prevTurnCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (state && state.turnCount !== prevTurnCountRef.current && state.turnCount > 0 && !state.pendingMulligan) {
+      const playerIdx = state.currentPlayer;
+      const playerName = playerTypes[playerIdx] === 'human' ? 'あなた' : 'AI';
+      const turnInfo = `\n📍 【ターン${state.turnCount}】 Player${playerIdx}（${playerName}）のターン`;
+      setGameHistory((prev) => [...prev, turnInfo]);
+      prevTurnCountRef.current = state.turnCount;
+    }
+  }, [state?.turnCount, state?.currentPlayer, playerTypes, state?.pendingMulligan]);
+
   // Human turn: load the list of legal actions
   useEffect(() => {
     if (isHumanTurn && state) {
