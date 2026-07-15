@@ -1042,6 +1042,24 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         <div className="game-over">
           <div className="game-over-content mulligan-content">
             <h3>初手を確認してください</h3>
+            <div className="mulligan-info">
+              <div className="first-player-info">
+                {state.pendingMulligan.firstPlayer === 0 ? (
+                  <>
+                    <div className="player-badge player-0">先手</div>
+                    <div className="player-badge player-1">後手</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="player-badge player-0">後手</div>
+                    <div className="player-badge player-1">先手</div>
+                  </>
+                )}
+              </div>
+              <div className="current-player-highlight">
+                {state.pendingMulligan.player === 0 ? 'あなた（P0）が初手を選択中' : 'あなた（P1）が初手を選択中'}
+              </div>
+            </div>
             <div className="mulligan-hand">
               {state.players[state.pendingMulligan.player].handCards.map((c: any, i: number) => (
                 <div key={`${c.id}-${i}`} className="mulligan-card">

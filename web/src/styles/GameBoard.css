@@ -325,6 +325,55 @@
   max-width: 480px;
 }
 
+.mulligan-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.4rem;
+  padding: 1rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.first-player-info {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.player-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-width: 80px;
+  text-align: center;
+}
+
+.player-badge.player-0 {
+  background: rgba(100, 150, 255, 0.3);
+  color: #64b6ff;
+  border: 2px solid #64b6ff;
+}
+
+.player-badge.player-1 {
+  background: rgba(255, 100, 100, 0.3);
+  color: #ff6464;
+  border: 2px solid #ff6464;
+}
+
+.current-player-highlight {
+  text-align: center;
+  font-size: 0.95rem;
+  color: #ffd700;
+  font-weight: 600;
+  padding: 0.5rem;
+  background: rgba(255, 215, 0, 0.1);
+  border-radius: 4px;
+}
+
 .mulligan-hand {
   display: flex;
   flex-wrap: wrap;
