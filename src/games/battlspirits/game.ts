@@ -379,13 +379,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
   }
 
-  /** Remove all nexuses that have 0 cores (depleted — 消滅, no effects triggered) */
+  /** Remove all nexuses that have fewer cores than required (depleted — 消滅, no effects triggered) */
   private removeDeadNexuses(state: GameState, playerIndex: number): void {
     const player = state.players[playerIndex]!;
     const removedIndices: number[] = [];
     for (let i = player.nexuses.length - 1; i >= 0; i--) {
       const nexus = player.nexuses[i]!;
-      if (nexus.coreCount === 0 && nexus.soulCoreCount === 0) {
+      const totalCores = nexus.coreCount + nexus.soulCoreCount;
+      if (totalCores < nexus.def.lv1.cost) {
         player.nexuses.splice(i, 1);
         player.trash.push(nexus.def);
         removedIndices.push(i);
@@ -1454,8 +1455,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           nexusToPlace -= 1;
         }
 
-        // A nexus that could not receive any maintenance core is immediately depleted (消滅)
-        if (nexusRegular + nexusSoul === 0 && card.lv1.cost > 0) {
+        // A nexus that could not receive all required maintenance cores is immediately depleted (消滅)
+        if (nexusRegular + nexusSoul < card.lv1.cost) {
           me.trash.push(card);
           break;
         }
