@@ -42,20 +42,23 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
   createInitialState(rng: Rng): GameState {
     const players: [any, any] = [this.newPlayer(rng), this.newPlayer(rng)];
+
+    // Randomly determine first player instead of rock-paper-scissors
+    const firstPlayer = rng.int(2); // 0 or 1
+
     const state: GameState = {
       players: players as [any, any],
-      currentPlayer: 0,
+      currentPlayer: firstPlayer,
       turnCount: 0,
       phase: 'start',
       battle: null,
       result: null,
-      pendingRockPaperScissors: { rocksChoices: undefined, decidingPlayer: -1 },
+      pendingMulligan: { player: firstPlayer, firstPlayer },
     };
     // Draw opening hand of 4 cards each
     for (const p of players) {
       this.drawOpeningHand(p);
     }
-    // Rock-paper-scissors happens before the first turn starts (see applyAction 'rock_paper_scissors')
     return state;
   }
 

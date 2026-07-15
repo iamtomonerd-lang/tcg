@@ -15,19 +15,9 @@ function makePlayer(spirits: Spirit[]): PlayerState {
   return { life: 20, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [] };
 }
 
-/** Resolve rock-paper-scissors, order selection, and both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */
+/** Resolve both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */
 function skipToMainPhase(state: GameState, rng: Mulberry32): GameState {
   let s = state;
-  // Skip rock-paper-scissors: player 0 throws rock (0), player 1 throws paper (1)
-  // This ensures player 1 wins (paper beats rock)
-  while (s.pendingRockPaperScissors && s.pendingRockPaperScissors.rocksChoices === undefined) {
-    const choice = s.currentPlayer === 0 ? 0 : 1;
-    s = game.applyAction(s, { type: 'rock_paper_scissors', choice }, rng);
-  }
-  // Skip order choice: winner (player 1) chooses to go first
-  if (s.pendingRockPaperScissors && s.pendingRockPaperScissors.decidingPlayer >= 0) {
-    s = game.applyAction(s, { type: 'choose_order', goFirst: true }, rng);
-  }
   // Skip mulligan: both players keep their hand
   while (s.pendingMulligan) {
     s = game.applyAction(s, { type: 'mulligan', redraw: false }, rng);
@@ -43,17 +33,17 @@ function skipToMainPhase(state: GameState, rng: Mulberry32): GameState {
 }
 
 describe('Battle Spirits Mulligan', () => {
-  it('opening hand starts in rock-paper-scissors phase', () => {
+  it('opening hand starts in mulligan phase with random first player', () => {
     const s = game.createInitialState(new Mulberry32(1));
     expect(s.phase).toBe('start');
-    expect(s.pendingRockPaperScissors).toBeDefined();
-    expect(s.pendingRockPaperScissors?.rocksChoices).toBeUndefined();
+    expect(s.pendingMulligan).toBeDefined();
+    expect(s.pendingMulligan?.player).toBe(s.pendingMulligan?.firstPlayer); // First player decides mulligan
+    expect([0, 1]).toContain(s.pendingMulligan?.firstPlayer); // First player is random
     expect(s.players[0].hand.length).toBe(4);
     const actions = game.legalActions(s);
     expect(actions).toEqual([
-      { type: 'rock_paper_scissors', choice: 0 },
-      { type: 'rock_paper_scissors', choice: 1 },
-      { type: 'rock_paper_scissors', choice: 2 },
+      { type: 'mulligan', redraw: false },
+      { type: 'mulligan', redraw: true },
     ]);
   });
 
