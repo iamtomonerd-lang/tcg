@@ -1065,7 +1065,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       {!isTerminal && state.pendingDraw && isHumanTurn && (
         <div className="game-over">
           <div className="game-over-content offering-draw-content">
-            <h3>オファーリングドロー - カードを選択</h3>
+            <h3>{state.pendingDraw.castCard?.name || 'オファーリングドロー'} - カードを選択</h3>
 
             {state.pendingDraw.toHandIndices.length > 0 && (
               <div className="offering-section">

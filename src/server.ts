@@ -803,6 +803,15 @@ function serializeState(state: GameState) {
           toHandIndices: state.pendingDraw.toHandIndices,
           toRearrangeIndices: state.pendingDraw.toRearrangeIndices,
           selectableIndices: state.pendingDraw.selectableIndices || [],
+          castCard: state.pendingDraw.castCard
+            ? {
+                id: state.pendingDraw.castCard.id,
+                name: state.pendingDraw.castCard.name,
+              }
+            : null,
+          maxSelectable: state.pendingDraw.maxSelectable,
+          returnDestination: state.pendingDraw.returnDestination,
+          originAttackSpiritIndex: state.pendingDraw.originAttackSpiritIndex,
         }
       : null,
   };

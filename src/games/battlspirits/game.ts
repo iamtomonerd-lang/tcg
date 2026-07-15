@@ -1834,10 +1834,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'skip_flash': return 'フラッシュを使わない';
       case 'mulligan': return action.redraw ? '初手をシャッフルして引き直す' : '初手を維持する';
       case 'select_draw_arrange': {
-        if (!state.pendingDraw) return 'オファーリングドロー';
+        if (!state.pendingDraw) return 'カード選択';
+        const cardName = state.pendingDraw.castCard?.name || 'オファーリングドロー';
         const selectedIndices = action.selectedCardIndices || [];
         const selectedCards = selectedIndices.map(idx => state.pendingDraw!.openedCards[idx]!.name).join(', ');
-        return `オファーリングドロー: ${selectedCards || 'なし'}を手札に加える`;
+        return `${cardName}: ${selectedCards || 'なし'}を手札に加える`;
       }
       default: return '?';
     }
