@@ -608,6 +608,27 @@ function detectEffectResults(before: GameState, after: GameState, action: Action
     }
   }
 
+  // 手札が増えたかどうかを検出（draw フェーズなど）
+  for (let p = 0; p < 2; p++) {
+    const beforePlayer = before.players[p];
+    const afterPlayer = after.players[p];
+    if (!beforePlayer || !afterPlayer) continue;
+
+    const beforeHandSize = beforePlayer.hand.length;
+    const afterHandSize = afterPlayer.hand.length;
+
+    if (afterHandSize > beforeHandSize) {
+      const newCards = afterPlayer.hand.slice(afterHandSize - (afterHandSize - beforeHandSize));
+      const cardNames = newCards.map(c => c.name);
+      if (cardNames.length > 0) {
+        results.push({
+          description: `📥 ${cardNames.join(', ')}を手札に加える`,
+          type: 'draw',
+        });
+      }
+    }
+  }
+
   // 破壊されたスピリット/ネクサスを検出
   for (let p = 0; p < 2; p++) {
     const beforePlayer = before.players[p];
