@@ -16,26 +16,21 @@ export function updateSpiritLevel(spirit: Spirit): void {
     return;
   }
 
-  // Check if spirit has 真界放 skill
+  // Check if spirit has 真界放 skill (Shinkaihou: can reach Lv2 with soul cores only)
   const hasShinkaihouSkill = spirit.def.skill === '真界放';
 
   if (hasShinkaihouSkill) {
-    // 真界放: ソウルコアのみで Lv2 に到達
-    if (spirit.soulCoreCount >= spirit.def.lv2.cost) {
-      spirit.level = 2;
-    } else {
-      spirit.level = 1;
-    }
-  } else if (spirit.def.lv2.coreType === 'ソウルコア') {
-    // Lv2 requires soul cores
+    // 真界放: ソウルコアのみで Lv2 に到達（通常コアは不要）
     if (spirit.soulCoreCount >= spirit.def.lv2.cost) {
       spirit.level = 2;
     } else {
       spirit.level = 1;
     }
   } else {
-    // Lv2 requires regular cores
-    if (spirit.coreCount >= spirit.def.lv2.cost) {
+    // Default: Total cores (regular + soul) determine Lv2
+    // Soul core and regular core have equal effect
+    const totalCores = spirit.coreCount + spirit.soulCoreCount;
+    if (totalCores >= spirit.def.lv2.cost) {
       spirit.level = 2;
     } else {
       spirit.level = 1;
