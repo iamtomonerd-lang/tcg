@@ -445,6 +445,7 @@ export function triggerEffects(
   sourceLevel?: 1 | 2,
   sourceNexusIndex?: number, // index of the nexus whose effect is firing (for costExhaustSelf)
   skipSymbolCheck?: boolean, // Skip requiresSymbol condition (e.g., for Soul Magic Red paid with normal cost)
+  excludeActions?: string[], // Actions to skip (e.g., ['search_deck'] for manual handling)
 ): GameState {
   let next = state;
   const effects = (card.effects ?? []).filter((e) => {
@@ -452,6 +453,7 @@ export function triggerEffects(
     if (modeFilter === 'main' && !(!e.mode || e.mode === 'main')) return false;
     if (modeFilter === 'flash' && !(e.isFlash || !e.mode || e.mode === 'flash')) return false;
     if (e.level && sourceLevel !== undefined && !e.level.includes(sourceLevel)) return false;
+    if (excludeActions && excludeActions.includes(e.action)) return false;
     return true;
   });
 

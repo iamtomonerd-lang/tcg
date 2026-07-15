@@ -1467,15 +1467,26 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const spirit = me.spirits[action.spiritIndex];
         if (!spirit || !spirit.canAttack) return next;
 
-        // Check for search_deck effects that require user selection (before triggering other effects)
+        // Check for search_deck effects that require user selection
         const searchDeckEffect = spirit.def.effects?.find(e =>
           e.trigger === 'attack' &&
           e.action === 'search_deck' &&
           (!e.level || e.level.includes(spirit.level))
         );
 
+        // Trigger attack effects (may boost BP, place cores, etc.), passing discardCardIndex/effectTargetIndex if provided
+        // This EXCLUDES search_deck, which requires user selection and will be handled after the user selects cards
+        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, action.spiritIndex, action.effectTargetIndex, undefined, action.discardCardIndex, undefined, undefined, spirit.level, undefined, undefined, ['search_deck']);
+
+        // Nexus "attack"-trigger effects (e.g. buffs during my attack step)
+        const attackerNow = next.players[next.currentPlayer]!;
+        for (let ni = 0; ni < attackerNow.nexuses.length; ni++) {
+          const nexus = attackerNow.nexuses[ni]!;
+          next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, action.spiritIndex, undefined, undefined, undefined, undefined, undefined, nexus.level, ni);
+        }
+
+        // If there's a search_deck effect, wait for user to select cards before proceeding to pendingAttack
         if (searchDeckEffect) {
-          // Open cards from deck for user selection
           const me = next.players[next.currentPlayer]!;
           const openCount = Math.min(searchDeckEffect.value ?? 2, me.deck.length);
           const openedCards: CardDef[] = [];
@@ -1501,7 +1512,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             }
           }
 
-          // Set pending draw for player to select cards (max 1 for attack search_deck)
+          // Set pending draw for player to select cards
           next.pendingDraw = {
             openedCards,
             toHandIndices: selectableIndices,
@@ -1515,17 +1526,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           return next; // Stop here, player must select cards
         }
 
-        // Trigger attack effects (may boost BP, place cores, etc.), passing discardCardIndex/effectTargetIndex if provided
-        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, action.spiritIndex, action.effectTargetIndex, undefined, action.discardCardIndex, undefined, undefined, spirit.level);
-
-        // Nexus "attack"-trigger effects (e.g. buffs during my attack step)
-        const attackerNow = next.players[next.currentPlayer]!;
-        for (let ni = 0; ni < attackerNow.nexuses.length; ni++) {
-          const nexus = attackerNow.nexuses[ni]!;
-          next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, action.spiritIndex, undefined, undefined, undefined, undefined, undefined, nexus.level, ni);
-        }
-
-        // Create pending attack opportunity for opponent to defend
+        // No search_deck effect: create pending attack opportunity for opponent to defend
         const damage = spirit.def.symbolCount;
         const pendingAttack: PendingAttack = {
           attackerPlayer: next.currentPlayer,
@@ -1601,14 +1602,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           const spirit = next.players[next.currentPlayer]!.spirits[pd.originAttackSpiritIndex];
           if (!spirit) return next;
 
-          // Nexus "attack"-trigger effects (e.g. buffs during my attack step)
-          const attackerNow = next.players[next.currentPlayer]!;
-          for (let ni = 0; ni < attackerNow.nexuses.length; ni++) {
-            const nexus = attackerNow.nexuses[ni]!;
-            next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, pd.originAttackSpiritIndex, undefined, undefined, undefined, undefined, undefined, nexus.level, ni);
-          }
+          // Effects (including nexus effects) were already triggered when the attack started.
+          // Now just create the pending attack opportunity for the opponent to defend.
 
-          // Create pending attack opportunity for opponent to defend
           const damage = spirit.def.symbolCount;
           const pendingAttack: PendingAttack = {
             attackerPlayer: next.currentPlayer,
