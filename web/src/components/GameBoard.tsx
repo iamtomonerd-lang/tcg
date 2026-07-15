@@ -965,8 +965,32 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         )}
 
         <div className="side-actions">
-          {/* Order selection after RPS */}
-          {legalActions.some(a => a.description.includes('先手')) ? (
+          {/* Mulligan selection (opening hand confirmation) */}
+          {legalActions.some(a => a.description.includes('維持') || a.description.includes('引き直す')) ? (
+            <>
+              <div className="side-actions-title">
+                🎲 初手確認
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#333', marginBottom: '0.8rem', padding: '0.6rem', backgroundColor: '#f0f0f0', borderRadius: '4px', lineHeight: '1.5' }}>
+                手札を確認しました。
+                <br />
+                このまま維持するか、シャッフルして引き直すか選択してください。
+              </div>
+              <div className="action-buttons">
+                {legalActions.map((action) => (
+                  <button
+                    key={action.index}
+                    className="action-button"
+                    onClick={() => executeAction(action.index)}
+                    disabled={isBusy}
+                    style={{ marginBottom: '0.3rem', backgroundColor: '#ff6b6b', borderColor: '#d92525' }}
+                  >
+                    {action.description}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : legalActions.some(a => a.description.includes('先手')) ? (
             <>
               <div className="side-actions-title">
                 🎲 先手後手を選択
