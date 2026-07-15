@@ -154,13 +154,15 @@ export default function PlayerPanel({
         <span className={`pstat life ${player.life <= 5 ? 'low' : ''}`} title="ライフ">❤️ {player.life}</span>
         <span className="pstat" title="手札">🃏 {player.handSize}</span>
         <span className="pstat" title="デッキ残り">📚 {player.deck.count}</span>
-        <button
-          className="pstat-button"
-          onClick={onViewTrash}
-          title="クリックでトラッシュを表示"
-        >
-          🗑️ {player.trash.count}
-        </button>
+        {onViewTrash && (
+          <button
+            className="pstat-button"
+            onClick={onViewTrash}
+            title="クリックでトラッシュを表示"
+          >
+            🗑️ {player.trash.count}
+          </button>
+        )}
       </div>
       <CoreReserve
         cores={player.cores}
