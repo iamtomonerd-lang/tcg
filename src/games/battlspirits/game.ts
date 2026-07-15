@@ -862,7 +862,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
       me.trash.push(card);
       // For Soul Magic Red: skip symbol check if paid with normal cost (not soul core)
-      const hasSoulMagicRedEffect = card.effects?.some(e => e.skill === 'ソウルマジック：赤');
+      const hasSoulMagicRedEffect = card.skill === 'ソウルマジック：赤' || card.effects?.some(e => e.skill === 'ソウルマジック：赤');
       const paidWithNormalCore = (action.paidRegularCores ?? 0) > 0;
       const skipSymbolCheck = hasSoulMagicRedEffect && paidWithNormalCore;
       next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex, undefined, undefined, skipSymbolCheck);
@@ -1340,6 +1340,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         me.trash.push(card);
 
+        // For Soul Magic Red: skip symbol check if paid with normal cost (not soul core)
+        const hasSoulMagicRedEffect = card.skill === 'ソウルマジック：赤' || card.effects?.some(e => e.skill === 'ソウルマジック：赤');
+        const paidWithNormalCore = (action.paidRegularCores ?? 0) > 0;
+        const skipSymbolCheck = hasSoulMagicRedEffect && paidWithNormalCore;
+
         // Special handling for オファーリングドロー
         if (card.id === 'magic_offering_draw') {
           if (me.deck.length === 0) {
@@ -1388,11 +1393,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           return next; // Stop here, player must select cards
         }
 
-        // Trigger magic effects with optional target and value
-        // For Soul Magic Red: skip symbol check if paid with normal cost (not soul core)
-        const hasSoulMagicRedEffect = card.effects?.some(e => e.skill === 'ソウルマジック：赤');
-        const paidWithNormalCore = (action.paidRegularCores ?? 0) > 0;
-        const skipSymbolCheck = hasSoulMagicRedEffect && paidWithNormalCore;
+        // Trigger magic effects with optional target and value (skipSymbolCheck already defined above)
         next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'main', action.targetNexusIndex, undefined, undefined, skipSymbolCheck);
         // Fall through to flash checking below
         break;
