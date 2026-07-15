@@ -583,7 +583,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const destroyEffect = flashEffects.find((e) => e.action === 'destroy_creature');
         const boostEffect = flashEffects.find((e) => e.action === 'boost_bp' && e.requiresTarget);
 
-        if (destroyEffect) {
+        if (destroyEffect && destroyEffect.requiresTarget) {
           // Condition gate (e.g. フレイムハリケーン requires a red symbol on the field)
           if (destroyEffect.condition?.requiresSymbol) {
             const color = destroyEffect.condition.requiresSymbol;
@@ -592,19 +592,23 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               me.nexuses.some((n) => n.def.symbolColors?.includes(color));
             if (!hasSymbol) continue;
           }
-          // Target an opponent spirit within the BP limit (BP◯◯以下)
-          const bpLimit = destroyCreatureBpLimit(destroyEffect, me);
+          // Target an opponent spirit (no BP limit check - that's just the effect condition)
           let hasTarget = false;
           for (let t = 0; t < opponent.spirits.length; t++) {
-            const sp = opponent.spirits[t]!;
-            const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
-            const bp = stats.bp + (sp.bpBoost ?? 0) + (sp.bpBoostBattle ?? 0);
-            if (bpLimit === undefined || bp <= bpLimit) {
-              actions.push({ type: 'flash', handIndex: i, targetSpiritIndex: t });
-              hasTarget = true;
-            }
+            actions.push({ type: 'flash', handIndex: i, targetSpiritIndex: t });
+            hasTarget = true;
           }
           if (!hasTarget) continue; // no legal target: the flash cannot be declared usefully
+        } else if (destroyEffect) {
+          // destroy_creature without requiresTarget - can use without selection
+          if (destroyEffect.condition?.requiresSymbol) {
+            const color = destroyEffect.condition.requiresSymbol;
+            const hasSymbol =
+              me.spirits.some((s) => s.def.symbolColors?.includes(color)) ||
+              me.nexuses.some((n) => n.def.symbolColors?.includes(color));
+            if (!hasSymbol) continue;
+          }
+          actions.push({ type: 'flash', handIndex: i });
         } else if (boostEffect) {
           // Target one of the player's own spirits for the BP boost
           if (me.spirits.length === 0) continue; // nothing to boost
@@ -708,8 +712,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         if (!canAfford) continue; // Can't afford this magic card
 
-        // Filter effects by mode (main phase effects only: mode 'main' or no mode specified)
-        const mainEffects = card.effects?.filter(e => !e.mode || e.mode === 'main') ?? [];
+        // Filter effects by mode (main phase effects: mode 'main', no mode, or Soul Magic can use flash as main too)
+        const mainEffects = card.effects?.filter(e => {
+          if (!e.mode || e.mode === 'main') return true;
+          // Soul Magic: Red can be used in main phase even though it's marked as flash
+          if (card.skill === 'ソウルマジック：赤' && e.mode === 'flash') return true;
+          return false;
+        }) ?? [];
         if (mainEffects.length === 0) continue; // No main-phase effects for this card
 
         // Check if card has effects with requiresTarget (for spirits or nexuses)

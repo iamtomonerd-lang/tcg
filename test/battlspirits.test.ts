@@ -593,7 +593,7 @@ describe('BP boost durations', () => {
     expect(state.players[1].spirits[0]!.bpBoost).toBe(3000);
   });
 
-  it('destroy_creature cannot destroy a spirit above the BP limit even with an explicit target', () => {
+  it('destroy_creature can be activated even without valid targets (effect fizzles)', () => {
     const bigSpirit: Spirit = { def: CARD_DB.spirit_hibutsu_akurai!, level: 2, coreCount: 0, soulCoreCount: 4, canAttack: true }; // BP10000
     const p0 = makePlayer([]);
     const p1 = makePlayer([bigSpirit]);
@@ -606,7 +606,7 @@ describe('BP boost durations', () => {
       result: null,
     };
     // ブレイククロー main mode is destroy_nexus; use フレイムハリケーン-like direct effect through applyEffect via use_magic is complex.
-    // Instead verify at the flash-target generation level: no targets are offered above the limit.
+    // Verify at the flash-target generation level: card is available even without valid targets.
     const flameHurricane = CARD_DB.magic_flame_hurricane!;
     const caster: PlayerState = { ...makePlayer([makeSpirit()]), cores: 10, soulCores: 10, hand: [flameHurricane] };
     state = {
@@ -614,9 +614,9 @@ describe('BP boost durations', () => {
       players: [caster, p1],
       pendingFlash: { trigger: 'opponent_attack', cardId: '', initiatingPlayer: 1 },
     };
-    // BP10000 > limit 7000 (no damage taken this turn) → no flash targeting action for the magic
+    // BP10000 > limit 7000 (no damage taken this turn) → card can still be activated; effect fizzles if no valid targets
     const flashActions = game.legalActions(state).filter((a) => a.type === 'flash');
-    expect(flashActions.length).toBe(0);
+    expect(flashActions.length).toBeGreaterThan(0);
   });
 });
 
