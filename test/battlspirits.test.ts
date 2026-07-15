@@ -12,7 +12,7 @@ function makeSpirit(): Spirit {
 }
 
 function makePlayer(spirits: Spirit[]): PlayerState {
-  return { life: 20, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [] };
+  return { life: 5, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [] };
 }
 
 /** Resolve both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */
@@ -95,7 +95,7 @@ describe('Battle Spirits Mulligan', () => {
 describe('Battle Spirits Summon', () => {
   it('creates initial state correctly', () => {
     const s = skipToMainPhase(game.createInitialState(new Mulberry32(1)), new Mulberry32(1));
-    expect(s.players[0].life).toBe(20);
+    expect(s.players[0].life).toBe(5);
     expect(s.players[0].cores).toBe(3);
     expect(s.players[0].soulCores).toBe(1);
     expect(s.players[0].hand.length).toBe(4); // 4 initial

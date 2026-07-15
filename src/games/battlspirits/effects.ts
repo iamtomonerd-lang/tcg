@@ -197,7 +197,7 @@ export function applyEffect(
     case 'heal': {
       const healValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       me.life += healValue;
-      if (me.life > 20) me.life = 20; // Cap at starting life
+      if (me.life > 5) me.life = 5; // Cap at starting life
       break;
     }
     case 'draw': {

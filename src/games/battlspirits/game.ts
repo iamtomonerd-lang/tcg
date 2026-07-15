@@ -74,7 +74,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const deck = getStarterDeck();
     rng.shuffle(deck);
     return {
-      life: 20,
+      life: 5,
       cores: 3, // starting regular cores
       soulCores: 1, // starting soul core
       trashCores: 0, // cores in trash

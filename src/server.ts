@@ -161,8 +161,8 @@ app.get('/api/game/:sessionId/state', (req, res) => {
       player0CardsPlayed: extractCardsPlayed(session.state.players[0]),
       player1CardsPlayed: extractCardsPlayed(session.state.players[1]),
       damageDealt: [
-        session.state.players[1].life < 20 ? 20 - session.state.players[1].life : 0,
-        session.state.players[0].life < 20 ? 20 - session.state.players[0].life : 0,
+        session.state.players[1].life < 5 ? 5 - session.state.players[1].life : 0,
+        session.state.players[0].life < 5 ? 5 - session.state.players[0].life : 0,
       ],
       spiritsDestroyed: session.state.players[0].trash.filter(c => c.cardType === 'spirit').length +
                         session.state.players[1].trash.filter(c => c.cardType === 'spirit').length,
