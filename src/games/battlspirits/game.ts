@@ -1418,6 +1418,58 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
         }
 
+        // Check for summon effects that require target selection
+        const targetRequiringEffect = card.effects?.find(e =>
+          e.trigger === 'summon' &&
+          e.requiresTarget &&
+          (!e.level || e.level.includes(spirit.level))
+        );
+
+        // If there's a target-requiring effect, wait for selection
+        if (targetRequiringEffect) {
+          let validTargets: { spiritIndices: number[]; nexusIndices: number[] } = { spiritIndices: [], nexusIndices: [] };
+
+          if (targetRequiringEffect.action === 'destroy_creature') {
+            // Find opponent spirits/nexuses that meet the condition
+            const opponent = next.players[1 - next.currentPlayer]!;
+            const bpLimit = destroyCreatureBpLimit(targetRequiringEffect, me);
+            const spiritBp = (sp: Spirit) => {
+              const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
+              return stats.bp + (sp.bpBoost ?? 0) + (sp.bpBoostBattle ?? 0);
+            };
+            for (let i = 0; i < opponent.spirits.length; i++) {
+              if (bpLimit === undefined || spiritBp(opponent.spirits[i]!) <= bpLimit) {
+                validTargets.spiritIndices.push(i);
+              }
+            }
+            for (let i = 0; i < opponent.nexuses.length; i++) {
+              validTargets.nexusIndices.push(i);
+            }
+          } else if (targetRequiringEffect.action === 'trash_to_hand') {
+            // For trash_to_hand, we're selecting cards from own trash
+            // Store as temporary info; actual card selection happens differently
+            validTargets.spiritIndices = [-1]; // Special marker: selecting from trash
+          } else if (targetRequiringEffect.action === 'place_core') {
+            // Find own spirits/nexuses matching condition
+            validTargets = this.findValidTargetsForEffect(next, next.currentPlayer, targetRequiringEffect);
+          }
+
+          // If there are valid targets, wait for selection
+          if (validTargets.spiritIndices.length > 0 || validTargets.nexusIndices.length > 0) {
+            next.pendingEffectAction = {
+              effect: targetRequiringEffect,
+              sourceCard: card,
+              sourcePlayer: next.currentPlayer,
+              spiritIndex: newSpiritIndex,
+              sourceNexusIndex: undefined,
+              validTargets,
+              trigger: 'summon',
+              remainingEffects: [],
+            };
+            return next; // Wait for target selection
+          }
+        }
+
         // Trigger summon effects
         next = triggerEffects(next, 'summon', card, next.currentPlayer, newSpiritIndex, undefined, undefined, undefined, undefined, undefined, spirit.level);
         break;
@@ -1497,6 +1549,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const effect = pending.effect;
 
         // Apply the effect with the selected target
+        const sourceLevel = pending.sourceCard.effects?.find((e) => e === effect) ? (effect.level?.[0] ?? 1) : undefined;
+
         if (pending.spiritIndex !== undefined) {
           // Effect triggered from a spirit
           next = triggerEffects(
@@ -1510,7 +1564,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             undefined,
             undefined,
             action.targetNexusIndex,
-            pending.sourceCard.effects?.find((e) => e === effect) ? (effect.level?.[0] ?? 1) : undefined,
+            sourceLevel,
             pending.sourceNexusIndex
           );
         } else if (pending.sourceNexusIndex !== undefined) {
@@ -1526,7 +1580,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             undefined,
             undefined,
             action.targetNexusIndex,
-            pending.sourceCard.effects?.find((e) => e === effect) ? (effect.level?.[0] ?? 1) : undefined,
+            sourceLevel,
             pending.sourceNexusIndex
           );
         }
@@ -1534,9 +1588,92 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Clear the pending effect action
         next.pendingEffectAction = null;
 
-        // Process remaining effects in queue
-        if (pending.remainingEffects.length > 0) {
+        // Process remaining effects based on trigger type
+        if (pending.trigger === 'end_step' && pending.remainingEffects.length > 0) {
+          // For end_step effects, continue with remaining effects queue
           next = this.processEndStepEffectsQueue(next, pending.remainingEffects, 0);
+        } else if (pending.trigger === 'summon') {
+          // For summon effects, continue with remaining summon effects for this card
+          // Trigger all summon effects (now that target has been selected)
+          next = triggerEffects(
+            next,
+            'summon',
+            pending.sourceCard,
+            pending.sourcePlayer,
+            pending.spiritIndex,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            pending.sourceCard.effects?.find((e) => e.level?.includes(1 || 2))?.level?.[0] ?? 1
+          );
+        } else if (pending.trigger === 'attack') {
+          // For attack effects, continue attack flow: search_deck handling, then create pending attack
+          const spirit = next.players[next.currentPlayer]?.spirits[pending.spiritIndex!];
+          if (spirit) {
+            // Check for search_deck effect
+            const searchDeckEffect = spirit.def.effects?.find(e =>
+              e.trigger === 'attack' &&
+              e.action === 'search_deck' &&
+              (!e.level || e.level.includes(spirit.level))
+            );
+
+            if (searchDeckEffect) {
+              const me = next.players[next.currentPlayer]!;
+              const openCount = Math.min(searchDeckEffect.value ?? 2, me.deck.length);
+              const openedCards: CardDef[] = [];
+              for (let i = 0; i < openCount; i++) {
+                openedCards.push(me.deck.shift()!);
+              }
+
+              const selectableIndices: number[] = [];
+              for (let i = 0; i < openedCards.length; i++) {
+                const c = openedCards[i]!;
+                const hasSymbol = !searchDeckEffect.symbol || c.lineage?.includes(searchDeckEffect.symbol);
+                if (hasSymbol) {
+                  selectableIndices.push(i);
+                }
+              }
+
+              const toRearrangeIndices: number[] = [];
+              for (let i = 0; i < openedCards.length; i++) {
+                if (!selectableIndices.includes(i)) {
+                  toRearrangeIndices.push(i);
+                }
+              }
+
+              next.pendingDraw = {
+                openedCards,
+                toHandIndices: selectableIndices,
+                toRearrangeIndices,
+                selectableIndices,
+                castCard: spirit.def,
+                maxSelectable: searchDeckEffect.count ?? 1,
+                returnDestination: 'trash',
+                originAttackSpiritIndex: pending.spiritIndex,
+                originAttackPlayer: next.currentPlayer,
+              };
+              return next;
+            }
+
+            // No search_deck: create pending attack
+            const damage = spirit.def.symbolCount;
+            const pendingAttack: PendingAttack = {
+              attackerPlayer: next.currentPlayer,
+              attackerSpiritIndex: pending.spiritIndex!,
+              damage,
+            };
+
+            const defenderIndex = 1 - next.currentPlayer;
+            next.pendingFlash = {
+              trigger: 'opponent_attack',
+              cardId: '',
+              initiatingPlayer: next.currentPlayer,
+              stashedAttack: pendingAttack,
+            };
+            next.currentPlayer = defenderIndex;
+          }
         }
 
         break;
@@ -1892,12 +2029,57 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const spirit = me.spirits[action.spiritIndex];
         if (!spirit || !spirit.canAttack) return next;
 
-        // Check for search_deck effects that require user selection
+        // Check for effects that require user selection during attack
         const searchDeckEffect = spirit.def.effects?.find(e =>
           e.trigger === 'attack' &&
           e.action === 'search_deck' &&
           (!e.level || e.level.includes(spirit.level))
         );
+
+        const targetRequiringEffect = spirit.def.effects?.find(e =>
+          e.trigger === 'attack' &&
+          e.requiresTarget &&
+          (!e.level || e.level.includes(spirit.level))
+        );
+
+        // If there's a target-requiring effect (destroy_creature, place_core, etc.) and we haven't selected a target yet
+        if (targetRequiringEffect && action.effectTargetIndex === undefined) {
+          // Find valid targets based on effect type
+          let validTargets: { spiritIndices: number[]; nexusIndices: number[] } = { spiritIndices: [], nexusIndices: [] };
+
+          if (targetRequiringEffect.action === 'destroy_creature') {
+            // Find opponent spirits that meet the BP threshold
+            const opponent = next.players[1 - next.currentPlayer]!;
+            const bpLimit = destroyCreatureBpLimit(targetRequiringEffect, me);
+            const spiritBp = (sp: Spirit) => {
+              const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
+              return stats.bp + (sp.bpBoost ?? 0) + (sp.bpBoostBattle ?? 0);
+            };
+            for (let i = 0; i < opponent.spirits.length; i++) {
+              if (bpLimit === undefined || spiritBp(opponent.spirits[i]!) <= bpLimit) {
+                validTargets.spiritIndices.push(i);
+              }
+            }
+          } else if (targetRequiringEffect.action === 'place_core') {
+            // Find own spirits matching condition
+            validTargets = this.findValidTargetsForEffect(next, next.currentPlayer, targetRequiringEffect);
+          }
+
+          // If there are valid targets, wait for selection
+          if (validTargets.spiritIndices.length > 0 || validTargets.nexusIndices.length > 0) {
+            next.pendingEffectAction = {
+              effect: targetRequiringEffect,
+              sourceCard: spirit.def,
+              sourcePlayer: next.currentPlayer,
+              spiritIndex: action.spiritIndex,
+              sourceNexusIndex: undefined,
+              validTargets,
+              trigger: 'attack',
+              remainingEffects: [],
+            };
+            return next; // Wait for target selection
+          }
+        }
 
         // Trigger attack effects (may boost BP, place cores, etc.), passing discardCardIndex/effectTargetIndex if provided
         // This EXCLUDES search_deck, which requires user selection and will be handled after the user selects cards
