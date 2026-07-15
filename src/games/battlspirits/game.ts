@@ -380,12 +380,28 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   }
 
   /** Remove all nexuses that have 0 cores (depleted — 消滅, no effects triggered) */
-  private removeDeadNexuses(player: PlayerState): void {
+  private removeDeadNexuses(state: GameState, playerIndex: number): void {
+    const player = state.players[playerIndex]!;
+    const removedIndices: number[] = [];
     for (let i = player.nexuses.length - 1; i >= 0; i--) {
       const nexus = player.nexuses[i]!;
       if (nexus.coreCount === 0 && nexus.soulCoreCount === 0) {
         player.nexuses.splice(i, 1);
         player.trash.push(nexus.def);
+        removedIndices.push(i);
+      }
+    }
+    // Fix up any pending draw that references removed nexus indices
+    if (state.pendingDraw && state.pendingDraw.targetNexusIndex !== undefined) {
+      for (const removedIdx of removedIndices.sort((a, b) => a - b)) {
+        if (state.pendingDraw.targetNexusIndex === removedIdx) {
+          // Target nexus was removed; invalidate the pending draw
+          state.pendingDraw = null;
+          break;
+        } else if (state.pendingDraw.targetNexusIndex > removedIdx) {
+          // Adjust index for removed nexus
+          state.pendingDraw.targetNexusIndex -= 1;
+        }
       }
     }
   }
@@ -1290,7 +1306,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         // Spirits/nexuses that lost their last core are depleted (消滅 — no destroy effects)
         this.removeDeadSpirits(next, next.currentPlayer);
-        this.removeDeadNexuses(me);
+        this.removeDeadNexuses(next, next.currentPlayer);
         break;
       }
       case 'place_nexus': {

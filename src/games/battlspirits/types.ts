@@ -158,6 +158,7 @@ export interface PendingDraw {
   selectableIndices?: number[]; // indices of cards that can be selected for hand (風牙系統かつオファーリングドロー以外)
   castCard?: CardDef; // the card that triggered this draw (to trigger effects after selection)
   targetSpiritIndex?: number; // from original use_magic action
+  targetNexusIndex?: number; // from original use_magic action
   effectValue?: number; // from original use_magic action
   maxSelectable?: number; // maximum number of cards that can be selected (default 2 for magic_offering_draw, 1 for attack search_deck)
   returnDestination?: 'deck' | 'trash'; // where to put remaining cards (default 'deck' for magic_offering_draw, 'trash' for attack search_deck)
