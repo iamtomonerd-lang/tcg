@@ -1192,7 +1192,13 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
               {state.players[trashViewPlayer].trash.cards && state.players[trashViewPlayer].trash.cards.length > 0 ? (
                 <div className="trash-grid">
                   {state.players[trashViewPlayer].trash.cards.map((card: any, idx: number) => (
-                    <div key={`trash-${idx}`} className="trash-card" title={`${card.name}\nコスト${card.cost}`}>
+                    <div
+                      key={`trash-${idx}`}
+                      className="trash-card"
+                      title={`${card.name}\nコスト${card.cost}\nクリックで拡大表示`}
+                      onClick={() => card.imagePath && setSelectedCardImage({ imagePath: card.imagePath, name: card.name })}
+                      style={{ cursor: card.imagePath ? 'pointer' : 'default' }}
+                    >
                       {card.imagePath ? (
                         <img src={`/${card.imagePath}`} alt={card.name} />
                       ) : null}
@@ -1223,7 +1229,13 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
               {state.players[bottomDeckViewPlayer].bottomDeckCards && state.players[bottomDeckViewPlayer].bottomDeckCards.length > 0 ? (
                 <div className="trash-grid">
                   {state.players[bottomDeckViewPlayer].bottomDeckCards.map((card: any, idx: number) => (
-                    <div key={`bottom-deck-${idx}`} className="trash-card" title={`${card.name}\nコスト${card.cost}\n順序: ${idx + 1}番目`}>
+                    <div
+                      key={`bottom-deck-${idx}`}
+                      className="trash-card"
+                      title={`${card.name}\nコスト${card.cost}\n順序: ${idx + 1}番目\nクリックで拡大表示`}
+                      onClick={() => card.imagePath && setSelectedCardImage({ imagePath: card.imagePath, name: card.name })}
+                      style={{ cursor: card.imagePath ? 'pointer' : 'default' }}
+                    >
                       {card.imagePath ? (
                         <img src={`/${card.imagePath}`} alt={card.name} />
                       ) : null}
