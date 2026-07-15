@@ -734,4 +734,35 @@ describe('Attack-time search_deck effects', () => {
     expect(state.pendingDraw!.returnDestination).toBe('trash'); // Attack search_deck uses trash destination
     expect(state.pendingDraw!.maxSelectable).toBe(1); // Only 1 card should be selectable
   });
+
+  it('after search_deck card selection, select_draw_arrange action is available in legalActions', () => {
+    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const p0 = makePlayer([haria]);
+
+    const windFang1 = CARD_DB.spirit_moon_shacco!;
+    const other1 = CARD_DB.magic_offering_draw!;
+    p0.deck = [windFang1, other1];
+
+    const p1 = makePlayer([]);
+    p1.hand = [];
+
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0,
+      turnCount: 2,
+      phase: 'attack',
+      battle: null,
+      result: null,
+    };
+
+    const attackAction = game.legalActions(state).find(a => a.type === 'attack' && a.spiritIndex === 0);
+    state = game.applyAction(state, attackAction!, new Mulberry32(1));
+
+    expect(state.pendingDraw).toBeDefined();
+
+    // Check that select_draw_arrange is available in legalActions
+    const legalActions = game.legalActions(state);
+    const selectDrawAction = legalActions.find(a => a.type === 'select_draw_arrange');
+    expect(selectDrawAction).toBeDefined();
+  });
 });
