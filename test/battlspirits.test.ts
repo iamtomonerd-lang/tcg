@@ -501,6 +501,10 @@ describe('Compound activation costs (▶ effects)', () => {
     expect(state.players[0].spirits[0]!.bpBoostBattle).toBe(2000);
     expect(state.players[0].nexuses[0]!.exhausted).toBe(true);
 
+    // Opponent must skip flash before taking damage
+    const skipFlash = game.legalActions(state).find((a) => a.type === 'skip_flash');
+    if (skipFlash) state = game.applyAction(state, skipFlash, new Mulberry32(1));
+
     // Resolve the attack (opponent takes damage), control returns to player 0
     const takeDamage = game.legalActions(state).find((a) => a.type === 'take_damage')!;
     state = game.applyAction(state, takeDamage, new Mulberry32(1));
@@ -532,6 +536,10 @@ describe('BP boost durations', () => {
     const attack = game.legalActions(state).find((a) => a.type === 'attack')!;
     state = game.applyAction(state, attack, new Mulberry32(1));
     expect(state.players[0].spirits[0]!.bpBoostBattle).toBe(2000);
+
+    // Opponent must skip flash before taking damage
+    const skipFlash = game.legalActions(state).find((a) => a.type === 'skip_flash');
+    if (skipFlash) state = game.applyAction(state, skipFlash, new Mulberry32(1));
 
     // Opponent takes the damage — battle over, boost expires
     const takeDamage = game.legalActions(state).find((a) => a.type === 'take_damage')!;
@@ -568,9 +576,13 @@ describe('BP boost durations', () => {
     state = game.applyAction(state, flashActions[0]!, new Mulberry32(1));
     expect(state.players[1].spirits[0]!.bpBoost).toBe(3000);
 
+    // Attacker (player 0) must skip flash for counter-timing before defender can block
+    const attackerSkip = game.legalActions(state).find((a) => a.type === 'skip_flash');
+    if (attackerSkip) state = game.applyAction(state, attackerSkip, new Mulberry32(1));
+
     // Resolve the attack by blocking: 2000+3000 vs 2000 — defender wins, boost persists (turn duration)
-    const skip = game.legalActions(state).find((a) => a.type === 'skip_flash');
-    if (skip) state = game.applyAction(state, skip, new Mulberry32(1));
+    const defenderSkip = game.legalActions(state).find((a) => a.type === 'skip_flash');
+    if (defenderSkip) state = game.applyAction(state, defenderSkip, new Mulberry32(1));
     const block = game.legalActions(state).find((a) => a.type === 'block');
     expect(block).toBeDefined();
     state = game.applyAction(state, block!, new Mulberry32(1));

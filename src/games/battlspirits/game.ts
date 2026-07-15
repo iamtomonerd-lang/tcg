@@ -953,34 +953,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       // already cancelled it (set to undefined) or shifted its index.
       const stashedAttack = next.pendingFlash?.stashedAttack;
 
-      // Give opponent counter-timing (stack flash opportunity)
-      const opponentHasFlash = this.hasAffordableFlash(opponent);
-
-      if (opponentHasFlash) {
-        // Keep same flash trigger, but update for counter timing
-        next.pendingFlash = {
-          trigger: next.pendingFlash!.trigger,
-          cardId: '',
-          initiatingPlayer: next.pendingFlash!.initiatingPlayer,
-          lastFlashPlayer: next.currentPlayer,
-          stashedAttack,
-        };
-        // Switch to opponent for counter-timing
-        next.currentPlayer = 1 - next.currentPlayer;
-        return next;
-      }
-
-      // No counter-timing available: resolve the original action
-      next.pendingFlash = null;
-      if (stashedAttack) {
-        // This flash window opened in response to an attack declaration; now that it's
-        // closed, hand control to the defender to choose defend/take_damage.
-        next.pendingAttack = stashedAttack;
-        next.currentPlayer = 1 - stashedAttack.attackerPlayer;
-      } else {
-        // Return to original player to complete the action
-        next.currentPlayer = 1 - next.currentPlayer;
-      }
+      // Always give opponent counter-timing opportunity (stack flash)
+      // Even if they don't have any flash cards, they must explicitly skip flash
+      next.pendingFlash = {
+        trigger: next.pendingFlash!.trigger,
+        cardId: '',
+        initiatingPlayer: next.pendingFlash!.initiatingPlayer,
+        lastFlashPlayer: next.currentPlayer,
+        stashedAttack,
+      };
+      // Switch to opponent for counter-timing
+      next.currentPlayer = 1 - next.currentPlayer;
       return next;
     }
 
@@ -1551,21 +1534,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         };
 
         const defenderIndex = 1 - next.currentPlayer;
-        const defender = next.players[defenderIndex]!;
 
-        // Give the defender a flash opportunity before they must choose defend/take_damage
-        if (this.hasAffordableFlash(defender)) {
-          next.pendingFlash = {
-            trigger: 'opponent_attack',
-            cardId: '',
-            initiatingPlayer: next.currentPlayer,
-            stashedAttack: pendingAttack,
-          };
-          next.currentPlayer = defenderIndex;
-          return next;
-        }
-
-        next.pendingAttack = pendingAttack;
+        // Always give the defender a flash opportunity before they must choose defend/take_damage
+        // They must explicitly skip flash, even if they don't have any flash cards
+        next.pendingFlash = {
+          trigger: 'opponent_attack',
+          cardId: '',
+          initiatingPlayer: next.currentPlayer,
+          stashedAttack: pendingAttack,
+        };
         next.currentPlayer = defenderIndex;
         return next;
       }
@@ -1629,21 +1606,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           };
 
           const defenderIndex = 1 - next.currentPlayer;
-          const defender = next.players[defenderIndex]!;
 
-          // Give the defender a flash opportunity before they must choose defend/take_damage
-          if (this.hasAffordableFlash(defender)) {
-            next.pendingFlash = {
-              trigger: 'opponent_attack',
-              cardId: '',
-              initiatingPlayer: next.currentPlayer,
-              stashedAttack: pendingAttack,
-            };
-            next.currentPlayer = defenderIndex;
-            return next;
-          }
-
-          next.pendingAttack = pendingAttack;
+          // Always give the defender a flash opportunity before they must choose defend/take_damage
+          // They must explicitly skip flash, even if they don't have any flash cards
+          next.pendingFlash = {
+            trigger: 'opponent_attack',
+            cardId: '',
+            initiatingPlayer: next.currentPlayer,
+            stashedAttack: pendingAttack,
+          };
           next.currentPlayer = defenderIndex;
           return next;
         }
