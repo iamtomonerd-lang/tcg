@@ -759,6 +759,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   private getAttackPhaseActions(state: GameState): Action[] {
     const actions: Action[] = [];
     const me = state.players[state.currentPlayer]!;
+    const opponent = state.players[1 - state.currentPlayer]!;
 
     // Attack with ready (non-fatigued) spirits only
     for (let i = 0; i < me.spirits.length; i++) {
@@ -771,6 +772,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         );
         const placeCoreEffect = s.def.effects?.find(
           (e) => e.trigger === 'attack' && e.action === 'place_core' && e.requiresTarget && e.level?.includes(s.level)
+        );
+        const destroyCreatureEffect = s.def.effects?.find(
+          (e) => e.trigger === 'attack' && e.action === 'destroy_creature' && e.requiresTarget && e.level?.includes(s.level)
         );
 
         if (discardEffect) {
@@ -799,6 +803,18 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               actions.push({ type: 'attack', spiritIndex: i, effectTargetIndex: ti });
               hasValidTarget = true;
             }
+          }
+          // If no valid targets, still allow attack without target
+          if (!hasValidTarget) {
+            actions.push({ type: 'attack', spiritIndex: i });
+          }
+        } else if (destroyCreatureEffect) {
+          // destroy_creature effect requires opponent spirit target selection
+          // Generate one attack action for each opponent spirit
+          let hasValidTarget = false;
+          for (let ti = 0; ti < opponent.spirits.length; ti++) {
+            actions.push({ type: 'attack', spiritIndex: i, effectTargetIndex: ti });
+            hasValidTarget = true;
           }
           // If no valid targets, still allow attack without target
           if (!hasValidTarget) {
