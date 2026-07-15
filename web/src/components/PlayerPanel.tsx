@@ -17,6 +17,7 @@ interface PlayerPanelProps {
   dragOverCard?: string | null;
   onCardRightClick?: (cardId: string, imagePath: string | undefined, name: string) => void;
   onViewTrash?: () => void;
+  onViewBottomDeck?: () => void;
   attackingSpiritPlayer?: number;
   attackingSpiritIndex?: number;
 }
@@ -137,6 +138,7 @@ export default function PlayerPanel({
   dragOverCard,
   onCardRightClick,
   onViewTrash,
+  onViewBottomDeck,
   attackingSpiritPlayer,
   attackingSpiritIndex,
 }: PlayerPanelProps) {
@@ -161,6 +163,15 @@ export default function PlayerPanel({
             title="クリックでトラッシュを表示"
           >
             🗑️ {player.trash.count}
+          </button>
+        )}
+        {onViewBottomDeck && player.bottomDeckCards.length > 0 && (
+          <button
+            className="pstat-button"
+            onClick={onViewBottomDeck}
+            title="クリックで山札下のカードを表示"
+          >
+            📋 {player.bottomDeckCards.length}
           </button>
         )}
       </div>

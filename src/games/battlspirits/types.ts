@@ -123,6 +123,7 @@ export interface PlayerState {
   spirits: Spirit[];
   nexuses: Nexus[];
   trash: CardDef[];
+  bottomDeckCards: CardDef[]; // cards placed at bottom of deck (from magic_offering_draw), in order (first = closest to bottom)
   damageThisTurn?: number; // tracks damage taken this turn (for Soul Magic red conditions)
 }
 

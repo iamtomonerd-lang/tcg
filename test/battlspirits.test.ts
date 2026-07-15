@@ -12,7 +12,7 @@ function makeSpirit(): Spirit {
 }
 
 function makePlayer(spirits: Spirit[]): PlayerState {
-  return { life: 5, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [] };
+  return { life: 5, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [], bottomDeckCards: [] };
 }
 
 /** Resolve both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */

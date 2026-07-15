@@ -84,6 +84,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       spirits: [],
       nexuses: [],
       trash: [],
+      bottomDeckCards: [],
     };
   }
 
@@ -1510,9 +1511,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
         } else {
           // For magic_offering_draw: rearrange and put back to deck bottom
+          const rearrangedCards: CardDef[] = [];
           for (const idx of arrangedIndices) {
-            me.deck.push(pd.openedCards[idx]!);
+            const card = pd.openedCards[idx]!;
+            me.deck.push(card);
+            rearrangedCards.push(card);
           }
+          // Record cards placed at bottom of deck (in order, first = closest to bottom)
+          me.bottomDeckCards = [...rearrangedCards, ...me.bottomDeckCards];
 
           // Any remaining cards (not selected or rearranged) go to trash
           const usedIndices = new Set([...selectedIndices, ...arrangedIndices]);
@@ -1877,6 +1883,7 @@ function clonePlayer(p: any) {
     spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0, soulCoreCount: s.soulCoreCount ?? 0 })),
     nexuses: p.nexuses.map((n: any) => ({ ...n, placedCores: n.placedCores ?? 0, soulCoreCount: n.soulCoreCount ?? 0 })),
     trash: p.trash.slice(),
+    bottomDeckCards: (p.bottomDeckCards || []).slice(),
   };
 }
 
