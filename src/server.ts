@@ -42,6 +42,7 @@ interface GameSession {
   p0Deck?: { cardId: string; count: number }[];
   p1Deck?: { cardId: string; count: number }[];
   resultLogged?: boolean;
+  mulliganChoices?: { [playerId: number]: boolean }; // Track mulligan choices (true=redraw, false=keep)
 }
 
 const sessions = new Map<string, GameSession>();
@@ -289,9 +290,23 @@ app.post('/api/game/:sessionId/action', (req, res) => {
 
   let actionDescription = `P${actingPlayer}: ${description}`;
 
-  // Add mulligan completion info
-  if (action.type === 'mulligan' && !session.state.pendingMulligan) {
-    actionDescription = `✓ マリガン完了 (P0: ${stateBefore.players[0].hand.length}枚, P1: ${stateBefore.players[1].hand.length}枚)`;
+  // Track mulligan choices
+  if (action.type === 'mulligan') {
+    if (!session.mulliganChoices) {
+      session.mulliganChoices = {};
+    }
+    session.mulliganChoices[actingPlayer] = action.redraw;
+
+    // Add mulligan completion info when both players have completed
+    if (!session.state.pendingMulligan) {
+      const p0Redraw = session.mulliganChoices[0];
+      const p1Redraw = session.mulliganChoices[1];
+      const p0Choice = p0Redraw ? 'redraw' : 'keep';
+      const p1Choice = p1Redraw ? 'redraw' : 'keep';
+      actionDescription = `✓ マリガン完了: P0 ${p0Choice} (4枚), P1 ${p1Choice} (4枚)`;
+      // Reset for next potential mulligan scenario
+      session.mulliganChoices = {};
+    }
   }
 
   res.json({
