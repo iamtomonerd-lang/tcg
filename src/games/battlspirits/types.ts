@@ -187,6 +187,7 @@ export interface GameState {
   phase: GamePhase;
   battle: BattleState | null;
   result: { winner: number | null } | null;
+  decideFirstPlayerPlayer?: number | null; // if set, this player decides who goes first
   pendingRockPaperScissors?: PendingRockPaperScissors | null; // if set, in initial RPS or order-choosing phase
   pendingFlash?: PendingFlash | null; // if set, opponent has a flash opportunity
   pendingAttack?: PendingAttack | null; // if set, defending player can choose to block

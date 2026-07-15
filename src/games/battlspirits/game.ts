@@ -46,17 +46,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   createInitialState(rng: Rng): GameState {
     const players: [any, any] = [this.newPlayer(rng), this.newPlayer(rng)];
 
-    // Randomly determine first player instead of rock-paper-scissors
-    const firstPlayer = rng.int(2); // 0 or 1
+    // Randomly give one player the right to decide who goes first
+    const decideFirstPlayerPlayer = rng.int(2); // 0 or 1
 
     const state: GameState = {
       players: players as [any, any],
-      currentPlayer: firstPlayer,
+      currentPlayer: decideFirstPlayerPlayer,
       turnCount: 0,
       phase: 'start',
       battle: null,
       result: null,
-      pendingMulligan: { player: firstPlayer, firstPlayer },
+      decideFirstPlayerPlayer,
     };
     // Draw opening hand of 4 cards each
     for (const p of players) {
@@ -457,6 +457,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   legalActions(state: GameState): Action[] {
     if (state.result) return [];
 
+    // First player decision phase: player with right decides who goes first
+    if (state.decideFirstPlayerPlayer !== undefined && state.decideFirstPlayerPlayer !== null) {
+      return [
+        { type: 'choose_order', goFirst: true },
+        { type: 'choose_order', goFirst: false },
+      ];
+    }
+
     // Rock-paper-scissors phase: both players choose their hand
     if (state.pendingRockPaperScissors && state.pendingRockPaperScissors.rocksChoices === undefined) {
       return [
@@ -832,11 +840,22 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
     // Choose order: winner decides to go first or second
     if (action.type === 'choose_order') {
-      if (!next.pendingRockPaperScissors || next.pendingRockPaperScissors.decidingPlayer < 0) return next;
+      let firstPlayer: number;
 
-      const winner = next.pendingRockPaperScissors.decidingPlayer;
-      const firstPlayer = action.goFirst ? winner : 1 - winner;
-      next.pendingRockPaperScissors = null;
+      // If decideFirstPlayerPlayer is set, that player decides who goes first
+      if (next.decideFirstPlayerPlayer !== undefined && next.decideFirstPlayerPlayer !== null) {
+        const decider = next.decideFirstPlayerPlayer;
+        firstPlayer = action.goFirst ? decider : 1 - decider;
+        next.decideFirstPlayerPlayer = null;
+      } else if (next.pendingRockPaperScissors && next.pendingRockPaperScissors.decidingPlayer >= 0) {
+        // RPS-based order choice (legacy path)
+        const winner = next.pendingRockPaperScissors.decidingPlayer;
+        firstPlayer = action.goFirst ? winner : 1 - winner;
+        next.pendingRockPaperScissors = null;
+      } else {
+        return next;
+      }
+
       next.pendingMulligan = { player: firstPlayer, firstPlayer };
       next.currentPlayer = firstPlayer;
       return next;
@@ -1888,6 +1907,7 @@ function cloneState(state: GameState): GameState {
     phase: state.phase,
     battle: state.battle ? { ...state.battle } : null,
     result: state.result ? { ...state.result } : null,
+    decideFirstPlayerPlayer: state.decideFirstPlayerPlayer,
     pendingRockPaperScissors: state.pendingRockPaperScissors ? { ...state.pendingRockPaperScissors } : null,
     pendingFlash: state.pendingFlash ? { ...state.pendingFlash } : null,
     pendingAttack: state.pendingAttack ? { ...state.pendingAttack } : null,

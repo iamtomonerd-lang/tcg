@@ -18,6 +18,10 @@ function makePlayer(spirits: Spirit[]): PlayerState {
 /** Resolve both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */
 function skipToMainPhase(state: GameState, rng: Mulberry32): GameState {
   let s = state;
+  // Skip first player decision: first player goes first
+  if (s.decideFirstPlayerPlayer !== undefined && s.decideFirstPlayerPlayer !== null) {
+    s = game.applyAction(s, { type: 'choose_order', goFirst: true }, rng);
+  }
   // Skip mulligan: both players keep their hand
   while (s.pendingMulligan) {
     s = game.applyAction(s, { type: 'mulligan', redraw: false }, rng);
@@ -33,18 +37,24 @@ function skipToMainPhase(state: GameState, rng: Mulberry32): GameState {
 }
 
 describe('Battle Spirits Mulligan', () => {
-  it('opening hand starts in mulligan phase with random first player', () => {
+  it('opening hand starts in first player decision phase with random decider', () => {
     const s = game.createInitialState(new Mulberry32(1));
     expect(s.phase).toBe('start');
-    expect(s.pendingMulligan).toBeDefined();
-    expect(s.pendingMulligan?.player).toBe(s.pendingMulligan?.firstPlayer); // First player decides mulligan
-    expect([0, 1]).toContain(s.pendingMulligan?.firstPlayer); // First player is random
+    expect(s.decideFirstPlayerPlayer).toBeDefined(); // First player decision phase
+    expect([0, 1]).toContain(s.decideFirstPlayerPlayer); // Randomly assigned
     expect(s.players[0].hand.length).toBe(4);
     const actions = game.legalActions(s);
     expect(actions).toEqual([
-      { type: 'mulligan', redraw: false },
-      { type: 'mulligan', redraw: true },
+      { type: 'choose_order', goFirst: true },
+      { type: 'choose_order', goFirst: false },
     ]);
+
+    // After choosing order, mulligan phase should activate
+    const s2 = game.applyAction(s, { type: 'choose_order', goFirst: true }, new Mulberry32(1));
+    expect(s2.decideFirstPlayerPlayer).toBeFalsy();
+    expect(s2.pendingMulligan).toBeDefined();
+    expect(s2.pendingMulligan?.player).toBe(s2.currentPlayer); // Current player does mulligan
+    expect([0, 1]).toContain(s2.pendingMulligan?.firstPlayer);
   });
 
   it('keeping the hand for both players completes mulligan and removes pendingMulligan', () => {
@@ -66,9 +76,14 @@ describe('Battle Spirits Mulligan', () => {
     const s0 = game.createInitialState(rng);
     const originalDeckSize0 = s0.players[0].deck.length;
 
-    // Skip RPS and order choice
     let s = s0;
-    // Player 0: rock (0), Player 1: paper (1) - player 1 wins
+
+    // Skip first player decision (if present)
+    if (s.decideFirstPlayerPlayer !== undefined && s.decideFirstPlayerPlayer !== null) {
+      s = game.applyAction(s, { type: 'choose_order', goFirst: true }, rng);
+    }
+
+    // Skip RPS and order choice (if present - legacy path)
     while (s.pendingRockPaperScissors && s.pendingRockPaperScissors.rocksChoices === undefined) {
       const choice = s.currentPlayer === 0 ? 0 : 1;
       s = game.applyAction(s, { type: 'rock_paper_scissors', choice }, rng);
@@ -81,13 +96,18 @@ describe('Battle Spirits Mulligan', () => {
     // Now currentPlayer should be the first player
     const firstPlayer = s.currentPlayer;
     s = game.applyAction(s, { type: 'mulligan', redraw: true }, rng);
-    // First player's redraw happened; still awaiting second player's decision
-    expect(s.pendingMulligan!.player).toBe(1 - firstPlayer);
-    expect(s.pendingMulligan!.firstPlayer).toBe(firstPlayer);
-    expect(s.players[firstPlayer]!.hand.length).toBe(4);
-    expect(s.players[firstPlayer]!.deck.length).toBe(originalDeckSize0);
 
-    s = game.applyAction(s, { type: 'mulligan', redraw: false }, rng);
+    // Check if second player still needs to mulligan
+    if (s.pendingMulligan) {
+      // First player's redraw happened; still awaiting second player's decision
+      expect(s.pendingMulligan.player).toBe(1 - firstPlayer);
+      expect(s.pendingMulligan.firstPlayer).toBe(firstPlayer);
+      expect(s.players[firstPlayer]!.hand.length).toBe(4);
+      expect(s.players[firstPlayer]!.deck.length).toBe(originalDeckSize0);
+
+      s = game.applyAction(s, { type: 'mulligan', redraw: false }, rng);
+    }
+
     expect(s.pendingMulligan).toBeFalsy();
   });
 });
