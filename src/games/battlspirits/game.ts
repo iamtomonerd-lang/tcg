@@ -1577,6 +1577,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // This EXCLUDES search_deck, which requires user selection and will be handled after the user selects cards
         next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, action.spiritIndex, action.effectTargetIndex, undefined, action.discardCardIndex, undefined, undefined, spirit.level, undefined, undefined, ['search_deck']);
 
+        // Remove spirits that lost their cores during attack effects
+        this.removeDeadSpirits(next, next.currentPlayer);
+
         // Nexus "attack"-trigger effects (e.g. buffs during my attack step)
         const attackerNow = next.players[next.currentPlayer]!;
         for (let ni = 0; ni < attackerNow.nexuses.length; ni++) {
@@ -1621,6 +1624,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             maxSelectable: searchDeckEffect.count ?? 1,
             returnDestination: 'trash', // attack search_deck cards go to trash, not deck bottom
             originAttackSpiritIndex: action.spiritIndex, // track that this came from an attack
+            originAttackPlayer: next.currentPlayer, // track which player is attacking
           };
           return next; // Stop here, player must select cards
         }
@@ -1689,10 +1693,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // If this search_deck came from an attack, continue with the rest of the attack flow
-        if (pd.originAttackSpiritIndex !== undefined) {
+        if (pd.originAttackSpiritIndex !== undefined && pd.originAttackPlayer !== undefined) {
           next.pendingDraw = null;
 
-          const spirit = next.players[next.currentPlayer]!.spirits[pd.originAttackSpiritIndex];
+          const spirit = next.players[pd.originAttackPlayer]!.spirits[pd.originAttackSpiritIndex];
           if (!spirit) return next;
 
           // Effects (including nexus effects) were already triggered when the attack started.
@@ -1700,19 +1704,19 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
           const damage = spirit.def.symbolCount;
           const pendingAttack: PendingAttack = {
-            attackerPlayer: next.currentPlayer,
+            attackerPlayer: pd.originAttackPlayer,
             attackerSpiritIndex: pd.originAttackSpiritIndex,
             damage,
           };
 
-          const defenderIndex = 1 - next.currentPlayer;
+          const defenderIndex = 1 - pd.originAttackPlayer;
 
           // Always give the defender a flash opportunity before they must choose defend/take_damage
           // They must explicitly skip flash, even if they don't have any flash cards
           next.pendingFlash = {
             trigger: 'opponent_attack',
             cardId: '',
-            initiatingPlayer: next.currentPlayer,
+            initiatingPlayer: pd.originAttackPlayer,
             stashedAttack: pendingAttack,
           };
           next.currentPlayer = defenderIndex;

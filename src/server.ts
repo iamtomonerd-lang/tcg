@@ -812,6 +812,7 @@ function serializeState(state: GameState) {
           maxSelectable: state.pendingDraw.maxSelectable,
           returnDestination: state.pendingDraw.returnDestination,
           originAttackSpiritIndex: state.pendingDraw.originAttackSpiritIndex,
+          originAttackPlayer: state.pendingDraw.originAttackPlayer,
         }
       : null,
     pendingSpellChain: state.pendingSpellChain
