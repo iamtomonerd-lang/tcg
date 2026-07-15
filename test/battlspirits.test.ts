@@ -18,15 +18,17 @@ function makePlayer(spirits: Spirit[]): PlayerState {
 /** Resolve both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */
 function skipToMainPhase(state: GameState, rng: Mulberry32): GameState {
   let s = state;
-  // Skip rock-paper-scissors: both players make random choices
-  while (s.pendingRockPaperScissors && s.pendingRockPaperScissors.rocksChoices === undefined) {
-    const actions = game.legalActions(s);
-    const rpsAction = actions.find((a) => a.type === 'rock_paper_scissors');
-    if (!rpsAction || rpsAction.type !== 'rock_paper_scissors') break;
-    s = game.applyAction(s, rpsAction, rng);
+  // Skip dice rolls: both players roll (ensure different rolls to avoid tie)
+  let rollCounter = 0;
+  while (s.pendingDiceRoll && s.pendingDiceRoll.winner === undefined) {
+    const diceRoll = (rollCounter % 6) + 1 as any; // Alternate rolls: 1, 2, 3, 4, 5, 6, 1, ...
+    s = game.applyAction(s, { type: 'dice_roll', roll: diceRoll }, rng);
+    rollCounter++;
+    // Prevent infinite loop in case of unexpected behavior
+    if (rollCounter > 20) break;
   }
   // Skip order choice: winner goes first
-  if (s.pendingRockPaperScissors && s.pendingRockPaperScissors.decidingPlayer >= 0) {
+  if (s.pendingDiceRoll && s.pendingDiceRoll.winner !== undefined) {
     s = game.applyAction(s, { type: 'choose_order', goFirst: true }, rng);
   }
   // Skip mulligan: both players keep their hand
@@ -44,17 +46,21 @@ function skipToMainPhase(state: GameState, rng: Mulberry32): GameState {
 }
 
 describe('Battle Spirits Mulligan', () => {
-  it('opening hand starts in rock-paper-scissors phase', () => {
+  it('opening hand starts in dice roll phase', () => {
     const s = game.createInitialState(new Mulberry32(1));
     expect(s.phase).toBe('start');
-    expect(s.pendingRockPaperScissors).toBeDefined(); // RPS phase
-    expect(s.pendingRockPaperScissors?.rocksChoices).toBeUndefined(); // Both players must choose
+    expect(s.pendingDiceRoll).toBeDefined(); // Dice roll phase
+    expect(s.pendingDiceRoll?.p0Roll).toBeUndefined(); // Player 0 must roll
+    expect(s.pendingDiceRoll?.p1Roll).toBeUndefined(); // Player 1 hasn't rolled yet
     expect(s.players[0].hand.length).toBe(4);
     const actions = game.legalActions(s);
     expect(actions).toEqual([
-      { type: 'rock_paper_scissors', choice: 0 },
-      { type: 'rock_paper_scissors', choice: 1 },
-      { type: 'rock_paper_scissors', choice: 2 },
+      { type: 'dice_roll', roll: 1 },
+      { type: 'dice_roll', roll: 2 },
+      { type: 'dice_roll', roll: 3 },
+      { type: 'dice_roll', roll: 4 },
+      { type: 'dice_roll', roll: 5 },
+      { type: 'dice_roll', roll: 6 },
     ]);
   });
 
@@ -79,18 +85,13 @@ describe('Battle Spirits Mulligan', () => {
 
     let s = s0;
 
-    // Skip first player decision (if present)
-    if (s.decideFirstPlayerPlayer !== undefined && s.decideFirstPlayerPlayer !== null) {
-      s = game.applyAction(s, { type: 'choose_order', goFirst: true }, rng);
-    }
-
-    // Skip RPS and order choice (if present - legacy path)
-    while (s.pendingRockPaperScissors && s.pendingRockPaperScissors.rocksChoices === undefined) {
-      const choice = s.currentPlayer === 0 ? 0 : 1;
-      s = game.applyAction(s, { type: 'rock_paper_scissors', choice }, rng);
+    // Skip dice rolls and order choice
+    while (s.pendingDiceRoll && s.pendingDiceRoll.winner === undefined) {
+      const roll = s.currentPlayer === 0 ? 6 : 5; // P0 wins
+      s = game.applyAction(s, { type: 'dice_roll', roll }, rng);
     }
     // Choose order
-    if (s.pendingRockPaperScissors && s.pendingRockPaperScissors.decidingPlayer >= 0) {
+    if (s.pendingDiceRoll && s.pendingDiceRoll.winner !== undefined) {
       s = game.applyAction(s, { type: 'choose_order', goFirst: true }, rng);
     }
 
@@ -129,7 +130,7 @@ describe('Battle Spirits Summon', () => {
     // If phase is not 'main', manually ensure we're in main phase for action generation
     // (the game should auto-transition, but this ensures tests work regardless)
     expect(s.pendingMulligan).toBeFalsy(); // Mulligan must be done
-    expect(s.pendingRockPaperScissors).toBeFalsy(); // RPS must be done
+    expect(s.pendingDiceRoll).toBeFalsy(); // Dice roll must be done
 
     // legalActions should return actions based on current phase
     const actions = game.legalActions(s);

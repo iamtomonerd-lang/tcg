@@ -48,12 +48,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
     const state: GameState = {
       players: players as [any, any],
-      currentPlayer: 0, // Player 0 starts the RPS phase
+      currentPlayer: 0, // Player 0 starts the dice roll phase
       turnCount: 0,
       phase: 'start',
       battle: null,
       result: null,
-      pendingRockPaperScissors: { rocksChoices: undefined as any, decidingPlayer: -1 }, // Start RPS phase
+      pendingDiceRoll: {}, // Start dice roll phase
     };
     // Draw opening hand of 4 cards each
     for (const p of players) {
@@ -600,25 +600,34 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   legalActions(state: GameState): Action[] {
     if (state.result) return [];
 
-    // First player decision phase: player with right decides who goes first
-    if (state.decideFirstPlayerPlayer !== undefined && state.decideFirstPlayerPlayer !== null) {
-      return [
-        { type: 'choose_order', goFirst: true },
-        { type: 'choose_order', goFirst: false },
-      ];
-    }
-
-    // Rock-paper-scissors phase: both players choose their hand
-    if (state.pendingRockPaperScissors && state.pendingRockPaperScissors.rocksChoices === undefined) {
-      return [
-        { type: 'rock_paper_scissors', choice: 0 }, // rock
-        { type: 'rock_paper_scissors', choice: 1 }, // paper
-        { type: 'rock_paper_scissors', choice: 2 }, // scissors
-      ];
+    // Dice roll phase: both players roll dice
+    if (state.pendingDiceRoll && state.pendingDiceRoll.winner === undefined) {
+      // Players roll in sequence: P0 first, then P1, then determine winner
+      if (state.pendingDiceRoll.p0Roll === undefined) {
+        // Player 0 rolls
+        return [
+          { type: 'dice_roll', roll: 1 },
+          { type: 'dice_roll', roll: 2 },
+          { type: 'dice_roll', roll: 3 },
+          { type: 'dice_roll', roll: 4 },
+          { type: 'dice_roll', roll: 5 },
+          { type: 'dice_roll', roll: 6 },
+        ];
+      } else if (state.pendingDiceRoll.p1Roll === undefined) {
+        // Player 1 rolls
+        return [
+          { type: 'dice_roll', roll: 1 },
+          { type: 'dice_roll', roll: 2 },
+          { type: 'dice_roll', roll: 3 },
+          { type: 'dice_roll', roll: 4 },
+          { type: 'dice_roll', roll: 5 },
+          { type: 'dice_roll', roll: 6 },
+        ];
+      }
     }
 
     // Order choice phase: winner chooses to go first or second
-    if (state.pendingRockPaperScissors && state.pendingRockPaperScissors.decidingPlayer >= 0) {
+    if (state.pendingDiceRoll && state.pendingDiceRoll.winner !== undefined && state.pendingDiceRoll.winner >= 0) {
       return [
         { type: 'choose_order', goFirst: true },
         { type: 'choose_order', goFirst: false },
@@ -1049,55 +1058,47 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const me = next.players[next.currentPlayer]!;
     const opponent = next.players[1 - next.currentPlayer]!;
 
-    // Rock-paper-scissors: collect both players' choices
-    if (action.type === 'rock_paper_scissors') {
-      if (!next.pendingRockPaperScissors || next.pendingRockPaperScissors.rocksChoices !== undefined) return next;
+    // Dice roll: collect both players' rolls
+    if (action.type === 'dice_roll') {
+      if (!next.pendingDiceRoll) return next;
+      if (next.pendingDiceRoll.winner !== undefined) return next; // Already determined winner
 
       if (next.currentPlayer === 0) {
-        // Store player 0's choice temporarily in p0Choice
-        next.pendingRockPaperScissors.p0Choice = action.choice;
+        // Store player 0's roll
+        next.pendingDiceRoll.p0Roll = action.roll;
         next.currentPlayer = 1;
         return next;
       } else {
-        // Player 1 choosing - now we have both choices
-        const p0Choice = next.pendingRockPaperScissors.p0Choice!;
-        const p1Choice = action.choice;
-        // Determine winner: rock=0, paper=1, scissors=2
-        // paper beats rock, scissors beats paper, rock beats scissors
-        let winner: number;
-        if (p0Choice === p1Choice) {
-          // Tie: replay (shouldn't happen with random AI, but handle it)
-          winner = rng.int(2);
-        } else if ((p0Choice + 1) % 3 === p1Choice) {
-          winner = 1;
+        // Player 1 rolls - now we have both rolls
+        const p0Roll = next.pendingDiceRoll.p0Roll!;
+        const p1Roll = action.roll;
+
+        // Determine winner: higher roll wins, ties re-roll
+        if (p0Roll === p1Roll) {
+          // Tie: re-roll - reset and start from player 0 again
+          next.pendingDiceRoll.p0Roll = undefined;
+          next.pendingDiceRoll.p1Roll = undefined;
+          next.currentPlayer = 0;
+        } else if (p0Roll > p1Roll) {
+          // Player 0 wins
+          next.pendingDiceRoll.winner = 0;
+          next.currentPlayer = 0;
         } else {
-          winner = 0;
+          // Player 1 wins
+          next.pendingDiceRoll.winner = 1;
+          next.currentPlayer = 1;
         }
-        // Store actual choices so test loop exits, but set rocksChoices[1] to an empty array
-        // to signal completion while keeping decidingPlayer for order selection
-        next.pendingRockPaperScissors = { rocksChoices: [p0Choice, p1Choice], decidingPlayer: winner };
-        next.currentPlayer = winner;
         return next;
       }
     }
 
     // Choose order: winner decides to go first or second
     if (action.type === 'choose_order') {
-      let firstPlayer: number;
+      if (!next.pendingDiceRoll || next.pendingDiceRoll.winner === undefined) return next;
 
-      // If decideFirstPlayerPlayer is set, that player decides who goes first
-      if (next.decideFirstPlayerPlayer !== undefined && next.decideFirstPlayerPlayer !== null) {
-        const decider = next.decideFirstPlayerPlayer;
-        firstPlayer = action.goFirst ? decider : 1 - decider;
-        next.decideFirstPlayerPlayer = null;
-      } else if (next.pendingRockPaperScissors && next.pendingRockPaperScissors.decidingPlayer >= 0) {
-        // RPS-based order choice (legacy path)
-        const winner = next.pendingRockPaperScissors.decidingPlayer;
-        firstPlayer = action.goFirst ? winner : 1 - winner;
-        next.pendingRockPaperScissors = null;
-      } else {
-        return next;
-      }
+      const winner = next.pendingDiceRoll.winner;
+      const firstPlayer = action.goFirst ? winner : 1 - winner;
+      next.pendingDiceRoll = null;
 
       next.pendingMulligan = { player: firstPlayer, firstPlayer };
       next.currentPlayer = firstPlayer;
@@ -2561,8 +2562,7 @@ function cloneState(state: GameState): GameState {
     phase: state.phase,
     battle: state.battle ? { ...state.battle } : null,
     result: state.result ? { ...state.result } : null,
-    decideFirstPlayerPlayer: state.decideFirstPlayerPlayer,
-    pendingRockPaperScissors: state.pendingRockPaperScissors ? { ...state.pendingRockPaperScissors } : null,
+    pendingDiceRoll: state.pendingDiceRoll ? { ...state.pendingDiceRoll } : null,
     pendingFlash: state.pendingFlash ? { ...state.pendingFlash } : null,
     pendingAttack: state.pendingAttack ? { ...state.pendingAttack } : null,
     pendingDraw: state.pendingDraw

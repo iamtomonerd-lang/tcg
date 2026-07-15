@@ -166,10 +166,10 @@ export interface PendingDraw {
   originAttackPlayer?: number; // which player is attacking (for search_deck from attack)
 }
 
-export interface PendingRockPaperScissors {
-  rocksChoices?: (0 | 1 | 2)[]; // 0=rock, 1=paper, 2=scissors; undefined = awaiting choice
-  p0Choice?: 0 | 1 | 2; // temporary storage for player 0's choice while waiting for player 1
-  decidingPlayer: number; // player who must choose order (0 or 1) after winning RPS
+export interface PendingDiceRoll {
+  p0Roll?: number; // Player 0's dice roll (1-6); undefined = awaiting roll
+  p1Roll?: number; // Player 1's dice roll (1-6); undefined = awaiting roll
+  winner?: number; // Player who won the dice roll (0 or 1); determines order choice
 }
 
 export interface PendingMulligan {
@@ -221,8 +221,7 @@ export interface GameState {
   phase: GamePhase;
   battle: BattleState | null;
   result: { winner: number | null } | null;
-  decideFirstPlayerPlayer?: number | null; // if set, this player decides who goes first
-  pendingRockPaperScissors?: PendingRockPaperScissors | null; // if set, in initial RPS or order-choosing phase
+  pendingDiceRoll?: PendingDiceRoll | null; // if set, in initial dice roll phase or order-choosing phase
   pendingFlash?: PendingFlash | null; // if set, opponent has a flash opportunity
   pendingAttack?: PendingAttack | null; // if set, defending player can choose to block
   pendingDraw?: PendingDraw | null; // if set, player must select card(s) from opened deck
@@ -234,8 +233,8 @@ export interface GameState {
 }
 
 export type Action =
-  | { type: 'rock_paper_scissors'; choice: 0 | 1 | 2 } // 0=rock, 1=paper, 2=scissors
-  | { type: 'choose_order'; goFirst: boolean } // winner chooses to go first or second
+  | { type: 'dice_roll'; roll: 1 | 2 | 3 | 4 | 5 | 6 } // Player rolls 1-6 dice
+  | { type: 'choose_order'; goFirst: boolean } // Winner chooses to go first or second
   | { type: 'summon'; handIndex: number; targetNexusIndex?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean }
   | { type: 'add_core'; spiritIndex?: number; nexusIndex?: number; coreType?: 'regular' | 'soul' } // move 1 core from reserve onto a spirit or nexus (level-up)
   | {
