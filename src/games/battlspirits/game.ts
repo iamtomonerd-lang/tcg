@@ -367,16 +367,39 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
   }
 
-  /** Remove all spirits that have 0 cores (not destruction, no effects triggered) */
+  /** Remove all spirits that have fewer cores than required (not destruction, no effects triggered) */
   private removeDeadSpirits(state: GameState, playerIndex: number): void {
     const player = state.players[playerIndex]!;
     for (let i = player.spirits.length - 1; i >= 0; i--) {
       const spirit = player.spirits[i]!;
-      if (spirit.coreCount === 0 && spirit.soulCoreCount === 0) {
+      const totalCores = spirit.coreCount + spirit.soulCoreCount;
+      if (totalCores < spirit.def.lv1.cost) {
         removeDeadSpirit(player, i);
         fixupSpiritIndicesAfterRemoval(state, playerIndex, i);
       }
     }
+  }
+
+  /** Check if spirit needs depletion confirmation (main phase only) */
+  private checkSpiritDepletionInMainPhase(state: GameState, playerIndex: number): boolean {
+    if (state.phase !== 'main') return false;
+
+    const player = state.players[playerIndex]!;
+    for (let i = 0; i < player.spirits.length; i++) {
+      const spirit = player.spirits[i]!;
+      const totalCores = spirit.coreCount + spirit.soulCoreCount;
+      if (totalCores < spirit.def.lv1.cost) {
+        // Set pending depletion for this spirit
+        state.pendingSpiritDepletion = {
+          spiritIndex: i,
+          spiritCard: spirit.def,
+          requiredCores: spirit.def.lv1.cost,
+          currentCores: totalCores,
+        };
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Remove all nexuses that have fewer cores than required (depleted — 消滅, no effects triggered) */
@@ -526,6 +549,22 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         for (let i = 0; i < me.nexuses.length; i++) {
           actions.push({ type: 'add_core', nexusIndex: i });
         }
+      }
+
+      return actions;
+    }
+
+    // Spirit depletion confirmation: user can add cores to cancel, or confirm to deplete
+    if (state.pendingSpiritDepletion) {
+      const actions: Action[] = [
+        { type: 'confirm_spirit_depletion', proceed: true }, // Proceed with depletion
+      ];
+
+      // Allow adding cores to cancel depletion
+      const me = state.players[state.currentPlayer]!;
+      const totalCores = this.getTotalAvailableCores(me);
+      if (totalCores > 0) {
+        actions.push({ type: 'add_core', spiritIndex: state.pendingSpiritDepletion.spiritIndex });
       }
 
       return actions;
@@ -1183,8 +1222,20 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           toPlace -= 1;
         }
 
-        // A spirit that could not receive any maintenance core is immediately depleted (消滅)
-        if (placedRegular + placedSoul === 0 && card.lv1.cost > 0) {
+        // A spirit that could not receive all required maintenance cores needs confirmation in main phase
+        const totalCoresPlaced = placedRegular + placedSoul;
+        if (totalCoresPlaced < card.lv1.cost) {
+          // In main phase, ask player before depleting
+          if (next.phase === 'main') {
+            next.pendingSpiritDepletion = {
+              spiritIndex: me.spirits.length, // will be added after confirmation
+              spiritCard: card,
+              requiredCores: card.lv1.cost,
+              currentCores: totalCoresPlaced,
+            };
+            return next; // Stop here, player must confirm
+          }
+          // In other phases, auto-deplete
           me.trash.push(card);
           break;
         }
@@ -1269,6 +1320,32 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         next = triggerEffects(next, 'summon', card, next.currentPlayer, newSpiritIndex, undefined, undefined, undefined, undefined, undefined, newSpirit.level);
         break;
       }
+      case 'confirm_spirit_depletion': {
+        if (!next.pendingSpiritDepletion) return next;
+
+        const { proceed } = action;
+        const pending = next.pendingSpiritDepletion;
+        const me = next.players[next.currentPlayer]!;
+
+        next.pendingSpiritDepletion = null;
+
+        if (proceed) {
+          // User confirmed: deplete the spirit
+          const spirit = me.spirits[pending.spiritIndex];
+          if (spirit) {
+            removeDeadSpirit(me, pending.spiritIndex);
+            fixupSpiritIndicesAfterRemoval(next, next.currentPlayer, pending.spiritIndex);
+          }
+
+          // Check if more spirits need depletion
+          if (this.checkSpiritDepletionInMainPhase(next, next.currentPlayer)) {
+            return next; // More depletion confirmations needed
+          }
+        }
+        // If user cancelled (by adding core), spirit was already placed and core added
+        break;
+      }
+
       case 'confirm_nexus_depletion': {
         if (!next.pendingNexusDepletion) return next;
 
@@ -1293,6 +1370,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // If spell chain is pending and user adds core, clear it (cancels destruction)
         if (next.pendingSpellChain) {
           next.pendingSpellChain = null;
+        }
+
+        // If spirit depletion is pending and user adds core, clear it (cancels depletion)
+        if (next.pendingSpiritDepletion) {
+          next.pendingSpiritDepletion = null;
         }
 
         // If nexus depletion is pending and user adds core, clear it (cancels depletion)
@@ -1356,6 +1438,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           // Check if nexus still meets minimum core requirement (after core movement)
           // This only checks existing nexuses; newly placed nexuses are handled in place_nexus
         }
+
+        // Check if any spirits meet depletion condition in main phase
+        if (this.checkSpiritDepletionInMainPhase(next, next.currentPlayer)) {
+          return next; // Stop here, player must confirm depletion
+        }
+
         break;
       }
       case 'move_core': {
@@ -1453,6 +1541,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Spirits/nexuses that lost their last core are depleted (消滅 — no destroy effects)
         this.removeDeadSpirits(next, next.currentPlayer);
         this.removeDeadNexuses(next, next.currentPlayer);
+
+        // Check if any spirits meet depletion condition in main phase
+        if (this.checkSpiritDepletionInMainPhase(next, next.currentPlayer)) {
+          return next; // Stop here, player must confirm depletion
+        }
+
         break;
       }
       case 'place_nexus': {
@@ -2055,6 +2149,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const targets = [...spiritNames, ...nexusNames].join('、');
         return `${targets}の消滅を実行`;
       }
+      case 'confirm_spirit_depletion': {
+        if (!state.pendingSpiritDepletion) return '?';
+        const pending = state.pendingSpiritDepletion;
+        if (!action.proceed) return '?'; // Should not happen now
+        return `${pending.spiritCard.name}を消滅させる（コア: ${pending.currentCores}/${pending.requiredCores}）`;
+      }
       case 'confirm_nexus_depletion': {
         if (!state.pendingNexusDepletion) return '?';
         const pending = state.pendingNexusDepletion;
@@ -2099,6 +2199,7 @@ function cloneState(state: GameState): GameState {
       : null,
     pendingMulligan: state.pendingMulligan ? { ...state.pendingMulligan } : null,
     pendingSpellChain: state.pendingSpellChain ? { ...state.pendingSpellChain } : null,
+    pendingSpiritDepletion: state.pendingSpiritDepletion ? { ...state.pendingSpiritDepletion } : null,
     pendingNexusDepletion: state.pendingNexusDepletion ? { ...state.pendingNexusDepletion } : null,
   };
 }

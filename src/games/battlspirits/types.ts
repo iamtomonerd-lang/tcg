@@ -184,6 +184,13 @@ export interface PendingSpellChain {
   destructedNexusIndices: number[]; // indices of nexuses that will be destroyed
 }
 
+export interface PendingSpiritDepletion {
+  spiritIndex: number; // index of the spirit that will be depleted
+  spiritCard: CardDef; // card definition of the spirit
+  requiredCores: number; // required Lv1 cost
+  currentCores: number; // current cores (regular + soul)
+}
+
 export interface PendingNexusDepletion {
   nexusIndex: number; // index of the nexus that will be depleted
   nexusCard: CardDef; // card definition of the nexus
@@ -210,6 +217,7 @@ export interface GameState {
   pendingDraw?: PendingDraw | null; // if set, player must select card(s) from opened deck
   pendingMulligan?: PendingMulligan | null; // if set, a player must decide to keep or redraw their opening hand
   pendingSpellChain?: PendingSpellChain | null; // if set, confirm if summon effects should destroy opponent's spirits/nexuses
+  pendingSpiritDepletion?: PendingSpiritDepletion | null; // if set, confirm if spirit should be depleted or player adds core
   pendingNexusDepletion?: PendingNexusDepletion | null; // if set, confirm if nexus should be depleted or player adds core
 }
 
@@ -237,4 +245,5 @@ export type Action =
   | { type: 'select_draw_arrange'; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; cardIndices?: number[] } // arrange and select cards for offering draw
   | { type: 'mulligan'; redraw: boolean } // opening hand: keep as-is, or shuffle it back and redraw (no selection)
   | { type: 'confirm_spell_chain'; proceed: boolean } // confirm if summon effects should destroy opponent's spirits/nexuses (true=proceed, false=cancel)
+  | { type: 'confirm_spirit_depletion'; proceed: boolean } // confirm if spirit should be depleted (true=deplete, false=cancel)
   | { type: 'confirm_nexus_depletion'; proceed: boolean }; // confirm if nexus should be depleted (true=deplete, false=cancel)
