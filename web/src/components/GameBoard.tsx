@@ -955,6 +955,92 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         </div>
       )}
 
+      {/* ===== Rock-paper-scissors phase ===== */}
+      {!isTerminal && state.pendingRockPaperScissors && state.pendingRockPaperScissors.rocksChoices === undefined && playerTypes[state.currentPlayer] === 'human' && (
+        <div className="game-over">
+          <div className="game-over-content rps-content" style={{ textAlign: 'center', padding: '2rem' }}>
+            <h3 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>じゃんけん - あなたの番です</h3>
+            <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', color: '#666' }}>
+              ロック、ペーパー、シザーズのいずれかを選んでください
+            </p>
+            <div className="rps-buttons" style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {legalActions.map((action) => (
+                <button
+                  key={action.index}
+                  onClick={() => executeAction(action.index)}
+                  disabled={isBusy}
+                  style={{
+                    padding: '1rem 1.5rem',
+                    fontSize: '1.1rem',
+                    fontWeight: 600,
+                    backgroundColor: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    minWidth: '140px',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.target as HTMLButtonElement).style.backgroundColor = '#45a049';
+                    (e.target as HTMLButtonElement).style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.target as HTMLButtonElement).style.backgroundColor = '#4CAF50';
+                    (e.target as HTMLButtonElement).style.transform = 'scale(1)';
+                  }}
+                >
+                  {action.description}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Order choice phase ===== */}
+      {!isTerminal && state.pendingRockPaperScissors && state.pendingRockPaperScissors.decidingPlayer >= 0 && playerTypes[state.pendingRockPaperScissors.decidingPlayer] === 'human' && (
+        <div className="game-over">
+          <div className="game-over-content order-choice-content" style={{ textAlign: 'center', padding: '2rem' }}>
+            <h3 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>あなたが勝ちました！</h3>
+            <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', color: '#666' }}>
+              先手と後手のどちらを選びますか？
+            </p>
+            <div className="order-buttons" style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {legalActions.map((action) => (
+                <button
+                  key={action.index}
+                  onClick={() => executeAction(action.index)}
+                  disabled={isBusy}
+                  style={{
+                    padding: '1rem 1.5rem',
+                    fontSize: '1.1rem',
+                    fontWeight: 600,
+                    backgroundColor: '#2196F3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    minWidth: '160px',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.target as HTMLButtonElement).style.backgroundColor = '#0b7dda';
+                    (e.target as HTMLButtonElement).style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.target as HTMLButtonElement).style.backgroundColor = '#2196F3';
+                    (e.target as HTMLButtonElement).style.transform = 'scale(1)';
+                  }}
+                >
+                  {action.description}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ===== Opening hand mulligan overlay ===== */}
       {!isTerminal && state.pendingMulligan && playerTypes[state.pendingMulligan.player] === 'human' && (
         <div className="game-over">
