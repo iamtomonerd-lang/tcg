@@ -1,6 +1,6 @@
 import type { Game, Rng } from '../../core/game.js';
 import { CARD_DB, getStarterDeck } from './cards.js';
-import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack } from './types.js';
+import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef } from './types.js';
 import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit } from './effects.js';
 
 /**
@@ -1402,6 +1402,53 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const spirit = me.spirits[action.spiritIndex];
         if (!spirit || !spirit.canAttack) return next;
 
+        // Check for search_deck effects that require user selection (before triggering other effects)
+        const searchDeckEffect = spirit.def.effects?.find(e =>
+          e.trigger === 'attack' &&
+          e.action === 'search_deck' &&
+          (!e.level || e.level.includes(spirit.level))
+        );
+
+        if (searchDeckEffect) {
+          // Open cards from deck for user selection
+          const me = next.players[next.currentPlayer]!;
+          const openCount = Math.min(searchDeckEffect.value ?? 2, me.deck.length);
+          const openedCards: CardDef[] = [];
+          for (let i = 0; i < openCount; i++) {
+            openedCards.push(me.deck.shift()!);
+          }
+
+          // Identify selectable cards (by symbol if specified)
+          const selectableIndices: number[] = [];
+          for (let i = 0; i < openedCards.length; i++) {
+            const c = openedCards[i]!;
+            const hasSymbol = !searchDeckEffect.symbol || c.lineage?.includes(searchDeckEffect.symbol);
+            if (hasSymbol) {
+              selectableIndices.push(i);
+            }
+          }
+
+          // Identify remaining cards (non-selectable)
+          const toRearrangeIndices: number[] = [];
+          for (let i = 0; i < openedCards.length; i++) {
+            if (!selectableIndices.includes(i)) {
+              toRearrangeIndices.push(i);
+            }
+          }
+
+          // Set pending draw for player to select cards (max 1 for attack search_deck)
+          next.pendingDraw = {
+            openedCards,
+            toHandIndices: selectableIndices,
+            toRearrangeIndices,
+            selectableIndices,
+            castCard: spirit.def,
+            maxSelectable: searchDeckEffect.count ?? 1,
+            returnDestination: 'trash', // attack search_deck cards go to trash, not deck bottom
+          };
+          return next; // Stop here, player must select cards
+        }
+
         // Trigger attack effects (may boost BP, place cores, etc.), passing discardCardIndex/effectTargetIndex if provided
         next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, action.spiritIndex, action.effectTargetIndex, undefined, action.discardCardIndex, undefined, undefined, spirit.level);
 
@@ -1451,16 +1498,27 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           me.hand.push(pd.openedCards[idx]!);
         }
 
-        // Put rearranged cards back to deck bottom in specified order
-        for (const idx of arrangedIndices) {
-          me.deck.push(pd.openedCards[idx]!);
-        }
+        // Handle remaining cards based on returnDestination
+        if (pd.returnDestination === 'trash') {
+          // For attack search_deck: remaining cards go to trash (no rearrangement)
+          const usedIndices = new Set(selectedIndices);
+          for (let i = 0; i < pd.openedCards.length; i++) {
+            if (!usedIndices.has(i)) {
+              me.trash.push(pd.openedCards[i]!);
+            }
+          }
+        } else {
+          // For magic_offering_draw: rearrange and put back to deck bottom
+          for (const idx of arrangedIndices) {
+            me.deck.push(pd.openedCards[idx]!);
+          }
 
-        // Remaining cards go to trash
-        const usedIndices = new Set([...selectedIndices, ...arrangedIndices]);
-        for (let i = 0; i < pd.openedCards.length; i++) {
-          if (!usedIndices.has(i)) {
-            me.trash.push(pd.openedCards[i]!);
+          // Any remaining cards (not selected or rearranged) go to trash
+          const usedIndices = new Set([...selectedIndices, ...arrangedIndices]);
+          for (let i = 0; i < pd.openedCards.length; i++) {
+            if (!usedIndices.has(i)) {
+              me.trash.push(pd.openedCards[i]!);
+            }
           }
         }
 

@@ -1067,7 +1067,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             {state.pendingDraw.toHandIndices.length > 0 && (
               <div className="offering-section">
                 <div className="offering-section-title">
-                  手札に追加するカード（最大2枚選択）
+                  手札に追加するカード（最大{state.pendingDraw.maxSelectable ?? 2}枚選択）
                   {state.pendingDraw.selectableIndices && state.pendingDraw.selectableIndices.length < state.pendingDraw.toHandIndices.length && (
                     <span className="offering-filter-hint">※ 系統「風牙」のみ</span>
                   )}
@@ -1077,7 +1077,8 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                     const card = state.pendingDraw.openedCards[idx];
                     const isSelectable = !state.pendingDraw.selectableIndices || state.pendingDraw.selectableIndices.includes(idx);
                     const isSelected = selectedHandIndices.has(idx);
-                    const canSelect = isSelectable && (isSelected || selectedHandIndices.size < 2);
+                    const maxSelectable = state.pendingDraw.maxSelectable ?? 2;
+                    const canSelect = isSelectable && (isSelected || selectedHandIndices.size < maxSelectable);
                     return (
                       <div
                         key={`hand-${idx}`}
@@ -1109,7 +1110,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
               </div>
             )}
 
-            {state.pendingDraw.toRearrangeIndices.length > 0 && (
+            {state.pendingDraw.toRearrangeIndices.length > 0 && state.pendingDraw.returnDestination !== 'trash' && (
               <div className="offering-section">
                 <div className="offering-section-title">山札下に戻すカード（↑↓で順序変更）</div>
                 <div className="offering-arrange">
