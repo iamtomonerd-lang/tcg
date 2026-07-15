@@ -496,7 +496,7 @@ export const CARD_DB: Record<string, CardDef> = {
     cost: 4,
     reductionCost: 2,
     symbolCount: 0,
-    symbolColors: [],
+    symbolColors: ['red'],
     lineage: ['風牙'],
     inheritance: true,
     skill: '継召',
