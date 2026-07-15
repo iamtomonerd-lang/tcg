@@ -535,6 +535,7 @@ export const CARD_DB: Record<string, CardDef> = {
     symbolColors: ['red'],
     lineage: ['風牙'],
     exSymbol: true,
+    skill: 'ソウルマジック：赤',
     cardSet: '26RSD01 バトスピエントリーデッキ 赫焔ノ風牙',
     imagePath: 'assets/cards/magic_flame_hurricane.png',
     lv1: { cost: 0, bp: 0, coreType: 'ソウルコア' },
