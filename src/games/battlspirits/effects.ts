@@ -49,9 +49,9 @@ export function destroySpirit(owner: PlayerState, spiritIndex: number): Spirit |
   if (!spirit) return undefined;
   owner.spirits.splice(spiritIndex, 1);
   owner.trash.push(spirit.def);
-  // Send cores to trash (will return to reserve at refresh)
-  owner.trashCores += spirit.coreCount;
-  owner.trashSoulCores += spirit.soulCoreCount;
+  // Return cores to reserve immediately
+  owner.cores += spirit.coreCount;
+  owner.soulCores += spirit.soulCoreCount;
   return spirit;
 }
 
