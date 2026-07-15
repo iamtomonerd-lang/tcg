@@ -7,8 +7,7 @@ import type { CardDef, CardEffect, GameState, PendingAttack, PlayerState, Spirit
 /**
  * Recompute a spirit's level from the cores placed on it.
  * lv2.cost is the total number of cores required to be at Lv2.
- * If lv2.coreType is 'ソウルコア', uses soul cores for leveling.
- * If the spirit has 真界放 skill, it can reach Lv2 with soul cores only.
+ * If the spirit has 真界放 skill, it reaches Lv2 with: soul core >= 1 OR total cores >= lv2.cost
  */
 export function updateSpiritLevel(spirit: Spirit): void {
   if (!spirit.def.lv2) {
@@ -16,19 +15,22 @@ export function updateSpiritLevel(spirit: Spirit): void {
     return;
   }
 
-  // Check if spirit has 真界放 skill (Shinkaihou: can reach Lv2 with soul cores only)
+  // Check if spirit has 真界放 skill
   const hasShinkaihouSkill = spirit.def.skill === '真界放';
 
   if (hasShinkaihouSkill) {
-    // 真界放: ソウルコアのみで Lv2 に到達（通常コアは不要）
-    if (spirit.soulCoreCount >= spirit.def.lv2.cost) {
+    // 真界放: ソウルコア1個、または合計コア数でLv2判定
+    const hasSoulCore = spirit.soulCoreCount >= 1;
+    const totalCores = spirit.coreCount + spirit.soulCoreCount;
+    const meetsCoreCost = totalCores >= spirit.def.lv2.cost;
+
+    if (hasSoulCore || meetsCoreCost) {
       spirit.level = 2;
     } else {
       spirit.level = 1;
     }
   } else {
     // Default: Total cores (regular + soul) determine Lv2
-    // Soul core and regular core have equal effect
     const totalCores = spirit.coreCount + spirit.soulCoreCount;
     if (totalCores >= spirit.def.lv2.cost) {
       spirit.level = 2;
