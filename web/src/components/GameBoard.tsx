@@ -165,22 +165,22 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
 
   // Auto-roll dice during dice roll phase
   useEffect(() => {
-    if (!state || isBusy || !state.pendingDiceRoll || state.pendingDiceRoll.winner !== undefined) {
-      return;
-    }
+    if (!state || isBusy) return;
+    if (!state.pendingDiceRoll || state.pendingDiceRoll.winner !== undefined) return;
+    if (legalActions.length === 0) return;
 
-    // Auto-play dice roll: randomly choose 1-6
+    // Check if there are dice roll actions available
+    const diceActions = legalActions.filter((a) => a.action?.type === 'dice_roll');
+    if (diceActions.length === 0) return;
+
+    // Auto-play dice roll: randomly choose 1-6 after 1 second
     const timer = setTimeout(() => {
-      const legalActionsForDice = legalActions.filter((a) => a.action?.type === 'dice_roll');
-      if (legalActionsForDice.length > 0) {
-        const randomIndex = Math.floor(Math.random() * legalActionsForDice.length);
-        const actionToExecute = legalActions.indexOf(legalActionsForDice[randomIndex]);
-        executeAction(actionToExecute);
-      }
-    }, 1000); // 1秒後に自動実行
+      const randomDiceAction = diceActions[Math.floor(Math.random() * diceActions.length)];
+      executeAction(randomDiceAction.index);
+    }, 1000);
 
     return () => clearTimeout(timer);
-  }, [state?.pendingDiceRoll, legalActions, isBusy]);
+  }, [state?.pendingDiceRoll?.winner, state?.pendingDiceRoll?.p0Roll, state?.pendingDiceRoll?.p1Roll, legalActions.length, isBusy, sessionId]);
 
   const playAITurn = async () => {
     if (isBusy) return;
