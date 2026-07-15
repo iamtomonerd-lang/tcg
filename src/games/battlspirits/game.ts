@@ -2082,17 +2082,18 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Trigger attack effects (may boost BP, place cores, etc.), passing discardCardIndex/effectTargetIndex if provided
-        // This EXCLUDES search_deck, which requires user selection and will be handled after the user selects cards
-        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, action.spiritIndex, action.effectTargetIndex, undefined, action.discardCardIndex, undefined, undefined, spirit.level, undefined, undefined, ['search_deck']);
+        // This EXCLUDES search_deck (requires user selection) and flash effects (need user activation)
+        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, action.spiritIndex, action.effectTargetIndex, undefined, action.discardCardIndex, 'main', undefined, spirit.level, undefined, undefined, ['search_deck']);
 
         // Remove spirits that lost their cores during attack effects
         this.removeDeadSpirits(next, next.currentPlayer);
 
         // Nexus "attack"-trigger effects (e.g. buffs during my attack step)
+        // Flash effects are excluded and handled in flash window
         const attackerNow = next.players[next.currentPlayer]!;
         for (let ni = 0; ni < attackerNow.nexuses.length; ni++) {
           const nexus = attackerNow.nexuses[ni]!;
-          next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, action.spiritIndex, undefined, undefined, undefined, undefined, undefined, nexus.level, ni);
+          next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, action.spiritIndex, undefined, undefined, undefined, 'main', undefined, nexus.level, ni);
         }
 
         // If there's a search_deck effect, wait for user to select cards before proceeding to pendingAttack
