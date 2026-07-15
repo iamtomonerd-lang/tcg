@@ -741,7 +741,19 @@ function serializeState(state: GameState) {
       trash: {
         count: p.trash.length,
         hasEXSymbol: p.trash.some((c) => c.exSymbol),
+        cards: p.trash.map((c) => ({
+          id: c.id,
+          name: c.name,
+          cost: c.cost,
+          imagePath: c.imagePath,
+        })),
       },
+      bottomDeckCards: p.bottomDeckCards.map((c) => ({
+        id: c.id,
+        name: c.name,
+        cost: c.cost,
+        imagePath: c.imagePath,
+      })),
     })),
     currentPlayer: state.currentPlayer,
     turnCount: state.turnCount,
