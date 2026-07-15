@@ -966,7 +966,31 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
 
         <div className="side-actions">
           {/* Mulligan selection (opening hand confirmation) */}
-          {legalActions.some(a => a.description.includes('維持') || a.description.includes('引き直す')) ? (
+          {legalActions.some(a => a.action?.type === 'dice_roll') ? (
+            <>
+              <div className="side-actions-title">
+                🎲 サイコロを振る
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#333', marginBottom: '0.8rem', padding: '0.6rem', backgroundColor: '#f0f0f0', borderRadius: '4px', lineHeight: '1.5' }}>
+                サイコロ（1-6）を選んでください。
+                <br />
+                大きい数が勝ちです！
+              </div>
+              <div className="action-buttons">
+                {legalActions.map((action) => (
+                  <button
+                    key={action.index}
+                    className="action-button"
+                    onClick={() => executeAction(action.index)}
+                    disabled={isBusy}
+                    style={{ marginBottom: '0.3rem', backgroundColor: '#4ecdc4', borderColor: '#2a9b8e' }}
+                  >
+                    🎲 {action.description}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : legalActions.some(a => a.description.includes('維持') || a.description.includes('引き直す')) ? (
             <>
               <div className="side-actions-title">
                 🎲 初手確認
