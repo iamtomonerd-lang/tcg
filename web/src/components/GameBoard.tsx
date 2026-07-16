@@ -175,8 +175,12 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
   useEffect(() => {
     if (state?.pendingDiceRoll) {
       console.log(`[GameBoard Render] DiceRoll State: p0Roll=${state.pendingDiceRoll.p0Roll}, p1Roll=${state.pendingDiceRoll.p1Roll}, winner=${state.pendingDiceRoll.winner}`);
+    } else if (!isTerminal && state?.pendingMulligan) {
+      console.log(`[GameBoard Render] Mulligan phase - no pendingDiceRoll`);
+    } else if (!isTerminal && !state?.pendingDiceRoll && !state?.pendingMulligan) {
+      console.log(`[GameBoard Render] Regular game phase`);
     }
-  }, [state?.pendingDiceRoll?.p0Roll, state?.pendingDiceRoll?.p1Roll, state?.pendingDiceRoll?.winner]);
+  }, [state?.pendingDiceRoll, state?.pendingMulligan, isTerminal]);
 
   // Auto-trigger dice roll phase if needed (server handles actual rolling)
   useEffect(() => {
@@ -1332,7 +1336,13 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       )}
 
       {/* ===== Dice roll overlay ===== */}
-      {!isTerminal && state.pendingDiceRoll && !state.pendingMulligan && (
+      {(() => {
+        const shouldShow = !isTerminal && state.pendingDiceRoll && !state.pendingMulligan;
+        if (shouldShow) {
+          console.log(`[GameBoard Overlay] Rendering dice overlay with p0Roll=${state.pendingDiceRoll.p0Roll}, p1Roll=${state.pendingDiceRoll.p1Roll}, winner=${state.pendingDiceRoll.winner}`);
+        }
+        return shouldShow;
+      })() && (
         <div className="game-over">
           <div className="game-over-content dice-roll-content" style={{
             padding: '3rem 2rem',
