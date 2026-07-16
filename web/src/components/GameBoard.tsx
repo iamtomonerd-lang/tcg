@@ -1154,7 +1154,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       )}
 
       {/* ===== Dice roll overlay ===== */}
-      {!isTerminal && state.pendingDiceRoll && (
+      {!isTerminal && state.pendingDiceRoll && !state.pendingMulligan && (
         <div className="game-over">
           <div className="game-over-content dice-roll-content" style={{
             padding: '3rem 2rem',
