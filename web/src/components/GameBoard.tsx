@@ -11,6 +11,7 @@ interface GameBoardProps {
 interface LegalAction {
   index: number;
   description: string;
+  action?: any; // raw action object from server (type, handIndex, targetSpiritIndex, coreType, ...)
 }
 
 export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardProps) {
@@ -36,7 +37,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     cardName: string;
     useInheritance?: boolean;
     hasInheritance?: boolean;
+    soulOnly?: boolean; // Soul Magic soul-core payment: only soul cores accepted
   } | null>(null);
+  // When a dragged card has multiple distinct plays (different targets / payment
+  // modes), the player must choose one — never auto-pick the first
+  const [pendingActionChoice, setPendingActionChoice] = useState<{ card: any; options: LegalAction[] } | null>(null);
   const [selectedCardImage, setSelectedCardImage] = useState<{ imagePath: string; name: string } | null>(null);
   const [trashViewPlayer, setTrashViewPlayer] = useState<number | null>(null);
   const [bottomDeckViewPlayer, setBottomDeckViewPlayer] = useState<number | null>(null);
@@ -338,11 +343,61 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     }
   };
 
+  // Start executing a card-play action: fetch its cost, then either open the
+  // core payment panel or execute immediately
+  const beginCardAction = (actionEntry: LegalAction, card: any) => {
+    const soulOnly = actionEntry.action?.coreType === 'soul';
+    const checkCost = async () => {
+      try {
+        const response = await fetch(`/api/game/${sessionId}/action-cost`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ actionIndex: actionEntry.index }),
+        });
+        const data = await response.json();
+        const cost = data.cost ?? 0;
+
+        if (cost > 0) {
+          // Enter core payment waiting mode
+          setPendingCoreCost({
+            actionIndex: actionEntry.index,
+            requiredCores: cost,
+            paidRegular: 0,
+            paidSoul: 0,
+            cardName: card.name,
+            useInheritance: card.inheritance ?? false, // Default to using inheritance if available
+            hasInheritance: card.inheritance ?? false,
+            soulOnly,
+          });
+          setError(
+            soulOnly
+              ? `【ソウルコア払い】「${card.name}」はソウルコア（🟣）1個で発動します。ソウルコアをドラッグしてください。`
+              : `【支払うコア】「${card.name}」のコスト${cost}個を支払ってください。通常コア（🟢）またはソウルコア（🟣）をドラッグまたはボタンで選択します。`
+          );
+        } else {
+          // No cost, execute immediately
+          executeAction(actionEntry.index, {});
+        }
+      } catch (err) {
+        console.error('Failed to get action cost:', err);
+        executeAction(actionEntry.index, {});
+      }
+    };
+    checkCost();
+  };
+
   const handleDrop = (dropData: any) => {
     if (!dragData || !isHumanTurn || isBusy) return;
 
     // If we're waiting for core payment, handle core drop
     if (pendingCoreCost && dragData.type === 'core') {
+      // Soul Magic soul-core payment accepts ONLY soul cores
+      if (pendingCoreCost.soulOnly && dragData.coreType !== 'soul') {
+        setError('この支払いはソウルコア（🟣）のみ有効です。');
+        setDragData(null);
+        setSelectedCoreType(null);
+        return;
+      }
       const coreAmount = 1; // Each core is 1
       const coreType = dragData.coreType as 'regular' | 'soul';
       const newPaidRegular = coreType === 'regular' ? pendingCoreCost.paidRegular + coreAmount : pendingCoreCost.paidRegular;
@@ -390,48 +445,40 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     let coreType: 'regular' | 'soul' | undefined = selectedCoreType ?? undefined;
 
     if (dragData.type === 'hand-card' && dragData.card) {
-      // Search for an action involving this card
+      // Collect every playable action for THIS hand card (matched by hand index)
       const cardName = dragData.card.name;
-      matchingAction = legalActions.find((action) =>
-        action.description.includes(cardName)
+      const cardActionTypes = ['summon', 'use_magic', 'place_nexus', 'flash'];
+      let candidates = legalActions.filter(
+        (a) => a.action && cardActionTypes.includes(a.action.type) && a.action.handIndex === dragData.handIndex
       );
+      // Fallback: match by description if the server didn't include action objects
+      if (candidates.length === 0) {
+        const byName = legalActions.find((a) => a.description.includes(cardName));
+        if (byName) candidates = [byName];
+      }
 
-      // If found, check the cost and potentially enter core payment waiting mode
-      if (matchingAction) {
-        const checkCost = async () => {
-          try {
-            const response = await fetch(`/api/game/${sessionId}/action-cost`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ actionIndex: matchingAction.index }),
-            });
-            const data = await response.json();
-            const cost = data.cost ?? 0;
-
-            if (cost > 0) {
-              // Enter core payment waiting mode
-              setPendingCoreCost({
-                actionIndex: matchingAction.index,
-                requiredCores: cost,
-                paidRegular: 0,
-                paidSoul: 0,
-                cardName: dragData.card.name,
-                useInheritance: dragData.card.inheritance ?? false, // Default to using inheritance if available
-                hasInheritance: dragData.card.inheritance ?? false,
-              });
-              setError(`【支払うコア】「${dragData.card.name}」のコスト${cost}個を支払ってください。通常コア（🟢）またはソウルコア（🟣）をドラッグまたはボタンで選択します。`);
-            } else {
-              // No cost, execute immediately
-              executeAction(matchingAction.index, { coreType });
-            }
-          } catch (err) {
-            console.error('Failed to get action cost:', err);
-            executeAction(matchingAction.index, { coreType });
-          }
-        };
-        checkCost();
+      if (candidates.length === 0) {
+        setError('ドラッグ操作は無効です。アクションボタンから実行してください。');
+        setSelectedCoreType(null);
         return;
       }
+
+      // Group by player-visible choice (target / value / payment mode).
+      // Inheritance-only variants collapse into one choice (handled by the payment panel).
+      const choiceKey = (a: LegalAction) =>
+        `${a.action?.targetSpiritIndex ?? ''}|${a.action?.targetNexusIndex ?? ''}|${a.action?.effectValue ?? ''}|${a.action?.coreType ?? ''}`;
+      const distinctKeys = new Set(candidates.map(choiceKey));
+
+      if (distinctKeys.size > 1) {
+        // Multiple targets / payment modes: the player must choose — never auto-pick
+        setPendingActionChoice({ card: dragData.card, options: candidates });
+        setSelectedCoreType(null);
+        return;
+      }
+
+      beginCardAction(candidates[0], dragData.card);
+      setSelectedCoreType(null);
+      return;
     } else if (dragData.type === 'spirit') {
       // For spirit drags (core placement), find add_core action for THIS spirit
       const spiritName = dragData.spirit?.def?.name || dragData.spirit?.name;
@@ -1468,7 +1515,6 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
 
       {/* ===== Offering draw overlay ===== */}
       {!isTerminal && state.pendingDraw && isHumanTurn && (() => {
-        console.log(`[UI] pendingDraw received: openedCards.length=${state.pendingDraw.openedCards.length}, toHandIndices=${JSON.stringify(state.pendingDraw.toHandIndices)}, toRearrangeIndices=${JSON.stringify(state.pendingDraw.toRearrangeIndices)}`);
         return (
         <div className="game-over">
           <div className="game-over-content offering-draw-content">
@@ -1602,6 +1648,50 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         </div>
         );
       })()}
+
+      {/* ===== Card play choice dialog (multiple targets / payment modes) ===== */}
+      {pendingActionChoice && (
+        <div className="game-over" onClick={() => setPendingActionChoice(null)}>
+          <div className="game-over-content" onClick={(e) => e.stopPropagation()}>
+            <h3>🎯 「{pendingActionChoice.card.name}」の使い方を選択</h3>
+            <div style={{ fontSize: '0.9rem', color: '#555', marginBottom: '0.8rem' }}>
+              対象や支払い方法が複数あります。実行する内容を選んでください。
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+              {pendingActionChoice.options.map((opt) => (
+                <button
+                  key={opt.index}
+                  onClick={() => {
+                    const card = pendingActionChoice.card;
+                    setPendingActionChoice(null);
+                    beginCardAction(opt, card);
+                  }}
+                  disabled={isBusy}
+                  style={{
+                    padding: '0.7rem 1rem',
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    backgroundColor: '#1976d2',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    textAlign: 'left',
+                  }}
+                >
+                  {opt.description}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setPendingActionChoice(null)}
+              style={{ padding: '0.5rem 1.2rem', cursor: 'pointer', borderRadius: '6px' }}
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ===== Trash viewing modal ===== */}
       {trashViewPlayer !== null && state && (

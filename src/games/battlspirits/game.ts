@@ -263,8 +263,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       switch (next.phase) {
         case 'start': {
           // Transition to Core phase
-          // Reset damage tracking at start of turn
-          next.players[next.currentPlayer]!.damageThisTurn = 0;
+          // Reset damage tracking for BOTH players — "このターン" refers to the game
+          // turn, and either player may reference their own damage during it
+          next.players[0]!.damageThisTurn = 0;
+          next.players[1]!.damageThisTurn = 0;
           next.phase = 'core';
           break;
         }
@@ -377,9 +379,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
   }
 
-  /** Check if spirit needs depletion confirmation (main phase only) */
+  /** Check if spirit needs depletion confirmation (main steps only — main and main2) */
   private checkSpiritDepletionInMainPhase(state: GameState, playerIndex: number): boolean {
-    if (state.phase !== 'main') return false;
+    if (state.phase !== 'main' && state.phase !== 'main2') return false;
 
     const player = state.players[playerIndex]!;
     for (let i = 0; i < player.spirits.length; i++) {
@@ -557,11 +559,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'use_magic': {
         const card = player.hand[action.handIndex];
         if (!card || card.cardType !== 'magic') return 0;
+        // Soul Magic alternative cost: exactly 1 soul core
+        if (action.coreType === 'soul' && isSoulMagicRedCard(card)) return 1;
         return this.effectiveCost(player, card);
       }
       case 'flash': {
         const card = player.hand[action.handIndex];
         if (!card || card.cardType !== 'magic') return 0;
+        // Soul Magic alternative cost: exactly 1 soul core
+        if (action.coreType === 'soul' && isSoulMagicRedCard(card)) return 1;
         return this.effectiveCost(player, card);
       }
       case 'add_core': {
@@ -589,11 +595,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   /** Does the player have a flash magic card they can actually afford? */
   private hasAffordableFlash(player: PlayerState): boolean {
     const totalCores = this.getTotalAvailableCores(player);
+    const canPaySoulCore = player.soulCores >= 1 || player.spirits.some((s) => s.soulCoreCount > 0);
     return player.hand.some(
       (c) =>
         c.cardType === 'magic' &&
         c.effects?.some((e) => e.trigger === 'immediate' && (e.isFlash || !e.mode || e.mode === 'flash')) &&
-        this.effectiveCost(player, c) <= totalCores,
+        (this.effectiveCost(player, c) <= totalCores ||
+          // Soul Magic alternative cost: 1 soul core
+          (isSoulMagicRedCard(c) && canPaySoulCore)),
     );
   }
 
@@ -753,56 +762,59 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const flashEffects = card.effects?.filter(e => (e.isFlash || !e.mode || e.mode === 'flash')) ?? [];
         if (flashEffects.length === 0) continue;
 
-        // Check if can afford flash cost
-        const flashEffect = flashEffects[0];
-        if (flashEffect?.skill === 'ソウルマジック：赤') {
+        // Check if can afford flash cost; Soul Magic cards have two payment modes
+        const isSoulMagicRed = card.skill === 'ソウルマジック：赤' || flashEffects.some((e) => e.skill === 'ソウルマジック：赤');
+        const canPaySoulCore = me.soulCores >= 1 || me.spirits.some((s) => s.soulCoreCount > 0);
+        const canPayNormalCost = this.effectiveCost(me, card) <= totalCores;
+        const paymentModes: Array<'soul' | 'normal'> = [];
+        if (isSoulMagicRed) {
           // Soul Magic: Red can be paid with:
-          // 1. Soul core: 1 soul core from reserve or spirits
-          // 2. Normal cost: regular cores (6 cores after reduction)
-          const canPaySoulCore = me.soulCores >= 1 || me.spirits.some(s => s.soulCoreCount > 0);
-          const canPayNormalCost = this.effectiveCost(me, card) <= totalCores;
-          if (!canPaySoulCore && !canPayNormalCost) continue;
-        } else if (this.effectiveCost(me, card) > totalCores) {
-          continue;
+          // 1. Soul core: exactly 1 soul core from reserve or spirits
+          // 2. Normal cost: regular cores (after reduction) — casts as plain magic
+          if (canPaySoulCore) paymentModes.push('soul');
+          if (canPayNormalCost) paymentModes.push('normal');
+          if (paymentModes.length === 0) continue;
+        } else {
+          if (!canPayNormalCost) continue;
+          paymentModes.push('normal');
         }
 
         const destroyEffect = flashEffects.find((e) => e.action === 'destroy_creature');
         const boostEffect = flashEffects.find((e) => e.action === 'boost_bp' && e.requiresTarget);
 
-        if (destroyEffect && destroyEffect.requiresTarget) {
-          // Condition gate (e.g. フレイムハリケーン requires a red symbol on the field)
-          if (destroyEffect.condition?.requiresSymbol) {
-            const color = destroyEffect.condition.requiresSymbol;
-            const hasSymbol =
-              me.spirits.some((s) => s.def.symbolColors?.includes(color)) ||
-              me.nexuses.some((n) => n.def.symbolColors?.includes(color));
-            if (!hasSymbol) continue;
+        const hasSymbolOnField = (color: string) =>
+          me.spirits.some((s) => s.def.symbolColors?.includes(color)) ||
+          me.nexuses.some((n) => n.def.symbolColors?.includes(color));
+
+        for (const mode of paymentModes) {
+          const coreType = isSoulMagicRed && mode === 'soul' ? ('soul' as const) : undefined;
+          // Symbol condition gates the soul-core casting only; paying the normal
+          // cost casts it as a plain magic (skipSymbolCheck applies at resolve time)
+          const symbolGateApplies = !isSoulMagicRed || mode === 'soul';
+
+          if (destroyEffect && destroyEffect.requiresTarget) {
+            if (symbolGateApplies && destroyEffect.condition?.requiresSymbol && !hasSymbolOnField(destroyEffect.condition.requiresSymbol)) {
+              continue;
+            }
+            // Target an opponent spirit (no BP limit check - that's just the effect condition)
+            for (let t = 0; t < opponent.spirits.length; t++) {
+              actions.push({ type: 'flash', handIndex: i, targetSpiritIndex: t, coreType });
+            }
+          } else if (destroyEffect) {
+            // destroy_creature without requiresTarget - can use without selection
+            if (symbolGateApplies && destroyEffect.condition?.requiresSymbol && !hasSymbolOnField(destroyEffect.condition.requiresSymbol)) {
+              continue;
+            }
+            actions.push({ type: 'flash', handIndex: i, coreType });
+          } else if (boostEffect) {
+            // Target one of the player's own spirits for the BP boost
+            if (me.spirits.length === 0) continue; // nothing to boost
+            for (let t = 0; t < me.spirits.length; t++) {
+              actions.push({ type: 'flash', handIndex: i, targetSpiritIndex: t, coreType });
+            }
+          } else {
+            actions.push({ type: 'flash', handIndex: i, coreType });
           }
-          // Target an opponent spirit (no BP limit check - that's just the effect condition)
-          let hasTarget = false;
-          for (let t = 0; t < opponent.spirits.length; t++) {
-            actions.push({ type: 'flash', handIndex: i, targetSpiritIndex: t });
-            hasTarget = true;
-          }
-          if (!hasTarget) continue; // no legal target: the flash cannot be declared usefully
-        } else if (destroyEffect) {
-          // destroy_creature without requiresTarget - can use without selection
-          if (destroyEffect.condition?.requiresSymbol) {
-            const color = destroyEffect.condition.requiresSymbol;
-            const hasSymbol =
-              me.spirits.some((s) => s.def.symbolColors?.includes(color)) ||
-              me.nexuses.some((n) => n.def.symbolColors?.includes(color));
-            if (!hasSymbol) continue;
-          }
-          actions.push({ type: 'flash', handIndex: i });
-        } else if (boostEffect) {
-          // Target one of the player's own spirits for the BP boost
-          if (me.spirits.length === 0) continue; // nothing to boost
-          for (let t = 0; t < me.spirits.length; t++) {
-            actions.push({ type: 'flash', handIndex: i, targetSpiritIndex: t });
-          }
-        } else {
-          actions.push({ type: 'flash', handIndex: i });
         }
       }
       // Always can skip flash
@@ -834,7 +846,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     // Normal turn actions: only offer cards the player can actually pay for
     for (let i = 0; i < me.hand.length; i++) {
       const card = me.hand[i]!;
-      if (this.effectiveCost(me, card) > totalCores) continue;
+      // Soul Magic cards have a 1-soul-core alternative cost, so they stay
+      // playable even when the normal cost is unaffordable
+      const isSoulMagicRedCard =
+        card.cardType === 'magic' &&
+        (card.skill === 'ソウルマジック：赤' || card.effects?.some((e) => e.skill === 'ソウルマジック：赤'));
+      const canPaySoulCoreAlt = me.soulCores >= 1 || me.spirits.some((s) => s.soulCoreCount > 0);
+      if (this.effectiveCost(me, card) > totalCores && !(isSoulMagicRedCard && canPaySoulCoreAlt)) continue;
 
       if (card.cardType === 'spirit') {
         // Payment covers only the card's cost, but the player must also be able to
@@ -880,7 +898,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
       } else if (card.cardType === 'magic') {
         // Check if the magic card can be afforded (considering inheritance)
-        let canAfford = false;
+        let canAffordNormal = false;
         let useInheritanceIfAvailable = false;
 
         if (card.inheritance) {
@@ -888,26 +906,30 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           const costWithoutInheritance = this.effectiveCostWithFlag(me, card, false);
 
           if (costWithoutInheritance <= totalCores) {
-            canAfford = true;
+            canAffordNormal = true;
           }
           if (costWithInheritance <= totalCores && costWithInheritance < costWithoutInheritance) {
             useInheritanceIfAvailable = true;
-            canAfford = true;
+            canAffordNormal = true;
           }
         } else {
           const effectiveMagicCost = this.effectiveCost(me, card);
           if (effectiveMagicCost <= totalCores) {
-            canAfford = true;
+            canAffordNormal = true;
           }
         }
 
-        if (!canAfford) continue; // Can't afford this magic card
+        // Soul Magic: Red offers an alternative cost of exactly 1 soul core
+        const paymentModes: Array<'soul' | 'normal'> = [];
+        if (isSoulMagicRedCard && canPaySoulCoreAlt) paymentModes.push('soul');
+        if (canAffordNormal) paymentModes.push('normal');
+        if (paymentModes.length === 0) continue; // Can't afford this magic card
 
         // Filter effects by mode (main phase effects: mode 'main', no mode, or Soul Magic can use flash as main too)
         const mainEffects = card.effects?.filter(e => {
           if (!e.mode || e.mode === 'main') return true;
           // Soul Magic: Red can be used in main phase even though it's marked as flash
-          if (card.skill === 'ソウルマジック：赤' && e.mode === 'flash') return true;
+          if (isSoulMagicRedCard && e.mode === 'flash') return true;
           return false;
         }) ?? [];
         if (mainEffects.length === 0) continue; // No main-phase effects for this card
@@ -918,54 +940,71 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Check if card has effects with variableValue
         const hasVariableEffect = mainEffects.some((e) => e.variableValue) ?? false;
 
-        if (hasDestroyNexusEffect) {
-          // Generate targeting actions for opponent nexuses
-          const opponent = state.players[1 - state.currentPlayer]!;
-          const destroyNexusEffect = mainEffects.find((e) => e.action === 'destroy_nexus' && e.requiresTarget);
-          const excludeSkill = destroyNexusEffect?.condition?.excludeTargetSkill;
-          const validNexusIndices: number[] = [];
+        for (const mode of paymentModes) {
+          const coreType = mode === 'soul' ? ('soul' as const) : undefined;
 
-          for (let t = 0; t < opponent.nexuses.length; t++) {
-            const nexus = opponent.nexuses[t]!;
-            // Exclude Lv2 nexuses and nexuses with excluded skill
-            if (nexus.level !== 2 && (!excludeSkill || nexus.def.skill !== excludeSkill)) {
-              validNexusIndices.push(t);
+          // Symbol condition gates the soul-core casting only; the normal-cost
+          // casting skips the Soul Magic condition (skipSymbolCheck at resolve time)
+          if (mode === 'soul') {
+            const symbolCondEffect = mainEffects.find((e) => e.condition?.requiresSymbol);
+            if (symbolCondEffect?.condition?.requiresSymbol) {
+              const color = symbolCondEffect.condition.requiresSymbol;
+              const hasSymbol =
+                me.spirits.some((s) => s.def.symbolColors?.includes(color)) ||
+                me.nexuses.some((n) => n.def.symbolColors?.includes(color));
+              if (!hasSymbol) continue;
             }
           }
-          if (validNexusIndices.length > 0) {
-            for (const nexusIndex of validNexusIndices) {
-              actions.push({ type: 'use_magic', handIndex: i, targetNexusIndex: nexusIndex, useInheritance: useInheritanceIfAvailable });
+
+          if (hasDestroyNexusEffect) {
+            // Generate targeting actions for opponent nexuses
+            const opponent = state.players[1 - state.currentPlayer]!;
+            const destroyNexusEffect = mainEffects.find((e) => e.action === 'destroy_nexus' && e.requiresTarget);
+            const excludeSkill = destroyNexusEffect?.condition?.excludeTargetSkill;
+            const validNexusIndices: number[] = [];
+
+            for (let t = 0; t < opponent.nexuses.length; t++) {
+              const nexus = opponent.nexuses[t]!;
+              // Exclude Lv2 nexuses and nexuses with excluded skill
+              if (nexus.level !== 2 && (!excludeSkill || nexus.def.skill !== excludeSkill)) {
+                validNexusIndices.push(t);
+              }
+            }
+            if (validNexusIndices.length > 0) {
+              for (const nexusIndex of validNexusIndices) {
+                actions.push({ type: 'use_magic', handIndex: i, targetNexusIndex: nexusIndex, useInheritance: useInheritanceIfAvailable, coreType });
+              }
+            } else {
+              // No valid nexus targets, but card can still be used (effect won't trigger)
+              actions.push({ type: 'use_magic', handIndex: i, useInheritance: useInheritanceIfAvailable, coreType });
+            }
+          } else if (hasOtherTargetEffect) {
+            // Generate targeting actions for opponent spirits
+            const opponent = state.players[1 - state.currentPlayer]!;
+            // Check if there's a destroy_creature effect with BP limit
+            const destroyCEffect = mainEffects.find((e) => e.action === 'destroy_creature' && e.requiresTarget);
+            const bpLimit = destroyCEffect ? destroyCreatureBpLimit(destroyCEffect, me) : undefined;
+            const spiritBp = (sp: Spirit) => {
+              const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
+              return stats.bp + (sp.bpBoost ?? 0) + (sp.bpBoostBattle ?? 0);
+            };
+
+            for (let t = 0; t < opponent.spirits.length; t++) {
+              // Only offer as target if it meets any BP limits from destroy_creature
+              if (!destroyCEffect || bpLimit === undefined || spiritBp(opponent.spirits[t]!) <= bpLimit) {
+                actions.push({ type: 'use_magic', handIndex: i, targetSpiritIndex: t, useInheritance: useInheritanceIfAvailable, coreType });
+              }
+            }
+          } else if (hasVariableEffect) {
+            // Generate variable value actions (0 to max, typically hand size or some reasonable max)
+            const maxValue = Math.min(me.hand.length, 5); // Reasonable max for discards
+            for (let v = 0; v <= maxValue; v++) {
+              actions.push({ type: 'use_magic', handIndex: i, effectValue: v, useInheritance: useInheritanceIfAvailable, coreType });
             }
           } else {
-            // No valid nexus targets, but card can still be used (effect won't trigger)
-            actions.push({ type: 'use_magic', handIndex: i, useInheritance: useInheritanceIfAvailable });
+            // No targeting or variable values needed
+            actions.push({ type: 'use_magic', handIndex: i, useInheritance: useInheritanceIfAvailable, coreType });
           }
-        } else if (hasOtherTargetEffect) {
-          // Generate targeting actions for opponent spirits
-          const opponent = state.players[1 - state.currentPlayer]!;
-          // Check if there's a destroy_creature effect with BP limit
-          const destroyCEffect = mainEffects.find((e) => e.action === 'destroy_creature' && e.requiresTarget);
-          const bpLimit = destroyCEffect ? destroyCreatureBpLimit(destroyCEffect, me) : undefined;
-          const spiritBp = (sp: Spirit) => {
-            const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
-            return stats.bp + (sp.bpBoost ?? 0) + (sp.bpBoostBattle ?? 0);
-          };
-
-          for (let t = 0; t < opponent.spirits.length; t++) {
-            // Only offer as target if it meets any BP limits from destroy_creature
-            if (!destroyCEffect || bpLimit === undefined || spiritBp(opponent.spirits[t]!) <= bpLimit) {
-              actions.push({ type: 'use_magic', handIndex: i, targetSpiritIndex: t, useInheritance: useInheritanceIfAvailable });
-            }
-          }
-        } else if (hasVariableEffect) {
-          // Generate variable value actions (0 to max, typically hand size or some reasonable max)
-          const maxValue = Math.min(me.hand.length, 5); // Reasonable max for discards
-          for (let v = 0; v <= maxValue; v++) {
-            actions.push({ type: 'use_magic', handIndex: i, effectValue: v, useInheritance: useInheritanceIfAvailable });
-          }
-        } else {
-          // No targeting or variable values needed
-          actions.push({ type: 'use_magic', handIndex: i, useInheritance: useInheritanceIfAvailable });
         }
       }
     }
@@ -1171,24 +1210,33 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const card = me.hand[action.handIndex];
       if (!card || card.cardType !== 'magic') return next;
 
-      // Calculate cost
-      const fieldSymbols = this.getFieldSymbols(me);
-      const hasEXInTrash = me.trash.some((c) => c.exSymbol);
-      const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+      const hasSoulMagicRedEffect = isSoulMagicRedCard(card);
+      const soulPayment = hasSoulMagicRedEffect && action.coreType === 'soul';
 
-      // Check if player has enough cores (including from spirits)
-      const totalAvailable = this.getTotalAvailableCores(me);
-      if (actualCost > totalAvailable) return next;
+      if (soulPayment) {
+        // Soul Magic alternative cost: exactly 1 soul core (reserve or spirits)
+        const canPaySoulCore = me.soulCores >= 1 || me.spirits.some((s) => s.soulCoreCount > 0);
+        if (!canPaySoulCore) return next;
+        me.hand.splice(action.handIndex, 1);
+        this.payCost(me, 1, 0, 1);
+      } else {
+        // Calculate normal cost
+        const fieldSymbols = this.getFieldSymbols(me);
+        const hasEXInTrash = me.trash.some((c) => c.exSymbol);
+        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
 
-      // Use the magic card as flash
-      me.hand.splice(action.handIndex, 1);
-      this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+        // Check if player has enough cores (including from spirits)
+        const totalAvailable = this.getTotalAvailableCores(me);
+        if (actualCost > totalAvailable) return next;
+
+        // Use the magic card as flash
+        me.hand.splice(action.handIndex, 1);
+        this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+      }
       this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
       me.trash.push(card);
-      // For Soul Magic Red: skip symbol check if paid with normal cost (not soul core)
-      const hasSoulMagicRedEffect = card.skill === 'ソウルマジック：赤' || card.effects?.some(e => e.skill === 'ソウルマジック：赤');
-      const paidWithNormalCore = (action.paidRegularCores ?? 0) > 0;
-      const skipSymbolCheck = hasSoulMagicRedEffect && paidWithNormalCore;
+      // For Soul Magic Red: skip symbol check when cast with the normal cost (not the soul-core cost)
+      const skipSymbolCheck = hasSoulMagicRedEffect && !soulPayment;
       next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex, undefined, undefined, skipSymbolCheck);
       checkResult(next);
       if (next.result) return next;
@@ -1245,7 +1293,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       if (!defender || !next.pendingAttack) return next;
 
       const pendingAttack = next.pendingAttack;
-      const attacker = next.players[pendingAttack.attackerPlayer]!.spirits[pendingAttack.attackerSpiritIndex]!;
+      const attacker = next.players[pendingAttack.attackerPlayer]!.spirits[pendingAttack.attackerSpiritIndex];
+      if (!attacker) {
+        // Defensive: the attacker no longer exists — cancel the attack instead of crashing
+        next.pendingAttack = null;
+        checkResult(next);
+        return next;
+      }
       const attackerStats = attacker.level === 1 ? attacker.def.lv1 : attacker.def.lv2 || attacker.def.lv1;
       const attackBP = attackerStats.bp + (attacker.bpBoost ?? 0) + (attacker.bpBoostBattle ?? 0);
 
@@ -1310,7 +1364,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       if (!next.pendingAttack) return next;
 
       const opponent = next.players[next.pendingAttack.attackerPlayer]!;
-      const attacker = opponent.spirits[next.pendingAttack.attackerSpiritIndex]!;
+      const attacker = opponent.spirits[next.pendingAttack.attackerSpiritIndex];
+      if (!attacker) {
+        // Defensive: the attacker no longer exists (index went stale through an
+        // unforeseen path) — cancel the attack instead of crashing
+        next.pendingAttack = null;
+        checkResult(next);
+        return next;
+      }
 
       // Attacker becomes fatigued
       attacker.canAttack = false;
@@ -1319,6 +1380,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const damage = next.pendingAttack.damage;
       me.life -= damage;
       me.cores += damage; // Add cores to reserve when taking damage
+      me.damageThisTurn = (me.damageThisTurn ?? 0) + damage; // Soul Magic red condition (ライフが減った)
 
       // Trigger battle_end effects
       next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
@@ -1352,7 +1414,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // 支払うコア: pay only the summon cost (paid cores go to trash)
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
-        this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
+        // Paying from field spirits may drain one to 0 cores: in main phase ask
+        // for confirmation (消滅前の処理) instead of silently removing it. The
+        // confirmation dialog appears after the summon completes; the drained
+        // spirit's index stays valid because the new spirit is appended at the end.
+        const needsPaymentDepletionConfirm = this.checkSpiritDepletionInMainPhase(next, next.currentPlayer);
+        if (!needsPaymentDepletionConfirm) {
+          this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
+        }
 
         // If inheritance was used, remove one EX symbol card from trash
         if (usedInheritance) {
@@ -1915,7 +1984,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // 支払うコア: pay only the placement cost (paid cores go to trash)
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
-        this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
+        // Paying from field spirits may drain one to 0 cores: in main phase ask
+        // for confirmation (消滅前の処理) instead of silently removing it
+        if (!this.checkSpiritDepletionInMainPhase(next, next.currentPlayer)) {
+          this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
+        }
 
         // If inheritance was used, remove one EX symbol card from trash
         if (usedInheritance) {
@@ -1975,37 +2048,51 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const card = me.hand[action.handIndex];
         if (!card || card.cardType !== 'magic') return next;
 
-        // Calculate cost after reductions
-        const fieldSymbols = this.getFieldSymbols(me);
-        const hasEXInTrash = me.trash.some((c) => c.exSymbol);
-        const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
-        const useInheritance = action.useInheritance !== false && !!card.inheritance;
-        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, useInheritance);
-        const usedInheritance = useInheritance && costWithoutInheritance > actualCost && hasEXInTrash;
+        const hasSoulMagicRedEffect = isSoulMagicRedCard(card);
+        const soulPayment = hasSoulMagicRedEffect && action.coreType === 'soul';
 
-        // Check if player has enough cores (including from spirits)
-        const totalAvailable = this.getTotalAvailableCores(me);
-        if (actualCost > totalAvailable) return next;
+        if (soulPayment) {
+          // Soul Magic alternative cost: exactly 1 soul core (reserve or spirits)
+          const canPaySoulCore = me.soulCores >= 1 || me.spirits.some((s) => s.soulCoreCount > 0);
+          if (!canPaySoulCore) return next;
+          me.hand.splice(action.handIndex, 1);
+          this.payCost(me, 1, 0, 1);
+        } else {
+          // Calculate cost after reductions
+          const fieldSymbols = this.getFieldSymbols(me);
+          const hasEXInTrash = me.trash.some((c) => c.exSymbol);
+          const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
+          const useInheritance = action.useInheritance !== false && !!card.inheritance;
+          const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, useInheritance);
+          const usedInheritance = useInheritance && costWithoutInheritance > actualCost && hasEXInTrash;
 
-        // Pay cost using specified regular/soul core distribution
-        me.hand.splice(action.handIndex, 1);
-        this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
-        this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
+          // Check if player has enough cores (including from spirits)
+          const totalAvailable = this.getTotalAvailableCores(me);
+          if (actualCost > totalAvailable) return next;
 
-        // If inheritance was used, remove one EX symbol card from trash
-        if (usedInheritance) {
-          const exIndex = me.trash.findIndex((c) => c.exSymbol);
-          if (exIndex !== -1) {
-            me.trash.splice(exIndex, 1);
+          // Pay cost using specified regular/soul core distribution
+          me.hand.splice(action.handIndex, 1);
+          this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+
+          // If inheritance was used, remove one EX symbol card from trash
+          if (usedInheritance) {
+            const exIndex = me.trash.findIndex((c) => c.exSymbol);
+            if (exIndex !== -1) {
+              me.trash.splice(exIndex, 1);
+            }
           }
+        }
+
+        // Paying from field spirits may drain one to 0 cores: in main phase ask
+        // for confirmation (消滅前の処理) instead of silently removing it
+        if (!this.checkSpiritDepletionInMainPhase(next, next.currentPlayer)) {
+          this.removeDeadSpirits(next, next.currentPlayer);
         }
 
         me.trash.push(card);
 
-        // For Soul Magic Red: skip symbol check if paid with normal cost (not soul core)
-        const hasSoulMagicRedEffect = card.skill === 'ソウルマジック：赤' || card.effects?.some(e => e.skill === 'ソウルマジック：赤');
-        const paidWithNormalCore = (action.paidRegularCores ?? 0) > 0;
-        const skipSymbolCheck = hasSoulMagicRedEffect && paidWithNormalCore;
+        // For Soul Magic Red: skip symbol check when cast with the normal cost (not the soul-core cost)
+        const skipSymbolCheck = hasSoulMagicRedEffect && !soulPayment;
 
         // Special handling for オファーリングドロー
         if (card.id === 'magic_offering_draw') {
@@ -2064,6 +2151,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const spirit = me.spirits[action.spiritIndex];
         if (!spirit || !spirit.canAttack) return next;
 
+        // Official rule: the spirit exhausts (疲労) at attack DECLARATION, not at
+        // battle resolution. This also guarantees a spirit can never re-declare
+        // an attack while its attack is still being processed (search_deck,
+        // target selection, flash windows, ...).
+        spirit.canAttack = false;
+
         // Check for effects that require user selection during attack
         const searchDeckEffect = spirit.def.effects?.find(e =>
           e.trigger === 'attack' &&
@@ -2120,27 +2213,36 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // This EXCLUDES search_deck (requires user selection) and flash effects (need user activation)
         next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, action.spiritIndex, action.effectTargetIndex, undefined, action.discardCardIndex, 'main', undefined, spirit.level, undefined, undefined, ['search_deck']);
 
-        // Remove spirits that lost their cores during attack effects
+        // Remove spirits that lost their cores during attack effects.
+        // This can SHIFT the attacker's index, so re-resolve it by object identity
+        // afterwards — building pendingAttack from the stale action.spiritIndex
+        // pointed battles at the wrong (or a nonexistent) spirit.
+        const attackerBeforeRemoval = next.players[next.currentPlayer]!.spirits[action.spiritIndex];
         this.removeDeadSpirits(next, next.currentPlayer);
+        const attackerIndexNow = attackerBeforeRemoval
+          ? next.players[next.currentPlayer]!.spirits.indexOf(attackerBeforeRemoval)
+          : -1;
+        if (attackerIndexNow === -1) {
+          // The attacker itself was depleted mid-attack: nothing left to resolve
+          return next;
+        }
 
         // Nexus "attack"-trigger effects (e.g. buffs during my attack step)
         // Flash effects are excluded and handled in flash window
         const attackerNow = next.players[next.currentPlayer]!;
         for (let ni = 0; ni < attackerNow.nexuses.length; ni++) {
           const nexus = attackerNow.nexuses[ni]!;
-          next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, action.spiritIndex, undefined, undefined, undefined, 'main', undefined, nexus.level, ni);
+          next = triggerEffects(next, 'attack', nexus.def, next.currentPlayer, attackerIndexNow, undefined, undefined, undefined, 'main', undefined, nexus.level, ni);
         }
 
         // If there's a search_deck effect, wait for user to select cards before proceeding to pendingAttack
         if (searchDeckEffect) {
           const me = next.players[next.currentPlayer]!;
           const openCount = Math.min(searchDeckEffect.value ?? 2, me.deck.length);
-          console.log(`[search_deck] ${spirit.def.name} Lv${spirit.level}: value=${searchDeckEffect.value}, deck.length=${me.deck.length}, openCount=${openCount}`);
           const openedCards: CardDef[] = [];
           for (let i = 0; i < openCount; i++) {
             openedCards.push(me.deck.shift()!);
           }
-          console.log(`[search_deck] Opened ${openedCards.length} cards: ${openedCards.map(c => c.name).join(', ')}`);
 
           // Identify selectable cards (by symbol if specified)
           const selectableIndices: number[] = [];
@@ -2170,7 +2272,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             castCard: spirit.def,
             maxSelectable: searchDeckEffect.count ?? 1,
             returnDestination: 'trash', // attack search_deck cards go to trash, not deck bottom
-            originAttackSpiritIndex: action.spiritIndex, // track that this came from an attack
+            originAttackSpiritIndex: attackerIndexNow, // track that this came from an attack (index re-resolved after removals)
             originAttackPlayer: next.currentPlayer, // track which player is attacking
           };
           return next; // Stop here, player must select cards
@@ -2180,7 +2282,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const damage = spirit.def.symbolCount;
         const pendingAttack: PendingAttack = {
           attackerPlayer: next.currentPlayer,
-          attackerSpiritIndex: action.spiritIndex,
+          attackerSpiritIndex: attackerIndexNow,
           damage,
         };
 
@@ -2414,7 +2516,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'use_magic': {
         let key = `M${action.handIndex}`;
         if (action.targetSpiritIndex !== undefined) key += `T${action.targetSpiritIndex}`;
+        if (action.targetNexusIndex !== undefined) key += `N${action.targetNexusIndex}`;
         if (action.effectValue !== undefined) key += `V${action.effectValue}`;
+        if (action.coreType === 'soul') key += `SC`; // soul-core payment variant
         return key;
       }
       case 'attack': {
@@ -2430,6 +2534,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         let key = `F${action.handIndex}`;
         if (action.targetSpiritIndex !== undefined) key += `T${action.targetSpiritIndex}`;
         if (action.effectValue !== undefined) key += `V${action.effectValue}`;
+        if (action.coreType === 'soul') key += `SC`; // soul-core payment variant
         return key;
       }
       case 'skip_flash': return 'SF';
@@ -2491,6 +2596,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'use_magic': {
         const card = me.hand[action.handIndex];
         let desc = `${card?.name ?? '?'}を使用`;
+        if (action.coreType === 'soul' && card && isSoulMagicRedCard(card)) {
+          desc += `（ソウルコア払い）`;
+        }
         if (action.targetSpiritIndex !== undefined) {
           const opponent = state.players[1 - state.currentPlayer]!;
           const target = opponent.spirits[action.targetSpiritIndex];
@@ -2528,6 +2636,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'flash': {
         const card = me.hand[action.handIndex];
         let desc = `フラッシュ: ${card?.name ?? '?'}`;
+        if (action.coreType === 'soul' && card && isSoulMagicRedCard(card)) {
+          desc += `（ソウルコア払い）`;
+        }
         if (action.targetSpiritIndex !== undefined) {
           // Destroy effects target opponent spirits; boost effects target own spirits
           const flashEffects = card?.effects?.filter((e) => e.isFlash || !e.mode || e.mode === 'flash') ?? [];
@@ -2590,6 +2701,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
 // === Helpers ===
 
+/** Card carries ソウルマジック：赤 (card-level or effect-level skill flag) */
+function isSoulMagicRedCard(card: CardDef): boolean {
+  return card.skill === 'ソウルマジック：赤' || !!card.effects?.some((e) => e.skill === 'ソウルマジック：赤');
+}
+
 function cloneState(state: GameState): GameState {
   return {
     players: [
@@ -2606,9 +2722,14 @@ function cloneState(state: GameState): GameState {
     pendingAttack: state.pendingAttack ? { ...state.pendingAttack } : null,
     pendingDraw: state.pendingDraw
       ? {
+          // Spread first so every field survives the clone (returnDestination,
+          // originAttackSpiritIndex, maxSelectable, castCard, etc.) — dropping
+          // originAttackSpiritIndex here silently broke attack continuation
+          ...state.pendingDraw,
           openedCards: state.pendingDraw.openedCards.slice(),
           toHandIndices: state.pendingDraw.toHandIndices.slice(),
           toRearrangeIndices: state.pendingDraw.toRearrangeIndices.slice(),
+          selectableIndices: state.pendingDraw.selectableIndices?.slice(),
         }
       : null,
     pendingMulligan: state.pendingMulligan ? { ...state.pendingMulligan } : null,
@@ -2646,6 +2767,7 @@ function clonePlayer(p: any) {
     nexuses: p.nexuses.map((n: any) => ({ ...n, placedCores: n.placedCores ?? 0, soulCoreCount: n.soulCoreCount ?? 0 })),
     trash: p.trash.slice(),
     bottomDeckCards: (p.bottomDeckCards || []).slice(),
+    damageThisTurn: p.damageThisTurn, // Soul Magic red condition tracking — must survive cloning
   };
 }
 

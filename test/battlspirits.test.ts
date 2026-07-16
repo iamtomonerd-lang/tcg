@@ -699,6 +699,155 @@ describe('Attack-time search_deck effects', () => {
     expect(selectDrawAction).toBeDefined();
   });
 
+  it('バグ1回帰: select_draw_arrange 後に攻撃が続行される（pendingFlash + 疲労 + 残カードはトラッシュへ）', () => {
+    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const p0 = makePlayer([haria]);
+    p0.deck = [CARD_DB.spirit_moon_shacco!, CARD_DB.magic_offering_draw!];
+    const p1 = makePlayer([]);
+
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0,
+      turnCount: 2,
+      phase: 'attack',
+      battle: null,
+      result: null,
+    };
+
+    const attackAction = game.legalActions(state).find(a => a.type === 'attack' && a.spiritIndex === 0);
+    state = game.applyAction(state, attackAction!, new Mulberry32(1));
+    expect(state.pendingDraw).toBeDefined();
+
+    // Official rule: attacker exhausts at declaration — no infinite re-attack
+    expect(state.players[0].spirits[0]!.canAttack).toBe(false);
+
+    // Player selects card 0; card 1 must go to trash (returnDestination='trash')
+    state = game.applyAction(state, { type: 'select_draw_arrange', selectedCardIndices: [0], arrangedCardIndices: [] }, new Mulberry32(2));
+
+    // The attack MUST continue: pendingDraw cleared, flash window opened with stashed attack
+    expect(state.pendingDraw).toBeNull();
+    expect(state.pendingFlash).toBeDefined();
+    expect(state.pendingFlash!.stashedAttack).toBeDefined();
+    expect(state.pendingFlash!.stashedAttack!.attackerSpiritIndex).toBe(0);
+    expect(state.currentPlayer).toBe(1); // defender's flash window
+
+    // Selected card in hand; unselected card in trash (was silently lost before the fix)
+    expect(state.players[0].hand.some(c => c.id === 'spirit_moon_shacco')).toBe(true);
+    expect(state.players[0].trash.some(c => c.id === 'magic_offering_draw')).toBe(true);
+
+    // Defender skips flash → pendingAttack; then takes damage → attack resolves
+    state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(3));
+    expect(state.pendingAttack).toBeDefined();
+    state = game.applyAction(state, { type: 'take_damage' }, new Mulberry32(4));
+    expect(state.players[1].life).toBe(4); // 1 symbol damage dealt
+    expect(state.players[0].spirits[0]!.canAttack).toBe(false); // still exhausted
+    expect(state.players[1].damageThisTurn).toBe(1); // Soul Magic red condition tracked
+  });
+
+  it('バグ2回帰: ソウルマジック：赤はフラッシュでソウルコア1個で発動できる', () => {
+    const attacker: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: false };
+    const p0 = makePlayer([attacker]);
+    const redSymbolSpirit: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const p1 = makePlayer([redSymbolSpirit]);
+    p1.hand = [CARD_DB.magic_flame_hurricane!];
+    p1.cores = 0;
+    p1.soulCores = 1; // normal cost (5 after reduction) is unaffordable; only the soul-core payment works
+
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 1,
+      turnCount: 2,
+      phase: 'attack',
+      battle: null,
+      result: null,
+      pendingFlash: {
+        trigger: 'opponent_attack',
+        cardId: '',
+        initiatingPlayer: 0,
+        stashedAttack: { attackerPlayer: 0, attackerSpiritIndex: 0, damage: 1 },
+      },
+    };
+
+    const actions = game.legalActions(state);
+    const soulFlash = actions.find(a => a.type === 'flash' && a.coreType === 'soul');
+    expect(soulFlash).toBeDefined(); // soul-core payment variant is offered
+    // Normal payment is NOT affordable, so no normal variant appears
+    expect(actions.some(a => a.type === 'flash' && a.coreType !== 'soul')).toBe(false);
+
+    state = game.applyAction(state, soulFlash!, new Mulberry32(1));
+
+    // Exactly 1 soul core paid
+    expect(state.players[1].soulCores).toBe(0);
+    expect(state.players[1].trashSoulCores).toBe(1);
+    // BP2000 <= 7000: the attacker is destroyed
+    expect(state.players[0].spirits.length).toBe(0);
+  });
+
+  it('バグ2回帰: メインフェイズでもソウルコア払いの use_magic が出る + damageThisTurn で BP10000 閾値', () => {
+    const bigSpirit: Spirit = { def: CARD_DB.spirit_gun_gata!, level: 2, coreCount: 3, soulCoreCount: 0, canAttack: true }; // Lv2 BP8000
+    const p0 = makePlayer([bigSpirit]);
+    const redSymbolSpirit: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const p1 = makePlayer([redSymbolSpirit]);
+    p1.hand = [CARD_DB.magic_flame_hurricane!];
+    p1.cores = 0;
+    p1.soulCores = 1;
+    p1.damageThisTurn = 1; // took damage this turn → threshold rises to BP10000
+
+    const state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 1,
+      turnCount: 3,
+      phase: 'main',
+      battle: null,
+      result: null,
+    };
+
+    const actions = game.legalActions(state);
+    // Soul-core payment variant offered in main phase, targeting the BP8000 spirit (<= 10000)
+    const soulUse = actions.find(a => a.type === 'use_magic' && a.coreType === 'soul' && a.targetSpiritIndex === 0);
+    expect(soulUse).toBeDefined();
+
+    // Apply: the BP8000 spirit is destroyed (damageThisTurn survives applyAction's cloneState)
+    const result = game.applyAction(state, soulUse!, new Mulberry32(1));
+    expect(result.players[0].spirits.length).toBe(0);
+    expect(result.players[1].soulCores).toBe(0);
+    expect(result.players[1].trashSoulCores).toBe(1);
+  });
+
+  it('バグ3回帰: 召喚コストをスピリットのコアで支払い0個になった場合、消滅前の確認が入る', () => {
+    const spiritA: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const spiritB: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const p0 = makePlayer([spiritA, spiritB]);
+    p0.cores = 1; // reserve 1 + spiritA 1 + spiritB 1 + soul 1
+    p0.soulCores = 1;
+    p0.hand = [CARD_DB.spirit_moon_shacco!]; // cost 3, reduction 1 → actualCost 2 (red symbols on field)
+
+    let state: GameState = {
+      players: [p0, makePlayer([])],
+      currentPlayer: 0,
+      turnCount: 3,
+      phase: 'main',
+      battle: null,
+      result: null,
+    };
+
+    const summonAction = game.legalActions(state).find(a => a.type === 'summon');
+    expect(summonAction).toBeDefined();
+
+    state = game.applyAction(state, summonAction!, new Mulberry32(1));
+
+    // Payment took reserve(1) + spiritA(1) → spiritA drained to 0:
+    // confirmation must be pending, spirit NOT silently removed
+    expect(state.pendingSpiritDepletion).toBeDefined();
+    expect(state.pendingSpiritDepletion!.spiritIndex).toBe(0);
+    expect(state.players[0].spirits.length).toBe(3); // A (0 cores), B, new spirit all still present
+
+    // User confirms depletion → spiritA removed, no further confirmations
+    state = game.applyAction(state, { type: 'confirm_spirit_depletion', proceed: true }, new Mulberry32(2));
+    expect(state.pendingSpiritDepletion).toBeNull();
+    expect(state.players[0].spirits.length).toBe(2);
+  });
+
   it('summon spirit when field is full of spirits with cores', () => {
     // This test checks that summoning a spirit doesn't cause unexpected deletions
     // Setup: 3 spirits on field, each with minimum cores (lv1.cost = 1)

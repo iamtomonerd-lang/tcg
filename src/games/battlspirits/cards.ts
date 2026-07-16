@@ -554,6 +554,7 @@ export const CARD_DB: Record<string, CardDef> = {
         value: 7000,
         mode: 'flash',
         requiresTarget: true,
+        skill: 'ソウルマジック：赤', // effect-level skill: checked by destroyCreatureBpLimit (BP10000 threshold) and flash legalActions
         condition: { requiresSymbol: 'red' },
         description: 'フラッシュ: 場に赤シンボルがあり、ソウルコアを支払うことで使用可能。BP7000以下の相手のスピリット1体を指定する。それを破壊する。このターンに自分のライフが減っていたなら、かわりに指定するBPを10000以下にする',
       },

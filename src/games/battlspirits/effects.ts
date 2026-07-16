@@ -448,9 +448,12 @@ export function triggerEffects(
   excludeActions?: string[], // Actions to skip (e.g., ['search_deck'] for manual handling)
 ): GameState {
   let next = state;
+  // Soul Magic: Red cards can be cast in main phase even though their effect is flash-mode
+  const cardIsSoulMagic = card.skill === 'ソウルマジック：赤';
   const effects = (card.effects ?? []).filter((e) => {
     if (e.trigger !== trigger) return false;
-    if (modeFilter === 'main' && !(!e.mode || e.mode === 'main')) return false;
+    const soulMagicEffect = cardIsSoulMagic || e.skill === 'ソウルマジック：赤';
+    if (modeFilter === 'main' && !(!e.mode || e.mode === 'main' || soulMagicEffect)) return false;
     if (modeFilter === 'flash' && !(e.isFlash || !e.mode || e.mode === 'flash')) return false;
     if (e.level && sourceLevel !== undefined && !e.level.includes(sourceLevel)) return false;
     if (excludeActions && excludeActions.includes(e.action)) return false;
@@ -505,10 +508,11 @@ export function triggerEffects(
 
 function cloneGameState(state: GameState): GameState {
   return {
+    // Spread first so EVERY field survives the clone — this clone runs on every
+    // applyEffect call, and hand-listing fields silently dropped pending states
+    // (pendingSpiritDepletion, pendingEffectAction, ...) whenever an effect fired
+    ...state,
     players: [clonePlayerState(state.players[0]!), clonePlayerState(state.players[1]!)],
-    currentPlayer: state.currentPlayer,
-    turnCount: state.turnCount,
-    phase: state.phase,
     battle: state.battle ? { ...state.battle } : null,
     result: state.result ? { ...state.result } : null,
     pendingFlash: state.pendingFlash ? { ...state.pendingFlash } : state.pendingFlash,
