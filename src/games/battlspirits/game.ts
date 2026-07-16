@@ -919,11 +919,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const hasVariableEffect = mainEffects.some((e) => e.variableValue) ?? false;
 
         if (hasDestroyNexusEffect) {
-          // Generate targeting actions for opponent nexuses (Lv1 only, not Lv2)
+          // Generate targeting actions for opponent nexuses
           const opponent = state.players[1 - state.currentPlayer]!;
+          const destroyNexusEffect = mainEffects.find((e) => e.action === 'destroy_nexus' && e.requiresTarget);
+          const excludeSkill = destroyNexusEffect?.condition?.excludeTargetSkill;
           const validNexusIndices: number[] = [];
+
           for (let t = 0; t < opponent.nexuses.length; t++) {
-            if (opponent.nexuses[t]!.level !== 2) {
+            const nexus = opponent.nexuses[t]!;
+            // Exclude Lv2 nexuses and nexuses with excluded skill
+            if (nexus.level !== 2 && (!excludeSkill || nexus.def.skill !== excludeSkill)) {
               validNexusIndices.push(t);
             }
           }
@@ -938,8 +943,19 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         } else if (hasOtherTargetEffect) {
           // Generate targeting actions for opponent spirits
           const opponent = state.players[1 - state.currentPlayer]!;
+          // Check if there's a destroy_creature effect with BP limit
+          const destroyCEffect = mainEffects.find((e) => e.action === 'destroy_creature' && e.requiresTarget);
+          const bpLimit = destroyCEffect ? destroyCreatureBpLimit(destroyCEffect, me) : undefined;
+          const spiritBp = (sp: Spirit) => {
+            const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
+            return stats.bp + (sp.bpBoost ?? 0) + (sp.bpBoostBattle ?? 0);
+          };
+
           for (let t = 0; t < opponent.spirits.length; t++) {
-            actions.push({ type: 'use_magic', handIndex: i, targetSpiritIndex: t, useInheritance: useInheritanceIfAvailable });
+            // Only offer as target if it meets any BP limits from destroy_creature
+            if (!destroyCEffect || bpLimit === undefined || spiritBp(opponent.spirits[t]!) <= bpLimit) {
+              actions.push({ type: 'use_magic', handIndex: i, targetSpiritIndex: t, useInheritance: useInheritanceIfAvailable });
+            }
           }
         } else if (hasVariableEffect) {
           // Generate variable value actions (0 to max, typically hand size or some reasonable max)
@@ -1035,11 +1051,19 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
         } else if (destroyCreatureEffect) {
           // destroy_creature effect requires opponent spirit target selection
-          // Generate one attack action for each opponent spirit
+          // Generate one attack action for each valid opponent spirit (respecting BP limits)
+          const bpLimit = destroyCreatureBpLimit(destroyCreatureEffect, me);
+          const spiritBp = (sp: Spirit) => {
+            const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
+            return stats.bp + (sp.bpBoost ?? 0) + (sp.bpBoostBattle ?? 0);
+          };
           let hasValidTarget = false;
           for (let ti = 0; ti < opponent.spirits.length; ti++) {
-            actions.push({ type: 'attack', spiritIndex: i, effectTargetIndex: ti });
-            hasValidTarget = true;
+            // Only offer target if it meets the BP limit
+            if (bpLimit === undefined || spiritBp(opponent.spirits[ti]!) <= bpLimit) {
+              actions.push({ type: 'attack', spiritIndex: i, effectTargetIndex: ti });
+              hasValidTarget = true;
+            }
           }
           // If no valid targets, still allow attack without target
           if (!hasValidTarget) {
@@ -1387,11 +1411,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Check if summon effects will destroy opponent's spirits/nexuses
+        // (but exclude requiresTarget effects - those are handled by pendingEffectAction)
         const hasDestructiveEffect =
-          card.effects?.some((e) => e.trigger === 'summon' && (e.action === 'destroy_creature' || e.action === 'destroy_nexus')) ?? false;
+          card.effects?.some((e) => e.trigger === 'summon' && (e.action === 'destroy_creature' || e.action === 'destroy_nexus') && !e.requiresTarget) ?? false;
 
         if (hasDestructiveEffect) {
-          // Simulate effects to detect destructions
+          // Simulate effects to detect destructions (only for auto-destroy effects)
           const simState = cloneState(next);
           triggerEffects(simState, 'summon', card, next.currentPlayer, newSpiritIndex, undefined, undefined, undefined, undefined, undefined, spirit.level);
 
