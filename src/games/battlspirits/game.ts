@@ -1,6 +1,7 @@
 import type { Game, Rng } from '../../core/game.js';
 import { Mulberry32 } from '../../core/rng.js';
-import { CARD_DB, getStarterDeck } from './cards.js';
+import { CARD_DB } from './cards.js';
+import { DeckFactory } from './deckFactory.js';
 import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef, CardEffect, GameConfig, PlayerConfig, GameRuleConfig } from './types.js';
 import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit } from './effects.js';
 
@@ -138,7 +139,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   }
 
   private newPlayer(rng: Rng) {
-    const deck = getStarterDeck();
+    const deck = DeckFactory.getStarterDeck();
     rng.shuffle(deck);
     return {
       life: 5,
