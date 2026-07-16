@@ -2135,10 +2135,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (searchDeckEffect) {
           const me = next.players[next.currentPlayer]!;
           const openCount = Math.min(searchDeckEffect.value ?? 2, me.deck.length);
+          console.log(`[search_deck] ${spirit.def.name} Lv${spirit.level}: value=${searchDeckEffect.value}, deck.length=${me.deck.length}, openCount=${openCount}`);
           const openedCards: CardDef[] = [];
           for (let i = 0; i < openCount; i++) {
             openedCards.push(me.deck.shift()!);
           }
+          console.log(`[search_deck] Opened ${openedCards.length} cards: ${openedCards.map(c => c.name).join(', ')}`);
 
           // Identify selectable cards (by symbol if specified)
           const selectableIndices: number[] = [];
