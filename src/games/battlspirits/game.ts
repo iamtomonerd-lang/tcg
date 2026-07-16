@@ -1479,8 +1479,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
 
       // Trigger battle_end effects
-      next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
-      next = triggerEffects(next, 'battle_end', defender.def, next.currentPlayer);
+      // Important: only trigger battle_end if the spirit still exists on the field
+      // Check that the attacker still exists at its index
+      const attackerStillExists = next.players[pendingAttack.attackerPlayer]!.spirits[pendingAttack.attackerSpiritIndex] === attacker;
+      if (attackerStillExists) {
+        next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
+      }
+      // Check that the defender still exists at its index
+      const defenderStillExists = next.players[next.currentPlayer]!.spirits[action.spiritIndex] === defender;
+      if (defenderStillExists) {
+        next = triggerEffects(next, 'battle_end', defender.def, next.currentPlayer);
+      }
 
       // このバトル中 boosts expire now that the battle has resolved
       this.clearBattleBoosts(next);
@@ -1514,7 +1523,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       me.damageThisTurn = (me.damageThisTurn ?? 0) + damage; // Soul Magic red condition (ライフが減った)
 
       // Trigger battle_end effects
-      next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
+      // Important: only trigger battle_end if the attacker still exists on the field
+      const attackerStillExists = next.players[next.pendingAttack.attackerPlayer]!.spirits[next.pendingAttack.attackerSpiritIndex] === attacker;
+      if (attackerStillExists) {
+        next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
+      }
 
       // このバトル中 boosts expire now that the battle has resolved
       this.clearBattleBoosts(next);
