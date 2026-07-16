@@ -1467,7 +1467,9 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       )}
 
       {/* ===== Offering draw overlay ===== */}
-      {!isTerminal && state.pendingDraw && isHumanTurn && (
+      {!isTerminal && state.pendingDraw && isHumanTurn && (() => {
+        console.log(`[UI] pendingDraw received: openedCards.length=${state.pendingDraw.openedCards.length}, toHandIndices=${JSON.stringify(state.pendingDraw.toHandIndices)}, toRearrangeIndices=${JSON.stringify(state.pendingDraw.toRearrangeIndices)}`);
+        return (
         <div className="game-over">
           <div className="game-over-content offering-draw-content">
             <h3>{state.pendingDraw.castCard?.name || 'オファーリングドロー'} - カードを選択</h3>
@@ -1598,7 +1600,8 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             </button>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ===== Trash viewing modal ===== */}
       {trashViewPlayer !== null && state && (
