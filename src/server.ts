@@ -82,6 +82,9 @@ app.post('/api/game/new', async (req, res) => {
 
   // Load decks if provided (use session timestamp as seed for variation)
   const sessionSeed = Date.now() & 0xffffffff;
+  console.log(`🎮 ゲーム開始リクエスト受信: p0Type=${p0Type}, p1Type=${p1Type}`);
+  console.log(`   p0DeckId="${p0DeckId}", p1DeckId="${p1DeckId}"`);
+
   try {
     if (p0DeckId) {
       const deck0 = await loadDeckForGame(p0DeckId, sessionSeed);
@@ -89,17 +92,22 @@ app.post('/api/game/new', async (req, res) => {
         state.players[0].deck = deck0;
         console.log(`✅ P0デッキロード成功: deckId="${p0DeckId}", カード枚数=${deck0.length}`);
       } else {
-        console.warn(`⚠️ P0デッキロード失敗: deckId="${p0DeckId}" - デフォルトデッキを使用します`);
+        console.warn(`⚠️ P0デッキロード失敗: deckId="${p0DeckId}" - デフォルトデッキ(${state.players[0].deck.length}枚)を使用します`);
       }
+    } else {
+      console.log(`ℹ️ P0: デッキIDが指定されていません。デフォルトデッキ(${state.players[0].deck.length}枚)を使用します`);
     }
+
     if (actualP1DeckId) {
       const deck1 = await loadDeckForGame(actualP1DeckId, sessionSeed);
       if (deck1) {
         state.players[1].deck = deck1;
         console.log(`✅ P1デッキロード成功: deckId="${actualP1DeckId}", カード枚数=${deck1.length}`);
       } else {
-        console.warn(`⚠️ P1デッキロード失敗: deckId="${actualP1DeckId}" - デフォルトデッキを使用します`);
+        console.warn(`⚠️ P1デッキロード失敗: deckId="${actualP1DeckId}" - デフォルトデッキ(${state.players[1].deck.length}枚)を使用します`);
       }
+    } else {
+      console.log(`ℹ️ P1: デッキIDが指定されていません。デフォルトデッキ(${state.players[1].deck.length}枚)を使用します`);
     }
   } catch (error) {
     console.error('Error loading decks:', error);
@@ -1457,7 +1465,6 @@ async function loadDeckForGame(deckId: string, sessionSeed?: number): Promise<an
     const data = await loadDecks();
     const savedDeck = data.decks[deckId];
     if (!savedDeck) {
-      // ✅ 修正：デッキが見つからない場合は警告ログを出す（デバッグ用）
       console.warn(`⚠️ デッキが見つかりません。deckId="${deckId}"`);
       console.warn('利用可能なデッキID:', Object.keys(data.decks));
       return null;
@@ -1472,6 +1479,14 @@ async function loadDeckForGame(deckId: string, sessionSeed?: number): Promise<an
         }
       }
     }
+
+    // ✅ デッキ読み込み詳細ログ
+    console.log(`📦 デッキ読み込み詳細: deckId="${deckId}"`);
+    console.log(`  構築名: "${savedDeck.name}"`);
+    console.log(`  保存されたカード: ${savedDeck.cards.length}種類、総枚数=${savedDeck.cards.reduce((sum, c) => sum + c.count, 0)}`);
+    console.log(`  読み込み結果: ${deck.length}枚`);
+    console.log(`  カード構成:`, savedDeck.cards.map(c => `${c.cardId}×${c.count}`).join(', '));
+
     return deck.length > 0 ? deck : null;
   } catch (error) {
     console.error('Error loading deck:', error);

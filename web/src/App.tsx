@@ -37,6 +37,11 @@ export default function App() {
 
   const handleStartGame = async (p0Type: string, p1Type: string, p0Iters: number, p1Iters: number, p0DeckId?: string, p1DeckId?: string, p0Rating?: number) => {
     try {
+      // ✅ ゲーム開始時のパラメータをログ出力（デバッグ用）
+      console.log('🎮 ゲーム開始リクエスト送信:');
+      console.log(`  p0Type=${p0Type}, p1Type=${p1Type}`);
+      console.log(`  p0DeckId="${p0DeckId}", p1DeckId="${p1DeckId}"`);
+
       const response = await fetch('/api/game/new', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -51,6 +56,7 @@ export default function App() {
         state: data.state,
         p1Rating: data.p1Rating,
       });
+      console.log(`✅ ゲーム開始成功: sessionId=${data.sessionId}`);
       setScreen('game');
     } catch (error) {
       console.error('Failed to start game:', error);
