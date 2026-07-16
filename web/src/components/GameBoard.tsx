@@ -1148,11 +1148,27 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
               <div className="side-actions-title">
                 🎲 サイコロを振っています...
               </div>
-              <div style={{ fontSize: '0.9rem', color: '#333', marginBottom: '0.8rem', padding: '0.6rem', backgroundColor: '#f0f0f0', borderRadius: '4px', lineHeight: '1.5' }}>
-                両プレイヤーのサイコロが自動で振られています。
-                <br />
-                大きい数が勝ちます。
-              </div>
+              {state.pendingDiceRoll && (state.pendingDiceRoll.p0Roll !== undefined || state.pendingDiceRoll.p1Roll !== undefined) ? (
+                <div style={{ fontSize: '1.1rem', color: '#333', marginBottom: '1rem', padding: '1rem', backgroundColor: '#fff3cd', borderRadius: '8px', lineHeight: '2', fontWeight: 600, textAlign: 'center' }}>
+                  <div style={{ color: '#e74c3c', fontSize: '1.3rem' }}>
+                    👤 P0: <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{state.pendingDiceRoll.p0Roll ?? '?'}</span>
+                  </div>
+                  <div style={{ color: '#3498db', fontSize: '1.3rem' }}>
+                    🤖 P1: <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{state.pendingDiceRoll.p1Roll ?? '?'}</span>
+                  </div>
+                  {state.pendingDiceRoll.winner !== undefined && (
+                    <div style={{ marginTop: '0.8rem', fontSize: '1rem', color: '#27ae60', fontWeight: 'bold' }}>
+                      🎉 {state.pendingDiceRoll.winner === 0 ? 'P0 が先手!' : 'P1 が先手!'}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.9rem', color: '#333', marginBottom: '0.8rem', padding: '0.6rem', backgroundColor: '#f0f0f0', borderRadius: '4px', lineHeight: '1.5' }}>
+                  両プレイヤーのサイコロが自動で振られています。
+                  <br />
+                  大きい数が勝ちます。
+                </div>
+              )}
             </>
           ) : legalActions.some(a => a.description.includes('維持') || a.description.includes('引き直す')) ? (
             <>
