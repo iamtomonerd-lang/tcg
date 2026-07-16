@@ -1437,7 +1437,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             </div>
             <div className="mulligan-hand">
               {state.players[state.pendingMulligan.player].handCards.map((c: any, i: number) => (
-                <div key={`${c.id}-${i}`} className="mulligan-card">
+                <div key={`${c.id}-${i}`} className="mulligan-card" onClick={() => c.imagePath && setSelectedCardImage({ imagePath: c.imagePath, name: c.name })} style={{ cursor: 'pointer' }}>
                   {c.imagePath ? <img src={c.imagePath} alt={c.name} /> : null}
                   <span>{c.name}</span>
                 </div>
@@ -1492,7 +1492,17 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                         style={{ cursor: canSelect ? 'pointer' : 'not-allowed' }}
                         title={isSelectable ? card.name : `${card.name}\n（系統「風牙」ではありません）`}
                       >
-                        {card.imagePath ? <img src={card.imagePath} alt={card.name} /> : null}
+                        {card.imagePath ? (
+                          <img
+                            src={card.imagePath}
+                            alt={card.name}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCardImage({ imagePath: card.imagePath, name: card.name });
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        ) : null}
                         <span className="offering-card-name">{card.name}</span>
                         <span className="offering-card-cost">コスト{card.cost}</span>
                         {card.lineage?.includes('風牙') && (
