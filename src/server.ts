@@ -89,8 +89,10 @@ app.post('/api/game/new', async (req, res) => {
     if (p0DeckId) {
       const deck0 = await loadDeckForGame(p0DeckId, sessionSeed);
       if (deck0) {
+        console.log(`📋 【P0デッキロード直後】読み込まれたカード一覧: ${deck0.map((c: any) => c.id).join(', ')}`);
         state.players[0].deck = deck0;
         console.log(`✅ P0デッキロード成功: deckId="${p0DeckId}", カード枚数=${deck0.length}`);
+        console.log(`📋 【P0デッキセット直後】state.players[0].deckの内容: ${state.players[0].deck.map((c: any) => c.id).join(', ')}`);
       } else {
         console.warn(`⚠️ P0デッキロード失敗: deckId="${p0DeckId}" - デフォルトデッキ(${state.players[0].deck.length}枚)を使用します`);
       }
@@ -101,8 +103,10 @@ app.post('/api/game/new', async (req, res) => {
     if (actualP1DeckId) {
       const deck1 = await loadDeckForGame(actualP1DeckId, sessionSeed);
       if (deck1) {
+        console.log(`📋 【P1デッキロード直後】読み込まれたカード一覧: ${deck1.map((c: any) => c.id).join(', ')}`);
         state.players[1].deck = deck1;
         console.log(`✅ P1デッキロード成功: deckId="${actualP1DeckId}", カード枚数=${deck1.length}`);
+        console.log(`📋 【P1デッキセット直後】state.players[1].deckの内容: ${state.players[1].deck.map((c: any) => c.id).join(', ')}`);
       } else {
         console.warn(`⚠️ P1デッキロード失敗: deckId="${actualP1DeckId}" - デフォルトデッキ(${state.players[1].deck.length}枚)を使用します`);
       }
@@ -116,6 +120,12 @@ app.post('/api/game/new', async (req, res) => {
   // Create AI agents ('human' players have no agent)
   const p0Agent = createAgent(playerTypes[0], p0Iters || 100, rng);
   const p1Agent = createAgent(playerTypes[1], actualP1Iters, rng);
+
+  // ✅ ゲーム開始直前のデッキ内容確認
+  console.log(`\n========== ゲーム開始直前のデッキ確認 ==========`);
+  console.log(`📋 P0 deck (返却前): ${state.players[0].deck.map((c: any) => c.id).join(', ')}`);
+  console.log(`📋 P1 deck (返却前): ${state.players[1].deck.map((c: any) => c.id).join(', ')}`);
+  console.log(`==========================================\n`);
 
   // Extract deck info from loaded decks for learning logging
   const p0DeckInfo = state.players[0].deck.length > 0
