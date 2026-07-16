@@ -252,22 +252,15 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
 
-  // Auto-execute dice rolls during dice roll phase
-  if (session.state.pendingDiceRoll && session.state.pendingDiceRoll.winner === undefined) {
+  // Auto-execute dice rolls until both players have rolled and winner is determined
+  while (session.state.pendingDiceRoll && session.state.pendingDiceRoll.winner === undefined) {
     const actions = session.game.legalActions(session.state);
     const diceActions = actions.filter((a) => a.type === 'dice_roll');
     if (diceActions.length > 0) {
       const randomAction = diceActions[Math.floor(Math.random() * diceActions.length)]!;
-      const currentPlayer = session.game.currentPlayer(session.state);
       session.state = session.game.applyAction(session.state, randomAction, session.rng);
-      const diceRoll = randomAction.type === 'dice_roll' ? randomAction.roll : '?';
-      return res.json({
-        state: serializeState(session.state),
-        isTerminal: session.game.isTerminal(session.state),
-        currentPlayer: session.game.currentPlayer(session.state),
-        actionDescription: `🎲 P${currentPlayer} が ${diceRoll} を振りました`,
-        effectResults: [],
-      });
+    } else {
+      break; // No more dice actions, exit loop
     }
   }
 
