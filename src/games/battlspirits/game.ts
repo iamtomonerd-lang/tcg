@@ -1636,7 +1636,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             pending.sourceCard,
             pending.sourcePlayer,
             pending.spiritIndex,
-            undefined,
+            action.targetSpiritIndex,
             undefined,
             undefined,
             undefined,
