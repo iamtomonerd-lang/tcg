@@ -698,4 +698,43 @@ describe('Attack-time search_deck effects', () => {
     const selectDrawAction = legalActions.find(a => a.type === 'select_draw_arrange');
     expect(selectDrawAction).toBeDefined();
   });
+
+  it('summon spirit when field is full of spirits with cores', () => {
+    // This test checks that summoning a spirit doesn't cause unexpected deletions
+    // Setup: 3 spirits on field, each with minimum cores (lv1.cost = 1)
+    // Reserve has 3 cores (enough to summon)
+    // Summon a spirit that needs 1 core maintenance
+    const spirit1 = makeSpirit(); // has 1 core each
+    const spirit2 = makeSpirit();
+    const spirit3 = makeSpirit();
+    const p0 = makePlayer([spirit1, spirit2, spirit3]);
+    p0.cores = 3;
+    p0.hand = [CARD_DB.spirit_moon_shacco!]; // cost 3, lv1.cost 1
+
+    const p1 = makePlayer([]);
+
+    const state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0,
+      turnCount: 1,
+      phase: 'main',
+      battle: null,
+      result: null,
+    };
+
+    console.log('Initial state:', { spiritCount: state.players[0].spirits.length });
+
+    const summonAction = game.legalActions(state).find(a => a.type === 'summon');
+    const result = game.applyAction(state, summonAction!, new Mulberry32(1));
+
+    console.log('After summon:', { spiritCount: result.players[0].spirits.length });
+
+    // All 3 original spirits should still exist
+    expect(result.players[0].spirits[0]).toBeDefined();
+    expect(result.players[0].spirits[1]).toBeDefined();
+    expect(result.players[0].spirits[2]).toBeDefined();
+    // New spirit should be added
+    expect(result.players[0].spirits[3]).toBeDefined();
+    expect(result.players[0].spirits.length).toBe(4);
+  });
 });

@@ -1354,24 +1354,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           toPlace -= 1;
         }
 
-        // A spirit that could not receive all required maintenance cores needs confirmation in main phase
-        const totalCoresPlaced = placedRegular + placedSoul;
-        if (totalCoresPlaced < card.lv1.cost) {
-          // In main phase, ask player before depleting
-          if (next.phase === 'main') {
-            next.pendingSpiritDepletion = {
-              spiritIndex: me.spirits.length, // will be added after confirmation
-              spiritCard: card,
-              requiredCores: card.lv1.cost,
-              currentCores: totalCoresPlaced,
-            };
-            return next; // Stop here, player must confirm
-          }
-          // In other phases, auto-deplete
-          me.trash.push(card);
-          break;
-        }
-
+        // Create the spirit object
         const spirit: any = {
           def: card,
           level: 1,
@@ -1383,6 +1366,25 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         updateSpiritLevel(spirit);
         const newSpiritIndex = me.spirits.length;
         me.spirits.push(spirit);
+
+        // A spirit that could not receive all required maintenance cores needs confirmation in main phase
+        const totalCoresPlaced = placedRegular + placedSoul;
+        if (totalCoresPlaced < card.lv1.cost) {
+          // In main phase, ask player before depleting
+          if (next.phase === 'main') {
+            next.pendingSpiritDepletion = {
+              spiritIndex: newSpiritIndex, // spirit is now in the field
+              spiritCard: card,
+              requiredCores: card.lv1.cost,
+              currentCores: totalCoresPlaced,
+            };
+            return next; // Stop here, player must confirm
+          }
+          // In other phases, auto-deplete
+          removeDeadSpirit(me, newSpiritIndex);
+          fixupSpiritIndicesAfterRemoval(next, next.currentPlayer, newSpiritIndex);
+          break;
+        }
 
         // Check if summon effects will destroy opponent's spirits/nexuses
         const hasDestructiveEffect =
