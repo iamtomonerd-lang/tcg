@@ -93,7 +93,7 @@ async function main() {
     await run('npm install', join(__dirname, 'web'));
   }
 
-  // Build the web app if dist doesn't exist or is outdated
+  // Build the web app if dist doesn't exist
   const distPath = join(__dirname, 'web', 'dist');
   if (!existsSync(distPath)) {
     console.log('🔨 Building web application...\n');
@@ -103,8 +103,8 @@ async function main() {
 
   console.log('🚀 Starting server...\n');
 
-  // Start the server (single command string avoids arg-escaping warnings)
-  const server = spawn('tsx src/server.ts', {
+  // Start the server using npm run web (handles all platforms correctly)
+  const server = spawn('npm run web', {
     cwd: __dirname,
     stdio: 'inherit',
     shell: true,
