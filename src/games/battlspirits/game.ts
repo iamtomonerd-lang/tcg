@@ -1,6 +1,7 @@
 import type { Game, Rng } from '../../core/game.js';
+import { Mulberry32 } from '../../core/rng.js';
 import { CARD_DB, getStarterDeck } from './cards.js';
-import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef, CardEffect } from './types.js';
+import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef, CardEffect, GameConfig, PlayerConfig, GameRuleConfig } from './types.js';
 import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit } from './effects.js';
 
 /**
@@ -89,8 +90,28 @@ function calculateCostAfterReduction(
 export class BattlSpiritsGame implements Game<GameState, Action> {
   readonly playerCount = 2;
 
-  createInitialState(rng: Rng): GameState {
-    const players: [any, any] = [this.newPlayer(rng), this.newPlayer(rng)];
+  // Overload signatures
+  createInitialState(rng: Rng): GameState;
+  createInitialState(config: GameConfig): GameState;
+
+  // Implementation
+  createInitialState(rngOrConfig: Rng | GameConfig): GameState {
+    let rng: Rng;
+    let players: [PlayerState, PlayerState];
+
+    if ('players' in rngOrConfig) {
+      // GameConfig passed
+      const config = rngOrConfig as GameConfig;
+      rng = this.createRng(config.rngSeed);
+      players = [
+        this.newPlayerFromConfig(config.players[0]!, rng, config.ruleConfig),
+        this.newPlayerFromConfig(config.players[1]!, rng, config.ruleConfig),
+      ];
+    } else {
+      // Rng passed (backward compatibility)
+      rng = rngOrConfig as Rng;
+      players = [this.newPlayer(rng), this.newPlayer(rng)];
+    }
 
     const state: GameState = {
       players: players as [any, any],
@@ -101,7 +122,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       result: null,
       pendingDiceRoll: {}, // Start dice roll phase
     };
-    // Draw opening hand of 4 cards each
+    // Draw opening hand
     for (const p of players) {
       this.drawOpeningHand(p);
     }
@@ -131,6 +152,48 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       nexuses: [],
       trash: [],
       bottomDeckCards: [],
+    };
+  }
+
+  /** Create an Rng instance from a seed (used by GameConfig initialization). */
+  private createRng(seed: number): Rng {
+    return new Mulberry32(seed);
+  }
+
+  /**
+   * Initialize a player from PlayerConfig and optional GameRuleConfig.
+   * Used by createInitialState(config: GameConfig) overload.
+   */
+  private newPlayerFromConfig(config: PlayerConfig, rng: Rng, ruleConfig?: GameRuleConfig): PlayerState {
+    const defaults = this.getDefaultRuleConfig();
+    const rules = { ...defaults, ...ruleConfig };
+
+    // Clone deck to avoid mutation
+    const deck = [...config.deck];
+    rng.shuffle(deck);
+
+    return {
+      life: config.initialLife ?? rules.startingLife ?? 5,
+      cores: config.initialCores ?? rules.startingCores ?? 3,
+      soulCores: config.initialSoulCores ?? rules.startingSoulCores ?? 1,
+      trashCores: 0,
+      trashSoulCores: 0,
+      hand: [],
+      deck,
+      spirits: [],
+      nexuses: [],
+      trash: [],
+      bottomDeckCards: [],
+    };
+  }
+
+  /** Get default rule configuration (Battle Spirits standard rules). */
+  private getDefaultRuleConfig(): GameRuleConfig {
+    return {
+      startingLife: 5,
+      startingCores: 3,
+      startingSoulCores: 1,
+      startingHandSize: 4,
     };
   }
 
