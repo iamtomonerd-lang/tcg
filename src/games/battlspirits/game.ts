@@ -1644,24 +1644,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             pending.sourceCard.effects?.find((e) => e.level?.includes(1 || 2))?.level?.[0] ?? 1
           );
         } else if (pending.trigger === 'attack') {
-          // For attack effects, trigger all attack effects with the selected target
-          next = triggerEffects(
-            next,
-            'attack',
-            pending.sourceCard,
-            pending.sourcePlayer,
-            pending.spiritIndex,
-            action.targetSpiritIndex,
-            undefined,
-            undefined,
-            'main',
-            action.targetNexusIndex,
-            pending.sourceCard.effects?.find((e) => e === pending.effect)?.level?.[0] ?? 1,
-            pending.sourceNexusIndex,
-            undefined,
-            ['search_deck'] // Exclude search_deck; it's handled separately below
-          );
-
+          // For attack effects, continue attack flow: search_deck handling, then create pending attack
           const spirit = next.players[next.currentPlayer]?.spirits[pending.spiritIndex!];
           if (spirit) {
             // Check for search_deck effect
