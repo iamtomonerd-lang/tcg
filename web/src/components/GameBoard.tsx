@@ -167,18 +167,16 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
   useEffect(() => {
     if (!state || isBusy || isTerminal) return;
     if (!state.pendingDiceRoll || state.pendingDiceRoll.winner !== undefined) {
-      console.log('🎲 Dice roll phase ended - winner determined or no pending roll');
       return;
     }
 
-    console.log('🎲 Dice roll phase active, fetching state...', state.pendingDiceRoll);
-    // Trigger empty action to let server auto-roll dice
+    // Poll for state updates during dice roll phase
     const timer = setTimeout(() => {
       fetchGameState();
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(timer);
-  }, [state?.pendingDiceRoll?.winner, isBusy, isTerminal, sessionId]);
+  }, [state, isBusy, isTerminal, sessionId, fetchGameState]);
 
   const playAITurn = async () => {
     if (isBusy) return;
