@@ -141,13 +141,15 @@ app.get('/api/game/:sessionId/state', (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
 
-  // Auto-execute dice rolls during dice roll phase
-  if (session.state.pendingDiceRoll && session.state.pendingDiceRoll.winner === undefined) {
+  // Auto-execute dice rolls until winner is determined
+  while (session.state.pendingDiceRoll && session.state.pendingDiceRoll.winner === undefined) {
     const actions = session.game.legalActions(session.state);
     const diceActions = actions.filter((a) => a.type === 'dice_roll');
     if (diceActions.length > 0) {
       const randomAction = diceActions[Math.floor(Math.random() * diceActions.length)]!;
       session.state = session.game.applyAction(session.state, randomAction, session.rng);
+    } else {
+      break; // No more dice actions available, exit loop
     }
   }
 
