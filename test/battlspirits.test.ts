@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { Mulberry32 } from '../src/core/rng.js';
 import { BattlSpiritsGame } from '../src/games/battlspirits/game.js';
 import { CARD_DB } from '../src/games/battlspirits/cards.js';
+import { DeckFactory } from '../src/games/battlspirits/deckFactory.js';
 import { destroySpirit, fixupSpiritIndicesAfterRemoval, updateSpiritLevel } from '../src/games/battlspirits/effects.js';
-import type { GameState, PlayerState, Spirit } from '../src/games/battlspirits/types.js';
+import type { GameState, PlayerState, Spirit, GameConfig, PlayerConfig } from '../src/games/battlspirits/types.js';
 
 const game = new BattlSpiritsGame();
 
@@ -969,5 +970,86 @@ describe('継召 (inheritance) cost reduction', () => {
     const noInhCost = (game as any).actionCost(state, summons.find((a: any) => a.useInheritance === false));
     expect(inhCost).toBe(5);
     expect(noInhCost).toBe(6);
+  });
+});
+
+describe('GameConfig pattern', () => {
+  it('createInitialState works with GameConfig', () => {
+    const config: GameConfig = {
+      players: [
+        { deck: DeckFactory.getStarterDeck() },
+        { deck: DeckFactory.getStarterDeck() },
+      ] as [PlayerConfig, PlayerConfig],
+      rngSeed: 123,
+      gameMode: 'free-battle',
+    };
+    const state = game.createInitialState(config);
+    expect(state).toBeDefined();
+    expect(state.players.length).toBe(2);
+    expect(state.players[0].deck.length).toBeGreaterThan(0);
+    expect(state.players[1].deck.length).toBeGreaterThan(0);
+    expect(state.players[0].hand.length).toBe(4);
+    expect(state.players[1].hand.length).toBe(4);
+    expect(state.phase).toBe('start');
+    expect(state.pendingDiceRoll).toBeDefined();
+  });
+
+  it('GameConfig respects initialLife, initialCores, initialSoulCores', () => {
+    const config: GameConfig = {
+      players: [
+        { deck: [], initialLife: 10, initialCores: 5, initialSoulCores: 2 } as PlayerConfig,
+        { deck: [], initialLife: 10, initialCores: 5, initialSoulCores: 2 } as PlayerConfig,
+      ] as [PlayerConfig, PlayerConfig],
+      rngSeed: 123,
+    };
+    const state = game.createInitialState(config);
+    expect(state.players[0].life).toBe(10);
+    expect(state.players[0].cores).toBe(5);
+    expect(state.players[0].soulCores).toBe(2);
+    expect(state.players[1].life).toBe(10);
+    expect(state.players[1].cores).toBe(5);
+    expect(state.players[1].soulCores).toBe(2);
+  });
+
+  it('GameConfig uses defaults when initialLife/Cores not specified', () => {
+    const config: GameConfig = {
+      players: [
+        { deck: [] } as PlayerConfig,
+        { deck: [] } as PlayerConfig,
+      ] as [PlayerConfig, PlayerConfig],
+      rngSeed: 123,
+    };
+    const state = game.createInitialState(config);
+    expect(state.players[0].life).toBe(5); // default
+    expect(state.players[0].cores).toBe(3); // default
+    expect(state.players[0].soulCores).toBe(1); // default
+  });
+
+  it('GameConfig with custom decks initializes correctly', () => {
+    // Create a custom deck with enough cards for opening hand + some remaining
+    const customDeck = Array(6).fill(null).map(() => CARD_DB.spirit_moon_shacco!);
+    const config: GameConfig = {
+      players: [
+        { deck: customDeck } as PlayerConfig,
+        { deck: customDeck } as PlayerConfig,
+      ] as [PlayerConfig, PlayerConfig],
+      rngSeed: 456,
+    };
+    const state = game.createInitialState(config);
+    // After opening hand draw (4 cards), deck should have 2 cards remaining
+    expect(state.players[0].deck.length).toBe(2);
+    expect(state.players[1].deck.length).toBe(2);
+    // Opening hand should have 4 cards
+    expect(state.players[0].hand.length).toBe(4);
+    expect(state.players[1].hand.length).toBe(4);
+  });
+
+  it('backward compatibility: RNG-based createInitialState still works', () => {
+    const rng = new Mulberry32(1);
+    const state = game.createInitialState(rng);
+    expect(state).toBeDefined();
+    expect(state.players.length).toBe(2);
+    expect(state.players[0].hand.length).toBe(4);
+    expect(state.players[1].hand.length).toBe(4);
   });
 });
