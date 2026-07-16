@@ -146,6 +146,7 @@ export const CARD_DB: Record<string, CardDef> = {
     reductionCost: 3,
     symbolCount: 1,
     symbolColors: ['red'],
+    lineage: ['風牙'],
     exSymbol: true,
     cardSet: '26RSD01 バトスピエントリーデッキ 赫焔ノ風牙',
     imagePath: 'assets/cards/spirit_gun_gata.png',
