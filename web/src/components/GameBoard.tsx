@@ -171,6 +171,13 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Debug logging for dice roll state
+  useEffect(() => {
+    if (state?.pendingDiceRoll) {
+      console.log(`[GameBoard Render] DiceRoll State: p0Roll=${state.pendingDiceRoll.p0Roll}, p1Roll=${state.pendingDiceRoll.p1Roll}, winner=${state.pendingDiceRoll.winner}`);
+    }
+  }, [state?.pendingDiceRoll?.p0Roll, state?.pendingDiceRoll?.p1Roll, state?.pendingDiceRoll?.winner]);
+
   // Auto-trigger dice roll phase if needed (server handles actual rolling)
   useEffect(() => {
     if (!state || isBusy || isTerminal) return;
