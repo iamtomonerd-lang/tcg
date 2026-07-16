@@ -42,10 +42,15 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
   const [bottomDeckViewPlayer, setBottomDeckViewPlayer] = useState<number | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
-  const isHumanTurn = !isTerminal && !state?.pendingDiceRoll && (
-    state?.pendingMulligan
-      ? playerTypes[state.pendingMulligan.player] === 'human'
-      : playerTypes[currentPlayer] === 'human'
+  const isHumanTurn = !isTerminal && (
+    // Order choice phase: only winner can choose
+    (state?.pendingDiceRoll && state.pendingDiceRoll.winner !== undefined && playerTypes[state.pendingDiceRoll.winner] === 'human')
+    ||
+    // Mulligan phase
+    (state?.pendingMulligan && playerTypes[state.pendingMulligan.player] === 'human')
+    ||
+    // Regular turn phase
+    (!state?.pendingDiceRoll && !state?.pendingMulligan && playerTypes[currentPlayer] === 'human')
   );
 
   const fetchGameState = useCallback(async () => {
