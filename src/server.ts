@@ -121,10 +121,12 @@ app.post('/api/game/new', async (req, res) => {
   const p0Agent = createAgent(playerTypes[0], p0Iters || 100, rng);
   const p1Agent = createAgent(playerTypes[1], actualP1Iters, rng);
 
-  // ✅ ゲーム開始直前のデッキ内容確認
-  console.log(`\n========== ゲーム開始直前のデッキ確認 ==========`);
+  // ✅ ゲーム開始直前のデッキ・手札内容確認
+  console.log(`\n========== ゲーム開始直前の最終確認 ==========`);
   console.log(`📋 P0 deck (返却前): ${state.players[0].deck.map((c: any) => c.id).join(', ')}`);
+  console.log(`🎴 P0 hand (返却前): ${state.players[0].hand.map((c: any) => c.id).join(', ')}`);
   console.log(`📋 P1 deck (返却前): ${state.players[1].deck.map((c: any) => c.id).join(', ')}`);
+  console.log(`🎴 P1 hand (返却前): ${state.players[1].hand.map((c: any) => c.id).join(', ')}`);
   console.log(`==========================================\n`);
 
   // Extract deck info from loaded decks for learning logging
