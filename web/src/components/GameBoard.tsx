@@ -49,8 +49,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     // Mulligan phase
     (state?.pendingMulligan && playerTypes[state.pendingMulligan.player] === 'human')
     ||
+    // Draw/Arrange phase (after attack search_deck)
+    (state?.pendingDraw && playerTypes[currentPlayer] === 'human')
+    ||
     // Regular turn phase
-    (!state?.pendingDiceRoll && !state?.pendingMulligan && playerTypes[currentPlayer] === 'human')
+    (!state?.pendingDiceRoll && !state?.pendingMulligan && !state?.pendingDraw && playerTypes[currentPlayer] === 'human')
   );
 
   const fetchGameState = useCallback(async () => {
