@@ -42,7 +42,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
   const [bottomDeckViewPlayer, setBottomDeckViewPlayer] = useState<number | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
-  const isHumanTurn = !isTerminal && (
+  const isHumanTurn = !isTerminal && !state?.pendingDiceRoll && (
     state?.pendingMulligan
       ? playerTypes[state.pendingMulligan.player] === 'human'
       : playerTypes[currentPlayer] === 'human'
@@ -166,8 +166,12 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
   // Auto-trigger dice roll phase if needed (server handles actual rolling)
   useEffect(() => {
     if (!state || isBusy || isTerminal) return;
-    if (!state.pendingDiceRoll || state.pendingDiceRoll.winner !== undefined) return;
+    if (!state.pendingDiceRoll || state.pendingDiceRoll.winner !== undefined) {
+      console.log('🎲 Dice roll phase ended - winner determined or no pending roll');
+      return;
+    }
 
+    console.log('🎲 Dice roll phase active, fetching state...', state.pendingDiceRoll);
     // Trigger empty action to let server auto-roll dice
     const timer = setTimeout(() => {
       fetchGameState();
