@@ -182,37 +182,20 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     }
   }, [state?.pendingDiceRoll, state?.pendingMulligan, isTerminal]);
 
-  // Auto-execute dice rolls step by step to show results
+  // Poll during dice roll phase to show results
   useEffect(() => {
     if (!state || isBusy || isTerminal) return;
     if (!state.pendingDiceRoll || state.pendingDiceRoll.winner !== undefined) {
       return;
     }
 
-    const executeDiceAction = async () => {
-      try {
-        const response = await fetch(`/api/game/${sessionId}/actions`);
-        const data = await response.json();
-        const actions = data.actions ?? [];
-        const diceActions = actions.filter((a: any) => a.type === 'dice_roll');
-
-        if (diceActions.length > 0) {
-          const diceAction = diceActions[Math.floor(Math.random() * diceActions.length)];
-          console.log(`[Client Auto-Dice] Executing dice action`);
-          await executeAction(diceAction.index);
-        }
-      } catch (error) {
-        console.error('Failed to auto-execute dice roll:', error);
-      }
-    };
-
-    // Wait a bit to show the current state, then execute next dice action
+    // Poll every 200ms during dice roll phase to see results
     const timer = setTimeout(() => {
-      executeDiceAction();
-    }, 500);
+      fetchGameState();
+    }, 200);
 
     return () => clearTimeout(timer);
-  }, [state?.pendingDiceRoll?.p0Roll, state?.pendingDiceRoll?.p1Roll, state?.pendingDiceRoll?.winner, isBusy, isTerminal, sessionId, executeAction]);
+  }, [state?.pendingDiceRoll?.p0Roll, state?.pendingDiceRoll?.p1Roll, state?.pendingDiceRoll?.winner, isBusy, isTerminal, sessionId, fetchGameState]);
 
   const playAITurn = async () => {
     if (isBusy) return;
