@@ -216,6 +216,7 @@ app.get('/api/game/:sessionId/actions', (req, res) => {
   const descriptions = actions.map((action, i) => ({
     index: i,
     description: session.game.describeAction(session.state, action),
+    action,
   }));
 
   res.json({ actions: descriptions });

@@ -984,6 +984,60 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           </div>
         )}
 
+        {/* Spirit Depletion Confirmation Dialog */}
+        {state.pendingSpiritDepletion && isHumanTurn && (
+          <div style={{
+            backgroundColor: '#fff9e6',
+            border: '2px solid #ff6b6b',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '1rem',
+          }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#d92525', marginBottom: '0.5rem' }}>
+              ⚠️ スピリット消滅確認
+            </div>
+            <div style={{ fontSize: '0.95rem', color: '#333', marginBottom: '1rem', lineHeight: '1.6' }}>
+              「{state.pendingSpiritDepletion.spiritCard.name}」は維持コアが不足しています：
+              <br />
+              <strong>
+                必要: {state.pendingSpiritDepletion.requiredCores}個 / 現在: {state.pendingSpiritDepletion.currentCores}個
+              </strong>
+              <br />
+              <span style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem', display: 'block' }}>
+                💡 コアを追加して消滅をキャンセルするか、消滅させるかを選択してください
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+              <button
+                className="action-button"
+                onClick={() => {
+                  const addCoreAction = legalActions.find(a => a.action?.type === 'add_core' && a.action?.spiritIndex === state.pendingSpiritDepletion.spiritIndex);
+                  if (addCoreAction) {
+                    executeAction(addCoreAction.index);
+                  }
+                }}
+                disabled={isBusy || !legalActions.some(a => a.action?.type === 'add_core' && a.action?.spiritIndex === state.pendingSpiritDepletion.spiritIndex)}
+                style={{ backgroundColor: '#1e7e4d', borderColor: '#0d5c3a' }}
+              >
+                🟢 コアを追加
+              </button>
+              <button
+                className="action-button"
+                onClick={() => {
+                  const confirmAction = legalActions.find(a => a.action?.type === 'confirm_spirit_depletion' && a.action?.proceed === true);
+                  if (confirmAction) {
+                    executeAction(confirmAction.index);
+                  }
+                }}
+                disabled={isBusy}
+                style={{ backgroundColor: '#d92525', borderColor: '#a01f1f' }}
+              >
+                消滅させる
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="side-actions">
           {/* Mulligan selection (opening hand confirmation) */}
           {legalActions.some(a => a.action?.type === 'dice_roll') ? (
