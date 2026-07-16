@@ -817,7 +817,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       return this.getAttackPhaseActions(state);
     }
 
-    // Other phases (start, core, draw, refresh, end) have no player actions
+    // End phase: allow pass to move to next turn
+    if (state.phase === 'end') {
+      return [{ type: 'pass' }];
+    }
+
+    // Other phases (start, core, draw, refresh) have no player actions
     return [];
   }
 

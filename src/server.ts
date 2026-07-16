@@ -374,10 +374,30 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
   }
 
   // Get best action from AI (describe BEFORE applying — indices refer to the pre-action state)
+  try {
+    const legalActionsDebug = session.game.legalActions(session.state);
+    console.log(`[DEBUG ai-turn] sessionId=${req.params.sessionId}, decidingPlayer=${decidingPlayer}, phase=${session.state.phase}, pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}, pendingMulligan=${session.state.pendingMulligan ? `{player:${session.state.pendingMulligan.player}}` : 'null'}, legalActionsCount=${legalActionsDebug.length}`);
+
+    if (legalActionsDebug.length === 0) {
+      console.error(`❌ ERROR: legalActions is empty!`);
+      console.error(`State: phase=${session.state.phase}, currentPlayer=${session.game.currentPlayer(session.state)}, isTerminal=${session.game.isTerminal(session.state)}`);
+      console.error(`pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}`);
+      console.error(`pendingMulligan=${JSON.stringify(session.state.pendingMulligan)}`);
+      return res.status(400).json({ error: 'No legal actions available - game state error' });
+    }
+  } catch (e) {
+    console.error(`❌ legalActions() threw error:`, e);
+    return res.status(400).json({ error: `Error getting legal actions: ${e}` });
+  }
+
   const action = agent.chooseAction(session.game, session.state, session.rng);
   const description = session.game.describeAction(session.state, action);
   const stateBefore = session.state;
+  console.log(`[DEBUG] About to apply action: ${JSON.stringify(action).substring(0, 100)}`);
   session.state = session.game.applyAction(session.state, action, session.rng);
+  console.log(`[DEBUG] After applyAction: phase=${session.state.phase}, pendingMulligan=${session.state.pendingMulligan ? `{player:${session.state.pendingMulligan.player}}` : 'null'}, pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}`);
+  const nextLegalActions = session.game.legalActions(session.state);
+  console.log(`[DEBUG] Next legalActions count: ${nextLegalActions.length}`);
   const effectResults = detectEffectResults(stateBefore, session.state, action);
 
   let actionDescription = `P${decidingPlayer}: ${description}`;
