@@ -2147,12 +2147,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           for (let i = 0; i < openedCards.length; i++) {
             const c = openedCards[i]!;
             const hasSymbol = !searchDeckEffect.symbol || c.lineage?.includes(searchDeckEffect.symbol);
-            console.log(`  Card ${i}: ${c.name}, lineage=${c.lineage}, symbol=${searchDeckEffect.symbol}, hasSymbol=${hasSymbol}`);
             if (hasSymbol) {
               selectableIndices.push(i);
             }
           }
-          console.log(`[search_deck] selectableIndices=${JSON.stringify(selectableIndices)}, toHandIndices will be: ${JSON.stringify(selectableIndices)}`);
 
           // Identify remaining cards (non-selectable)
           const toRearrangeIndices: number[] = [];
@@ -2163,6 +2161,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
 
           // Set pending draw for player to select cards
+          // toHandIndices includes all selectable cards, but maxSelectable limits how many can be chosen
           next.pendingDraw = {
             openedCards,
             toHandIndices: selectableIndices,
