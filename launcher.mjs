@@ -35,12 +35,25 @@ function run(command, cwd) {
 }
 
 function openBrowser() {
-  if (isWindows) {
-    spawn('cmd', ['/c', 'start', '', URL], { stdio: 'ignore', detached: true });
-  } else if (isMac) {
-    spawn('open', [URL], { stdio: 'ignore', detached: true });
-  } else {
-    spawn('xdg-open', [URL], { stdio: 'ignore', detached: true });
+  try {
+    if (isWindows) {
+      const child = spawn('cmd', ['/c', 'start', '', URL], { stdio: 'ignore', detached: true });
+      child.on('error', () => {
+        // Browser open failed, silently continue
+      });
+    } else if (isMac) {
+      const child = spawn('open', [URL], { stdio: 'ignore', detached: true });
+      child.on('error', () => {
+        // Browser open failed, silently continue
+      });
+    } else {
+      const child = spawn('xdg-open', [URL], { stdio: 'ignore', detached: true });
+      child.on('error', () => {
+        // Browser open failed, silently continue (expected in headless environments)
+      });
+    }
+  } catch (err) {
+    // Browser open failed, silently continue
   }
 }
 
