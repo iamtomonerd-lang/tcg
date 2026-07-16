@@ -347,6 +347,10 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
   // core payment panel or execute immediately
   const beginCardAction = (actionEntry: LegalAction, card: any) => {
     const soulOnly = actionEntry.action?.coreType === 'soul';
+    // 継召 (inheritance) is decided upfront by which action variant was chosen
+    // (legalActions offers separate 継召あり/なし actions). The payment panel must
+    // NOT re-toggle it, or the paid cores and the server's recomputed cost diverge.
+    const useInheritance = actionEntry.action?.useInheritance !== false && !!card.inheritance;
     const checkCost = async () => {
       try {
         const response = await fetch(`/api/game/${sessionId}/action-cost`, {
@@ -365,7 +369,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             paidRegular: 0,
             paidSoul: 0,
             cardName: card.name,
-            useInheritance: card.inheritance ?? false, // Default to using inheritance if available
+            useInheritance, // fixed by the chosen action variant, not user-toggled here
             hasInheritance: card.inheritance ?? false,
             soulOnly,
           });
@@ -463,10 +467,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         return;
       }
 
-      // Group by player-visible choice (target / value / payment mode).
-      // Inheritance-only variants collapse into one choice (handled by the payment panel).
+      // Group by player-visible choice (target / value / payment mode / 継召).
+      // 継召あり/なし are genuinely different plays (different cost, EX cards spent),
+      // so they must be offered as separate choices — not silently collapsed.
       const choiceKey = (a: LegalAction) =>
-        `${a.action?.targetSpiritIndex ?? ''}|${a.action?.targetNexusIndex ?? ''}|${a.action?.effectValue ?? ''}|${a.action?.coreType ?? ''}`;
+        `${a.action?.targetSpiritIndex ?? ''}|${a.action?.targetNexusIndex ?? ''}|${a.action?.effectValue ?? ''}|${a.action?.coreType ?? ''}|${a.action?.useInheritance ?? ''}`;
       const distinctKeys = new Set(candidates.map(choiceKey));
 
       if (distinctKeys.size > 1) {
@@ -810,51 +815,19 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             }}>
               残り {Math.max(0, pendingCoreCost.requiredCores - pendingCoreCost.paidRegular - pendingCoreCost.paidSoul)}個
             </div>
-            {pendingCoreCost.hasInheritance && (
+            {pendingCoreCost.hasInheritance && pendingCoreCost.useInheritance && (
               <div style={{
                 marginBottom: '0.8rem',
-                padding: '0.8rem',
+                padding: '0.6rem 0.8rem',
                 backgroundColor: 'rgba(245, 158, 11, 0.1)',
                 borderRadius: '6px',
                 border: '2px solid #f59e0b',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: '#d97706',
+                textAlign: 'center',
               }}>
-                <div style={{
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  marginBottom: '0.4rem',
-                  color: '#d97706',
-                }}>
-                  ⭐ 継承を使用
-                </div>
-                <button
-                  onClick={() => {
-                    if (pendingCoreCost) {
-                      setPendingCoreCost({
-                        ...pendingCoreCost,
-                        useInheritance: !pendingCoreCost.useInheritance,
-                      });
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '0.6rem',
-                    backgroundColor: pendingCoreCost.useInheritance ? '#fbbf24' : '#f3f4f6',
-                    color: pendingCoreCost.useInheritance ? '#78350f' : '#6b7280',
-                    border: '2px solid #f59e0b',
-                    borderRadius: '4px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = pendingCoreCost.useInheritance ? '#f97316' : '#e5e7eb';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = pendingCoreCost.useInheritance ? '#fbbf24' : '#f3f4f6';
-                  }}
-                >
-                  {pendingCoreCost.useInheritance ? '✓ 継承を使用' : '継承を使用しない'}
-                </button>
+                ⭐ 継召あり — トラッシュのEXシンボルカードを除外してコスト軽減済み
               </div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '0.8rem' }}>
@@ -978,33 +951,6 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                   </button>
                 )}
               </div>
-            </div>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.6rem',
-              padding: '0.6rem',
-              backgroundColor: '#fff5f7',
-              borderRadius: '4px',
-              fontSize: '0.85rem',
-              fontWeight: 500,
-              marginBottom: '0.8rem',
-            }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={pendingCoreCost.useInheritance ?? false}
-                  onChange={(e) => {
-                    setPendingCoreCost({
-                      ...pendingCoreCost,
-                      useInheritance: e.target.checked,
-                    });
-                  }}
-                  style={{ cursor: 'pointer' }}
-                />
-                <span>継承を使用する</span>
-              </label>
             </div>
             <div style={{ fontSize: '0.8rem', color: '#666', textAlign: 'center', padding: '0.6rem', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
               ドラッグまたはボタンで支払い（キャンセルは「リセット」ボタン）
@@ -1535,21 +1481,17 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                     const isSelected = selectedHandIndices.has(idx);
                     const maxSelectable = state.pendingDraw.maxSelectable ?? 2;
                     const canSelect = isSelectable && (isSelected || selectedHandIndices.size < maxSelectable);
-                    console.log(`[OfferingDraw] Card ${idx} (${card.name}): isSelectable=${isSelectable}, isSelected=${isSelected}, selectedCount=${selectedHandIndices.size}/${maxSelectable}, canSelect=${canSelect}`);
                     return (
                       <div
                         key={`hand-${idx}`}
                         className={`offering-card ${isSelected ? 'selected' : ''} ${!canSelect ? 'disabled' : ''}`}
                         onClick={() => {
-                          console.log(`[OfferingDraw] Clicked card ${idx} (${card.name}): canSelect=${canSelect}`);
                           if (!canSelect) return;
                           const newSelected = new Set(selectedHandIndices);
                           if (isSelected) {
                             newSelected.delete(idx);
-                            console.log(`[OfferingDraw] Deselected card ${idx}`);
                           } else {
                             newSelected.add(idx);
-                            console.log(`[OfferingDraw] Selected card ${idx}`);
                           }
                           setSelectedHandIndices(newSelected);
                         }}
@@ -1565,7 +1507,6 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                             src={card.imagePath}
                             alt={card.name}
                             onClick={(e) => {
-                              console.log(`[OfferingDraw] Clicked image for card ${idx} (${card.name})`);
                               e.stopPropagation();
                               setSelectedCardImage({ imagePath: card.imagePath, name: card.name });
                             }}

@@ -9,11 +9,55 @@ import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpi
  * (First turn skips core step and attack step)
  */
 
+/**
+ * 継召 (inheritance): count EX-symbol cards in the trash whose color can reduce
+ * THIS card's cost. Per official rule, an EX symbol of a color different from the
+ * card's reduction symbols cannot be removed, and each removed EX card satisfies
+ * exactly one reduction symbol.
+ */
+function countInheritableEX(trash: CardDef[], card: CardDef): number {
+  return trash.filter(
+    (c) => c.exSymbol && c.symbolColors?.some((col) => card.symbolColors?.includes(col)),
+  ).length;
+}
+
+/**
+ * How much reduction remains available after applying field symbols. Shared by the
+ * cost calculation and the 継召 removal so both agree on how many EX cards are used.
+ */
+function reductionAfterFieldSymbols(
+  card: CardDef,
+  fieldSymbols: { color: string; count: number }[],
+): number {
+  let reductionRemaining = card.reductionCost;
+  for (const sym of fieldSymbols) {
+    if (reductionRemaining <= 0) break;
+    const canReduce = card.reductionCost > 0 && card.symbolColors?.includes(sym.color);
+    if (canReduce) {
+      reductionRemaining -= Math.min(sym.count, reductionRemaining);
+    }
+  }
+  return Math.max(0, reductionRemaining);
+}
+
+/**
+ * 継召: how many EX cards would actually be removed from the trash for this summon.
+ * Each removed EX card reduces cost by 1, capped by the reduction limit that
+ * remains after field symbols. The card-removal count MUST match the cost cut.
+ */
+function inheritanceEXConsumed(
+  card: CardDef,
+  fieldSymbols: { color: string; count: number }[],
+  availableEXSymbols: number,
+): number {
+  return Math.min(availableEXSymbols, reductionAfterFieldSymbols(card, fieldSymbols));
+}
+
 function calculateCostAfterReduction(
   card: any,
   fieldSymbols: { color: string; count: number }[],
-  hasEXSymbolsInTrash: boolean,
-  hasInheritance: boolean,
+  availableEXSymbols: number,
+  useInheritance: boolean,
 ): number {
   let cost = card.cost;
   // reductionRemaining tracks the shared reduction limit (e.g., 2)
@@ -31,10 +75,12 @@ function calculateCostAfterReduction(
     }
   }
 
-  // If card has inheritance, can use EX symbols from trash for remaining reduction limit
-  // (shared with field symbols, not added on top)
-  if (hasInheritance && reductionRemaining > 0 && hasEXSymbolsInTrash) {
-    cost = Math.max(0, cost - reductionRemaining);
+  // 継召: each removed matching-color EX card in the trash satisfies one reduction
+  // symbol. Reduce by the number of EX cards actually available, not the whole
+  // remaining limit — 1 EX card = 1 reduction, not "reduce to the cap".
+  if (useInheritance && reductionRemaining > 0 && availableEXSymbols > 0) {
+    const exUsed = Math.min(availableEXSymbols, reductionRemaining);
+    cost = Math.max(0, cost - exUsed);
   }
 
   return Math.max(0, cost);
@@ -86,6 +132,23 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       trash: [],
       bottomDeckCards: [],
     };
+  }
+
+  /**
+   * 継召: remove `count` matching-color EX-symbol cards from the player's trash
+   * (removed from the game). The number removed must equal the cost reduction that
+   * inheritance granted, so a player can't gain reduction beyond the cards they spend.
+   */
+  private removeInheritedEX(player: PlayerState, card: CardDef, count: number): void {
+    let remaining = count;
+    while (remaining > 0) {
+      const exIndex = player.trash.findIndex(
+        (c) => c.exSymbol && c.symbolColors?.some((col) => card.symbolColors?.includes(col)),
+      );
+      if (exIndex === -1) break;
+      player.trash.splice(exIndex, 1);
+      remaining -= 1;
+    }
   }
 
   private payCost(
@@ -549,26 +612,26 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!card || card.cardType !== 'spirit') return 0;
         // Only return the card's cost, NOT the Lv1 placement cost
         // Lv1 placement is a separate action (add_core) that happens after summon
-        return this.effectiveCost(player, card);
+        return this.effectiveCostWithFlag(player, card, action.useInheritance !== false);
       }
       case 'place_nexus': {
         const card = player.hand[action.handIndex];
         if (!card || card.cardType !== 'nexus') return 0;
-        return this.effectiveCost(player, card);
+        return this.effectiveCostWithFlag(player, card, action.useInheritance !== false);
       }
       case 'use_magic': {
         const card = player.hand[action.handIndex];
         if (!card || card.cardType !== 'magic') return 0;
         // Soul Magic alternative cost: exactly 1 soul core
         if (action.coreType === 'soul' && isSoulMagicRedCard(card)) return 1;
-        return this.effectiveCost(player, card);
+        return this.effectiveCostWithFlag(player, card, action.useInheritance !== false);
       }
       case 'flash': {
         const card = player.hand[action.handIndex];
         if (!card || card.cardType !== 'magic') return 0;
         // Soul Magic alternative cost: exactly 1 soul core
         if (action.coreType === 'soul' && isSoulMagicRedCard(card)) return 1;
-        return this.effectiveCost(player, card);
+        return this.effectiveCostWithFlag(player, card, action.useInheritance !== false);
       }
       case 'add_core': {
         return 1; // add_core costs 1 core
@@ -581,15 +644,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   /** Cost the player would actually pay for this card right now. */
   private effectiveCost(player: PlayerState, card: any): number {
     const fieldSymbols = this.getFieldSymbols(player);
-    const hasEXInTrash = player.trash.some((c) => c.exSymbol);
-    return calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+    const availableEX = countInheritableEX(player.trash, card);
+    return calculateCostAfterReduction(card, fieldSymbols, availableEX, !!card.inheritance);
   }
 
   /** Calculate cost with or without inheritance */
   private effectiveCostWithFlag(player: PlayerState, card: any, useInheritance: boolean): number {
     const fieldSymbols = this.getFieldSymbols(player);
-    const hasEXInTrash = player.trash.some((c) => c.exSymbol);
-    return calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, useInheritance && !!card.inheritance);
+    const availableEX = countInheritableEX(player.trash, card);
+    return calculateCostAfterReduction(card, fieldSymbols, availableEX, useInheritance && !!card.inheritance);
   }
 
   /** Does the player have a flash magic card they can actually afford? */
@@ -1222,8 +1285,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       } else {
         // Calculate normal cost
         const fieldSymbols = this.getFieldSymbols(me);
-        const hasEXInTrash = me.trash.some((c) => c.exSymbol);
-        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, !!card.inheritance);
+        const availableEX = countInheritableEX(me.trash, card);
+        const useInheritance = action.useInheritance !== false && !!card.inheritance;
+        const actualCost = calculateCostAfterReduction(card, fieldSymbols, availableEX, useInheritance);
+        const exToRemove = useInheritance ? inheritanceEXConsumed(card, fieldSymbols, availableEX) : 0;
 
         // Check if player has enough cores (including from spirits)
         const totalAvailable = this.getTotalAvailableCores(me);
@@ -1232,6 +1297,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Use the magic card as flash
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+        // 継召: remove the EX cards used for reduction from the game (from trash)
+        this.removeInheritedEX(me, card, exToRemove);
       }
       this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
       me.trash.push(card);
@@ -1401,11 +1468,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         // Calculate cost after reductions
         const fieldSymbols = this.getFieldSymbols(me);
-        const hasEXInTrash = me.trash.some((c) => c.exSymbol);
-        const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
+        const availableEX = countInheritableEX(me.trash, card);
         const useInheritance = action.useInheritance !== false && !!card.inheritance;
-        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, useInheritance);
-        const usedInheritance = useInheritance && costWithoutInheritance > actualCost && hasEXInTrash;
+        const actualCost = calculateCostAfterReduction(card, fieldSymbols, availableEX, useInheritance);
+        // 継召: remove exactly as many EX cards as the reduction they granted
+        const exToRemove = useInheritance ? inheritanceEXConsumed(card, fieldSymbols, availableEX) : 0;
 
         // Need enough cores to pay the cost AND move Lv1 maintenance cores onto the spirit
         const totalAvailable = this.getTotalAvailableCores(me);
@@ -1414,6 +1481,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // 支払うコア: pay only the summon cost (paid cores go to trash)
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+        // 継召: remove the EX cards used for reduction from the game (from trash)
+        this.removeInheritedEX(me, card, exToRemove);
         // Paying from field spirits may drain one to 0 cores: in main phase ask
         // for confirmation (消滅前の処理) instead of silently removing it. The
         // confirmation dialog appears after the summon completes; the drained
@@ -1421,14 +1490,6 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const needsPaymentDepletionConfirm = this.checkSpiritDepletionInMainPhase(next, next.currentPlayer);
         if (!needsPaymentDepletionConfirm) {
           this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
-        }
-
-        // If inheritance was used, remove one EX symbol card from trash
-        if (usedInheritance) {
-          const exIndex = me.trash.findIndex((c) => c.exSymbol);
-          if (exIndex !== -1) {
-            me.trash.splice(exIndex, 1);
-          }
         }
 
         // 乗せるコア: MOVE Lv1 maintenance cores from reserve onto the spirit
@@ -1971,11 +2032,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         // Calculate cost after reductions
         const fieldSymbols = this.getFieldSymbols(me);
-        const hasEXInTrash = me.trash.some((c) => c.exSymbol);
-        const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
+        const availableEX = countInheritableEX(me.trash, card);
         const useInheritance = action.useInheritance !== false && !!card.inheritance;
-        const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, useInheritance);
-        const usedInheritance = useInheritance && costWithoutInheritance > actualCost && hasEXInTrash;
+        const actualCost = calculateCostAfterReduction(card, fieldSymbols, availableEX, useInheritance);
+        // 継召: remove exactly as many EX cards as the reduction they granted
+        const exToRemove = useInheritance ? inheritanceEXConsumed(card, fieldSymbols, availableEX) : 0;
 
         // Need enough cores to pay the cost AND move Lv1 maintenance cores onto the nexus
         const totalAvailable = this.getTotalAvailableCores(me);
@@ -1984,18 +2045,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // 支払うコア: pay only the placement cost (paid cores go to trash)
         me.hand.splice(action.handIndex, 1);
         this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
+        // 継召: remove the EX cards used for reduction from the game (from trash)
+        this.removeInheritedEX(me, card, exToRemove);
         // Paying from field spirits may drain one to 0 cores: in main phase ask
         // for confirmation (消滅前の処理) instead of silently removing it
         if (!this.checkSpiritDepletionInMainPhase(next, next.currentPlayer)) {
           this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
-        }
-
-        // If inheritance was used, remove one EX symbol card from trash
-        if (usedInheritance) {
-          const exIndex = me.trash.findIndex((c) => c.exSymbol);
-          if (exIndex !== -1) {
-            me.trash.splice(exIndex, 1);
-          }
         }
 
         // 乗せるコア: MOVE Lv1 maintenance cores from reserve onto the nexus
@@ -2060,11 +2115,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         } else {
           // Calculate cost after reductions
           const fieldSymbols = this.getFieldSymbols(me);
-          const hasEXInTrash = me.trash.some((c) => c.exSymbol);
-          const costWithoutInheritance = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, false);
+          const availableEX = countInheritableEX(me.trash, card);
           const useInheritance = action.useInheritance !== false && !!card.inheritance;
-          const actualCost = calculateCostAfterReduction(card, fieldSymbols, hasEXInTrash, useInheritance);
-          const usedInheritance = useInheritance && costWithoutInheritance > actualCost && hasEXInTrash;
+          const actualCost = calculateCostAfterReduction(card, fieldSymbols, availableEX, useInheritance);
+          // 継召: remove exactly as many EX cards as the reduction they granted
+          const exToRemove = useInheritance ? inheritanceEXConsumed(card, fieldSymbols, availableEX) : 0;
 
           // Check if player has enough cores (including from spirits)
           const totalAvailable = this.getTotalAvailableCores(me);
@@ -2073,14 +2128,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           // Pay cost using specified regular/soul core distribution
           me.hand.splice(action.handIndex, 1);
           this.payCost(me, actualCost, action.paidRegularCores, action.paidSoulCores, action.coreType);
-
-          // If inheritance was used, remove one EX symbol card from trash
-          if (usedInheritance) {
-            const exIndex = me.trash.findIndex((c) => c.exSymbol);
-            if (exIndex !== -1) {
-              me.trash.splice(exIndex, 1);
-            }
-          }
+          // 継召: remove the EX cards used for reduction from the game (from trash)
+          this.removeInheritedEX(me, card, exToRemove);
         }
 
         // Paying from field spirits may drain one to 0 cores: in main phase ask
@@ -2561,9 +2610,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'summon': {
         const card = me.hand[action.handIndex];
-        // Only show payment cost, not Lv1 placement cost
-        const cost = card ? this.effectiveCost(me, card) : 0;
-        return `${card?.name ?? '?'}を召喚（コア${cost}個）`;
+        // Only show payment cost, not Lv1 placement cost. Reflect whether this
+        // particular action uses 継召 so the choice dialog can distinguish variants.
+        const useInh = action.useInheritance !== false;
+        const cost = card ? this.effectiveCostWithFlag(me, card, useInh) : 0;
+        const inhLabel = card?.inheritance && useInh ? '・継召あり' : card?.inheritance ? '・継召なし' : '';
+        return `${card?.name ?? '?'}を召喚（コア${cost}個${inhLabel}）`;
       }
       case 'add_core': {
         if (action.spiritIndex !== undefined) {
@@ -2591,13 +2643,18 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'place_nexus': {
         const card = me.hand[action.handIndex];
-        return `${card?.name ?? '?'}を配置`;
+        const useInh = action.useInheritance !== false;
+        const cost = card ? this.effectiveCostWithFlag(me, card, useInh) : 0;
+        const inhLabel = card?.inheritance && useInh ? '・継召あり' : card?.inheritance ? '・継召なし' : '';
+        return `${card?.name ?? '?'}を配置（コア${cost}個${inhLabel}）`;
       }
       case 'use_magic': {
         const card = me.hand[action.handIndex];
         let desc = `${card?.name ?? '?'}を使用`;
         if (action.coreType === 'soul' && card && isSoulMagicRedCard(card)) {
           desc += `（ソウルコア払い）`;
+        } else if (card?.inheritance) {
+          desc += action.useInheritance !== false ? `（継召あり）` : `（継召なし）`;
         }
         if (action.targetSpiritIndex !== undefined) {
           const opponent = state.players[1 - state.currentPlayer]!;

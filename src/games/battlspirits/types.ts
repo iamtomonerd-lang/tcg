@@ -251,7 +251,7 @@ export type Action =
   | { type: 'block'; spiritIndex: number } // ブロック：相手の攻撃に対してスピリットで迎撃
   | { type: 'take_damage' } // ダメージ受け入れ：防御せずにダメージを受ける
   | { type: 'pass' } // end current action phase
-  | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; targetNexusIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number } // activate a flash magic card
+  | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; targetNexusIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean } // activate a flash magic card
   | { type: 'skip_flash' } // pass on flash opportunity
   | { type: 'select_draw_arrange'; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; cardIndices?: number[] } // arrange and select cards for offering draw
   | { type: 'mulligan'; redraw: boolean } // opening hand: keep as-is, or shuffle it back and redraw (no selection)

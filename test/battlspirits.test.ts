@@ -887,3 +887,87 @@ describe('Attack-time search_deck effects', () => {
     expect(result.players[0].spirits.length).toBe(4);
   });
 });
+
+describe('継召 (inheritance) cost reduction', () => {
+  // セルタリウス: cost 6, reductionCost 3, red. ゲン＝ガタ: exSymbol, red.
+  const seldalius = CARD_DB.spirit_seldalius!;
+  const gunGata = CARD_DB.spirit_gun_gata!;
+
+  function summonState(trash: any[]): GameState {
+    const p0 = makePlayer([]);
+    p0.cores = 10; // plenty of cores so affordability never blocks the test
+    p0.soulCores = 1;
+    p0.hand = [seldalius];
+    p0.trash = trash.map((c) => ({ ...c }));
+    const p1 = makePlayer([]);
+    return { players: [p0, p1], currentPlayer: 0, turnCount: 2, phase: 'main', battle: null, result: null };
+  }
+
+  it('EXカード1枚(色一致)なら軽減は1のみ、cost 6→5、EXカード1枚除外', () => {
+    const state = summonState([gunGata]);
+    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.useInheritance === true);
+    expect(inhSummon).toBeDefined();
+    expect((game as any).actionCost(state, inhSummon)).toBe(5); // 6 - 1 EX symbol
+
+    const after = game.applyAction(state, { ...inhSummon!, paidRegularCores: 5, paidSoulCores: 0 } as any, new Mulberry32(1));
+    expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(0); // the 1 EX card is removed from game
+  });
+
+  it('EXカード3枚(色一致)なら軽減枠3まで使い切る、cost 6→3、EXカード3枚除外', () => {
+    const state = summonState([gunGata, { ...gunGata, id: 'g2' }, { ...gunGata, id: 'g3' }]);
+    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.useInheritance === true);
+    expect((game as any).actionCost(state, inhSummon)).toBe(3); // 6 - 3
+
+    const after = game.applyAction(state, { ...inhSummon!, paidRegularCores: 3, paidSoulCores: 0 } as any, new Mulberry32(1));
+    expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(0); // all 3 removed
+  });
+
+  it('色が一致しないEXシンボルは継召に使えない（軽減されず、継召選択肢も出ない）', () => {
+    const blueEX = { ...gunGata, id: 'blue_ex', symbolColors: ['blue'] };
+    const state = summonState([blueEX]);
+    const actions = game.legalActions(state);
+    // No 継召あり variant is offered because it grants no reduction
+    expect(actions.some((a: any) => a.type === 'summon' && a.useInheritance === true)).toBe(false);
+    const plainSummon = actions.find((a: any) => a.type === 'summon');
+    expect((game as any).actionCost(state, plainSummon)).toBe(6); // full cost, no reduction
+
+    const after = game.applyAction(state, { ...plainSummon!, paidRegularCores: 6, paidSoulCores: 0 } as any, new Mulberry32(1));
+    expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(1); // blue EX untouched
+  });
+
+  it('除外されるEXカード枚数は軽減量と一致する（踏み倒し防止）', () => {
+    // 2 red EX cards, reductionCost 3 → inheritance reduces by 2 (limited by card count), removes exactly 2
+    const state = summonState([gunGata, { ...gunGata, id: 'g2' }]);
+    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.useInheritance === true);
+    expect((game as any).actionCost(state, inhSummon)).toBe(4); // 6 - 2
+
+    const after = game.applyAction(state, { ...inhSummon!, paidRegularCores: 4, paidSoulCores: 0 } as any, new Mulberry32(1));
+    expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(0); // exactly 2 removed
+  });
+
+  it('フィールドシンボルと継召は同じ軽減枠を共有する', () => {
+    // 1 red field symbol + 3 red EX cards, reductionCost 3 → field uses 1, inheritance uses 2 more
+    const redFieldSpirit: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const state = summonState([gunGata, { ...gunGata, id: 'g2' }, { ...gunGata, id: 'g3' }]);
+    state.players[0].spirits = [redFieldSpirit];
+
+    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.useInheritance === true);
+    expect((game as any).actionCost(state, inhSummon)).toBe(3); // 6 - 1 (field) - 2 (EX)
+
+    const after = game.applyAction(state, { ...inhSummon!, paidRegularCores: 3, paidSoulCores: 0 } as any, new Mulberry32(1));
+    expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(1); // only 2 of 3 EX cards removed
+  });
+
+  it('継召あり/なしは別々の選択肢として提示される（自動選択されない）', () => {
+    const state = summonState([gunGata]);
+    const actions = game.legalActions(state);
+    const summons = actions.filter((a: any) => a.type === 'summon');
+    expect(summons.some((a: any) => a.useInheritance === true)).toBe(true);
+    expect(summons.some((a: any) => a.useInheritance === false)).toBe(true);
+    // The two variants have different costs so the UI can present a real choice
+    const inhCost = (game as any).actionCost(state, summons.find((a: any) => a.useInheritance === true));
+    const noInhCost = (game as any).actionCost(state, summons.find((a: any) => a.useInheritance === false));
+    expect(inhCost).toBe(5);
+    expect(noInhCost).toBe(6);
+  });
+});
