@@ -1437,7 +1437,16 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             </div>
             <div className="mulligan-hand">
               {state.players[state.pendingMulligan.player].handCards.map((c: any, i: number) => (
-                <div key={`${c.id}-${i}`} className="mulligan-card" onClick={() => c.imagePath && setSelectedCardImage({ imagePath: c.imagePath, name: c.name })} style={{ cursor: 'pointer' }}>
+                <div
+                  key={`${c.id}-${i}`}
+                  className="mulligan-card"
+                  onClick={() => c.imagePath && setSelectedCardImage({ imagePath: c.imagePath, name: c.name })}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    c.imagePath && setSelectedCardImage({ imagePath: c.imagePath, name: c.name });
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   {c.imagePath ? <img src={c.imagePath} alt={c.name} /> : null}
                   <span>{c.name}</span>
                 </div>
@@ -1488,6 +1497,10 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                             newSelected.add(idx);
                           }
                           setSelectedHandIndices(newSelected);
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          card.imagePath && setSelectedCardImage({ imagePath: card.imagePath, name: card.name });
                         }}
                         style={{ cursor: canSelect ? 'pointer' : 'not-allowed' }}
                         title={isSelectable ? card.name : `${card.name}\n（系統「風牙」ではありません）`}
