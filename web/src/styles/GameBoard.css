@@ -728,16 +728,24 @@
   font-size: 0.75rem;
   margin-top: 0.3rem;
   text-align: center;
+  display: block;
+  width: 100%;
+  padding: 0.2rem 0;
+  cursor: pointer;
 }
 
 .offering-card-cost {
   font-size: 0.7rem;
   opacity: 0.8;
   text-align: center;
+  display: block;
+  width: 100%;
+  padding: 0.2rem 0;
+  cursor: pointer;
 }
 
 .offering-card-lineage {
-  display: inline-block;
+  display: block;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   font-size: 0.65rem;
@@ -745,6 +753,10 @@
   padding: 0.2rem 0.4rem;
   border-radius: 3px;
   margin-top: 0.2rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .offering-checkmark {

@@ -1535,17 +1535,21 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                     const isSelected = selectedHandIndices.has(idx);
                     const maxSelectable = state.pendingDraw.maxSelectable ?? 2;
                     const canSelect = isSelectable && (isSelected || selectedHandIndices.size < maxSelectable);
+                    console.log(`[OfferingDraw] Card ${idx} (${card.name}): isSelectable=${isSelectable}, isSelected=${isSelected}, selectedCount=${selectedHandIndices.size}/${maxSelectable}, canSelect=${canSelect}`);
                     return (
                       <div
                         key={`hand-${idx}`}
                         className={`offering-card ${isSelected ? 'selected' : ''} ${!canSelect ? 'disabled' : ''}`}
                         onClick={() => {
+                          console.log(`[OfferingDraw] Clicked card ${idx} (${card.name}): canSelect=${canSelect}`);
                           if (!canSelect) return;
                           const newSelected = new Set(selectedHandIndices);
                           if (isSelected) {
                             newSelected.delete(idx);
+                            console.log(`[OfferingDraw] Deselected card ${idx}`);
                           } else {
                             newSelected.add(idx);
+                            console.log(`[OfferingDraw] Selected card ${idx}`);
                           }
                           setSelectedHandIndices(newSelected);
                         }}
@@ -1561,6 +1565,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                             src={card.imagePath}
                             alt={card.name}
                             onClick={(e) => {
+                              console.log(`[OfferingDraw] Clicked image for card ${idx} (${card.name})`);
                               e.stopPropagation();
                               setSelectedCardImage({ imagePath: card.imagePath, name: card.name });
                             }}
