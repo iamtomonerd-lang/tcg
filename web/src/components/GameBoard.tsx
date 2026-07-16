@@ -1429,23 +1429,10 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       {!isTerminal && state.pendingMulligan && playerTypes[state.pendingMulligan.player] === 'human' && (
         <div className="game-over">
           <div className="game-over-content mulligan-content">
-            <h3>初手を確認してください</h3>
+            <h3>🎴 初手を確認してください</h3>
             <div className="mulligan-info">
-              <div className="first-player-info">
-                {state.pendingMulligan.firstPlayer === 0 ? (
-                  <>
-                    <div className="player-badge player-0">先手</div>
-                    <div className="player-badge player-1">後手</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="player-badge player-0">後手</div>
-                    <div className="player-badge player-1">先手</div>
-                  </>
-                )}
-              </div>
-              <div className="current-player-highlight">
-                {state.pendingMulligan.player === 0 ? 'あなた（P0）が初手を選択中' : 'あなた（P1）が初手を選択中'}
+              <div style={{ fontSize: '0.95rem', color: '#666', marginBottom: '1rem', textAlign: 'center' }}>
+                先手: {state.pendingMulligan.firstPlayer === 0 ? 'Player 0' : 'Player 1'} ｜ 後手: {state.pendingMulligan.firstPlayer === 0 ? 'Player 1' : 'Player 0'}
               </div>
             </div>
             <div className="mulligan-hand">
