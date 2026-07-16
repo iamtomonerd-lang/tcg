@@ -26,8 +26,9 @@ import { MiniTcg } from './games/minitcg/game.js';
 import { renderState as renderMiniTcg } from './games/minitcg/render.js';
 import type { MiniAction, MiniState } from './games/minitcg/state.js';
 import { BattlSpiritsGame } from './games/battlspirits/game.js';
+import { DeckFactory } from './games/battlspirits/deckFactory.js';
 import { renderState as renderBattlSpirits } from './games/battlspirits/render.js';
-import type { Action, GameState } from './games/battlspirits/types.js';
+import type { Action, GameState, GameConfig } from './games/battlspirits/types.js';
 
 interface Args {
   game: 'minitcg' | 'battlspirits';
@@ -108,8 +109,25 @@ function main(): void {
   let draws = 0;
 
   for (let g = 0; g < args.games; g++) {
-    const rng = new Mulberry32(args.seed + g * 7919);
-    const initial = game.createInitialState(rng);
+    const gameSeed = args.seed + g * 7919;
+    const rng = new Mulberry32(gameSeed);
+
+    // Use GameConfig for Battle Spirits, RNG for other games
+    let initial: any;
+    if (args.game === 'battlspirits') {
+      const config: GameConfig = {
+        players: [
+          { deck: DeckFactory.getStarterDeck() },
+          { deck: DeckFactory.getStarterDeck() },
+        ],
+        rngSeed: gameSeed,
+        gameMode: 'training',
+      };
+      initial = (game as BattlSpiritsGame).createInitialState(config);
+    } else {
+      initial = game.createInitialState(rng);
+    }
+
     const verbose = args.verbose && g === 0;
 
     if (verbose) {
