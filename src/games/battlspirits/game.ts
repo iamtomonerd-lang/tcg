@@ -1885,14 +1885,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!takeCore()) return next;
         putCore();
 
-        // Spirits/nexuses that lost their last core are depleted (消滅 — no destroy effects)
-        this.removeDeadSpirits(next, next.currentPlayer);
-        this.removeDeadNexuses(next, next.currentPlayer);
-
-        // Check if any spirits meet depletion condition in main phase
+        // Check if any spirits meet depletion condition in main phase BEFORE removing them
         if (this.checkSpiritDepletionInMainPhase(next, next.currentPlayer)) {
           return next; // Stop here, player must confirm depletion
         }
+
+        // If no confirmation needed, remove dead spirits and nexuses
+        this.removeDeadSpirits(next, next.currentPlayer);
+        this.removeDeadNexuses(next, next.currentPlayer);
 
         break;
       }
