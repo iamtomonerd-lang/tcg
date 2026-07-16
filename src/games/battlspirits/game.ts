@@ -1084,14 +1084,18 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           next.pendingDiceRoll.p0Roll = undefined;
           next.pendingDiceRoll.p1Roll = undefined;
           next.currentPlayer = 0;
-        } else if (p0Roll > p1Roll) {
-          // Player 0 wins
-          next.pendingDiceRoll.winner = 0;
-          next.currentPlayer = 0;
         } else {
-          // Player 1 wins
-          next.pendingDiceRoll.winner = 1;
-          next.currentPlayer = 1;
+          // Store Player 1's roll
+          next.pendingDiceRoll.p1Roll = p1Roll;
+          if (p0Roll > p1Roll) {
+            // Player 0 wins
+            next.pendingDiceRoll.winner = 0;
+            next.currentPlayer = 0;
+          } else {
+            // Player 1 wins
+            next.pendingDiceRoll.winner = 1;
+            next.currentPlayer = 1;
+          }
         }
         return next;
       }
