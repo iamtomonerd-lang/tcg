@@ -6,7 +6,8 @@ import { homedir } from 'os';
 import { promises as fs } from 'fs';
 import { BattlSpiritsGame } from './games/battlspirits/game.js';
 import { CARD_DB } from './games/battlspirits/cards.js';
-import type { GameState, Action, EffectResult } from './games/battlspirits/types.js';
+import { DeckFactory } from './games/battlspirits/deckFactory.js';
+import type { GameState, Action, EffectResult, GameConfig, PlayerConfig } from './games/battlspirits/types.js';
 import { Mulberry32 } from './core/rng.js';
 import { IsmctsAgent } from './ai/ismcts.js';
 import { cardToRulebook } from './games/battlspirits/cardRulebook.js';
@@ -54,14 +55,9 @@ app.post('/api/game/new', async (req, res) => {
   const { p0Type, p1Type, p0Iters, p1Iters, p0DeckId, p1DeckId, p0Rating } = req.body;
 
   const sessionId = Math.random().toString(36).substring(7);
-  const rng = new Mulberry32(Date.now() & 0xffffffff);
+  const rngSeed = Date.now() & 0xffffffff;
   const game = new BattlSpiritsGame();
-  let state = game.createInitialState(rng);
-
-  // Randomly decide first player
-  if (rng.next() < 0.5) {
-    state.currentPlayer = 1;
-  }
+  const rng = new Mulberry32(rngSeed);
 
   const playerTypes: [string, string] = [p0Type || 'human', p1Type || 'mcts'];
 
@@ -81,40 +77,61 @@ app.post('/api/game/new', async (req, res) => {
   }
 
   // Load decks if provided (use session timestamp as seed for variation)
-  const sessionSeed = Date.now() & 0xffffffff;
   console.log(`🎮 ゲーム開始リクエスト受信: p0Type=${p0Type}, p1Type=${p1Type}`);
   console.log(`   p0DeckId="${p0DeckId}", p1DeckId="${p1DeckId}"`);
 
+  let p0Deck: any[] | null = null;
+  let p1Deck: any[] | null = null;
+
   try {
     if (p0DeckId) {
-      const deck0 = await loadDeckForGame(p0DeckId, sessionSeed);
-      if (deck0) {
-        console.log(`📋 【P0デッキロード直後】読み込まれたカード一覧: ${deck0.map((c: any) => c.id).join(', ')}`);
-        state.players[0].deck = deck0;
-        console.log(`✅ P0デッキロード成功: deckId="${p0DeckId}", カード枚数=${deck0.length}`);
-        console.log(`📋 【P0デッキセット直後】state.players[0].deckの内容: ${state.players[0].deck.map((c: any) => c.id).join(', ')}`);
+      p0Deck = await loadDeckForGame(p0DeckId, rngSeed);
+      if (p0Deck) {
+        console.log(`✅ P0デッキロード成功: deckId="${p0DeckId}", カード枚数=${p0Deck.length}`);
       } else {
-        console.warn(`⚠️ P0デッキロード失敗: deckId="${p0DeckId}" - デフォルトデッキ(${state.players[0].deck.length}枚)を使用します`);
+        console.warn(`⚠️ P0デッキロード失敗: deckId="${p0DeckId}" - デフォルトデッキを使用します`);
+        p0Deck = DeckFactory.getStarterDeck();
       }
     } else {
-      console.log(`ℹ️ P0: デッキIDが指定されていません。デフォルトデッキ(${state.players[0].deck.length}枚)を使用します`);
+      console.log(`ℹ️ P0: デッキIDが指定されていません。デフォルトデッキを使用します`);
+      p0Deck = DeckFactory.getStarterDeck();
     }
 
     if (actualP1DeckId) {
-      const deck1 = await loadDeckForGame(actualP1DeckId, sessionSeed);
-      if (deck1) {
-        console.log(`📋 【P1デッキロード直後】読み込まれたカード一覧: ${deck1.map((c: any) => c.id).join(', ')}`);
-        state.players[1].deck = deck1;
-        console.log(`✅ P1デッキロード成功: deckId="${actualP1DeckId}", カード枚数=${deck1.length}`);
-        console.log(`📋 【P1デッキセット直後】state.players[1].deckの内容: ${state.players[1].deck.map((c: any) => c.id).join(', ')}`);
+      p1Deck = await loadDeckForGame(actualP1DeckId, rngSeed);
+      if (p1Deck) {
+        console.log(`✅ P1デッキロード成功: deckId="${actualP1DeckId}", カード枚数=${p1Deck.length}`);
       } else {
-        console.warn(`⚠️ P1デッキロード失敗: deckId="${actualP1DeckId}" - デフォルトデッキ(${state.players[1].deck.length}枚)を使用します`);
+        console.warn(`⚠️ P1デッキロード失敗: deckId="${actualP1DeckId}" - デフォルトデッキを使用します`);
+        p1Deck = DeckFactory.getStarterDeck();
       }
     } else {
-      console.log(`ℹ️ P1: デッキIDが指定されていません。デフォルトデッキ(${state.players[1].deck.length}枚)を使用します`);
+      console.log(`ℹ️ P1: デッキIDが指定されていません。デフォルトデッキを使用します`);
+      p1Deck = DeckFactory.getStarterDeck();
     }
   } catch (error) {
     console.error('Error loading decks:', error);
+    // Fallback to default decks on error
+    p0Deck = p0Deck || DeckFactory.getStarterDeck();
+    p1Deck = p1Deck || DeckFactory.getStarterDeck();
+  }
+
+  // Build GameConfig from loaded decks
+  const config: GameConfig = {
+    players: [
+      { deck: p0Deck } as PlayerConfig,
+      { deck: p1Deck } as PlayerConfig,
+    ],
+    rngSeed: rngSeed,
+    gameMode: p0Rating !== undefined ? 'ranked' : 'free-battle',
+  };
+
+  // Create game state from config
+  let state = game.createInitialState(config);
+
+  // Randomly decide first player (use same RNG that was used for state initialization)
+  if (rng.next() < 0.5) {
+    state.currentPlayer = 1;
   }
 
   // Create AI agents ('human' players have no agent)
