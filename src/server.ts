@@ -142,16 +142,21 @@ app.get('/api/game/:sessionId/state', (req, res) => {
   }
 
   // Auto-execute dice rolls until winner is determined
+  let diceRollIterations = 0;
   while (session.state.pendingDiceRoll && session.state.pendingDiceRoll.winner === undefined) {
+    diceRollIterations++;
     const actions = session.game.legalActions(session.state);
     const diceActions = actions.filter((a) => a.type === 'dice_roll');
+    console.log(`[Dice Roll Iteration ${diceRollIterations}] p0Roll=${session.state.pendingDiceRoll.p0Roll}, p1Roll=${session.state.pendingDiceRoll.p1Roll}, winner=${session.state.pendingDiceRoll.winner}, diceActions available=${diceActions.length}`);
     if (diceActions.length > 0) {
       const randomAction = diceActions[Math.floor(Math.random() * diceActions.length)]!;
       session.state = session.game.applyAction(session.state, randomAction, session.rng);
     } else {
+      console.log(`[Dice Roll] No more dice actions available, exiting loop`);
       break; // No more dice actions available, exit loop
     }
   }
+  console.log(`[Dice Roll Complete] Final state: p0Roll=${session.state.pendingDiceRoll?.p0Roll}, p1Roll=${session.state.pendingDiceRoll?.p1Roll}, winner=${session.state.pendingDiceRoll?.winner}`);
 
   const isTerminal = session.game.isTerminal(session.state);
 

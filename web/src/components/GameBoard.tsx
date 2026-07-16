@@ -58,6 +58,9 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       const response = await fetch(`/api/game/${sessionId}/state`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
+      if (data.state.pendingDiceRoll) {
+        console.log(`[Client] Received dice roll state: p0Roll=${data.state.pendingDiceRoll.p0Roll}, p1Roll=${data.state.pendingDiceRoll.p1Roll}, winner=${data.state.pendingDiceRoll.winner}`);
+      }
       setState(data.state);
       setIsTerminal(data.isTerminal);
       setCurrentPlayer(data.currentPlayer);
