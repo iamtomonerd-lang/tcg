@@ -85,11 +85,21 @@ app.post('/api/game/new', async (req, res) => {
   try {
     if (p0DeckId) {
       const deck0 = await loadDeckForGame(p0DeckId, sessionSeed);
-      if (deck0) state.players[0].deck = deck0;
+      if (deck0) {
+        state.players[0].deck = deck0;
+        console.log(`✅ P0デッキロード成功: deckId="${p0DeckId}", カード枚数=${deck0.length}`);
+      } else {
+        console.warn(`⚠️ P0デッキロード失敗: deckId="${p0DeckId}" - デフォルトデッキを使用します`);
+      }
     }
     if (actualP1DeckId) {
       const deck1 = await loadDeckForGame(actualP1DeckId, sessionSeed);
-      if (deck1) state.players[1].deck = deck1;
+      if (deck1) {
+        state.players[1].deck = deck1;
+        console.log(`✅ P1デッキロード成功: deckId="${actualP1DeckId}", カード枚数=${deck1.length}`);
+      } else {
+        console.warn(`⚠️ P1デッキロード失敗: deckId="${actualP1DeckId}" - デフォルトデッキを使用します`);
+      }
     }
   } catch (error) {
     console.error('Error loading decks:', error);
@@ -1446,7 +1456,12 @@ async function loadDeckForGame(deckId: string, sessionSeed?: number): Promise<an
     // ユーザーが保存したデッキの場合
     const data = await loadDecks();
     const savedDeck = data.decks[deckId];
-    if (!savedDeck) return null;
+    if (!savedDeck) {
+      // ✅ 修正：デッキが見つからない場合は警告ログを出す（デバッグ用）
+      console.warn(`⚠️ デッキが見つかりません。deckId="${deckId}"`);
+      console.warn('利用可能なデッキID:', Object.keys(data.decks));
+      return null;
+    }
 
     const deck: any[] = [];
     for (const { cardId, count } of savedDeck.cards) {

@@ -30,8 +30,25 @@ export default function GameSetup({ onStartGame, onBack }: GameSetupProps) {
     { id: 'ai-medium', name: '🟡 ノーマル' },
     { id: 'ai-hard', name: '🔴 ハード' },
   ]);
-  const [p0DeckId, setP0DeckId] = useState<string>('');
+  const [p0DeckId, setP0DeckId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('selectedP0DeckId') || '';
+    } catch {
+      return '';
+    }
+  });
   const [p1DeckId, setP1DeckId] = useState<string>('ai-medium');
+
+  // ✅ 修正：p0DeckIdが変わったときにローカルストレージに保存
+  useEffect(() => {
+    if (p0DeckId) {
+      try {
+        localStorage.setItem('selectedP0DeckId', p0DeckId);
+      } catch {
+        // ignore
+      }
+    }
+  }, [p0DeckId]);
 
   useEffect(() => {
     loadDecks();
@@ -43,7 +60,14 @@ export default function GameSetup({ onStartGame, onBack }: GameSetupProps) {
       if (response.ok) {
         const data = await response.json();
         setSavedDecks(data.decks || []);
-        if (data.decks && data.decks.length > 0) {
+        // ✅ 修正：デッキを読み込んでも、ユーザーが前回選択したデッキを保持
+        // 前回選択が有効なデッキか確認
+        const savedDeckId = localStorage.getItem('selectedP0DeckId');
+        if (savedDeckId && data.decks?.some((d: SavedDeck) => d.id === savedDeckId)) {
+          // 保存されたデッキが存在すればそれを使用
+          setP0DeckId(savedDeckId);
+        } else if (!p0DeckId && data.decks && data.decks.length > 0) {
+          // 初回のみデフォルトで最初のデッキを選択
           setP0DeckId(data.decks[0].id);
         }
       }

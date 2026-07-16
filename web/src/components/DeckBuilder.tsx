@@ -202,6 +202,15 @@ export default function DeckBuilder({ onBack }: DeckBuilderProps) {
     const updated = savedDecks.filter((d) => d.id !== deckId);
     setSavedDecks(updated);
     localStorage.setItem(LOCAL_DECKS_KEY, JSON.stringify(updated));
+    // ✅ 修正：削除されたデッキがGameSetupで選択されていた場合、クリア
+    try {
+      const selectedDeckId = localStorage.getItem('selectedP0DeckId');
+      if (selectedDeckId === deckId) {
+        localStorage.removeItem('selectedP0DeckId');
+      }
+    } catch {
+      // ignore
+    }
     if (editingDeckId === deckId) {
       setEditingDeckId(null);
     }
