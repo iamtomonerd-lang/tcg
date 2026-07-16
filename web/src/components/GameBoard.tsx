@@ -1038,6 +1038,109 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           </div>
         )}
 
+        {/* Effect Target Selection Dialog */}
+        {state.pendingEffectAction && isHumanTurn && (
+          <div style={{
+            backgroundColor: '#e6f3ff',
+            border: '2px solid #1976d2',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '1rem',
+          }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1565c0', marginBottom: '0.5rem' }}>
+              🎯 対象を選択
+            </div>
+            <div style={{ fontSize: '0.95rem', color: '#333', marginBottom: '1rem', lineHeight: '1.6' }}>
+              「{state.pendingEffectAction.sourceCard.name}」の効果のための対象を選択してください：
+              <br />
+              <strong>{state.pendingEffectAction.effect.description}</strong>
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+              gap: '0.6rem',
+              marginBottom: '0.8rem'
+            }}>
+              {/* Opponent spirits */}
+              {state.pendingEffectAction.validTargets.spiritIndices.map((spiritIdx) => {
+                if (spiritIdx < 0) return null; // Skip special markers
+                const opponent = state.players[1 - state.currentPlayer];
+                const spirit = opponent?.spirits[spiritIdx];
+                if (!spirit) return null;
+
+                return (
+                  <button
+                    key={`spirit-${spiritIdx}`}
+                    onClick={() => {
+                      const selectAction = legalActions.find(a =>
+                        a.action?.type === 'select_effect_target' &&
+                        a.action?.targetSpiritIndex === spiritIdx
+                      );
+                      if (selectAction) {
+                        executeAction(selectAction.index);
+                      }
+                    }}
+                    disabled={isBusy}
+                    style={{
+                      padding: '0.6rem',
+                      backgroundColor: '#1976d2',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    {spirit.def.name}
+                    <br />
+                    <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                      BP{spirit.level === 1 ? spirit.def.lv1.bp : spirit.def.lv2?.bp || spirit.def.lv1.bp}
+                    </span>
+                  </button>
+                );
+              })}
+
+              {/* Opponent nexuses */}
+              {state.pendingEffectAction.validTargets.nexusIndices.map((nexusIdx) => {
+                const opponent = state.players[1 - state.currentPlayer];
+                const nexus = opponent?.nexuses[nexusIdx];
+                if (!nexus) return null;
+
+                return (
+                  <button
+                    key={`nexus-${nexusIdx}`}
+                    onClick={() => {
+                      const selectAction = legalActions.find(a =>
+                        a.action?.type === 'select_effect_target' &&
+                        a.action?.targetNexusIndex === nexusIdx
+                      );
+                      if (selectAction) {
+                        executeAction(selectAction.index);
+                      }
+                    }}
+                    disabled={isBusy}
+                    style={{
+                      padding: '0.6rem',
+                      backgroundColor: '#7b1fa2',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    {nexus.def.name}
+                    <br />
+                    <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>Nexus</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="side-actions">
           {/* Mulligan selection (opening hand confirmation) */}
           {legalActions.some(a => a.action?.type === 'dice_roll') ? (

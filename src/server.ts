@@ -901,6 +901,20 @@ function serializeState(state: GameState) {
         }
       : null,
     pendingDiceRoll: state.pendingDiceRoll || null,
+    pendingEffectAction: state.pendingEffectAction
+      ? {
+          effect: state.pendingEffectAction.effect,
+          sourceCard: {
+            id: state.pendingEffectAction.sourceCard.id,
+            name: state.pendingEffectAction.sourceCard.name,
+          },
+          sourcePlayer: state.pendingEffectAction.sourcePlayer,
+          spiritIndex: state.pendingEffectAction.spiritIndex,
+          sourceNexusIndex: state.pendingEffectAction.sourceNexusIndex,
+          validTargets: state.pendingEffectAction.validTargets,
+          trigger: state.pendingEffectAction.trigger,
+        }
+      : null,
   };
 }
 
