@@ -1079,12 +1079,18 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                 const targetPlayerIndex = targetIsOpponent ? 1 - state.currentPlayer : state.currentPlayer;
                 const targetPlayer = state.players[targetPlayerIndex];
 
+                // Defensive check: if targetPlayer doesn't exist, try the other player
+                // This handles potential state sync issues
+                const fallbackTargetPlayer = state.players[1 - targetPlayerIndex];
+                const validPlayer = targetPlayer || fallbackTargetPlayer;
+
                 return (
                   <>
                     {/* Spirits */}
                     {state.pendingEffectAction.validTargets.spiritIndices.map((spiritIdx) => {
                       if (spiritIdx < 0) return null; // Skip special markers
-                      const spirit = targetPlayer?.spirits[spiritIdx];
+                      if (!validPlayer) return null;
+                      const spirit = validPlayer.spirits[spiritIdx];
                       if (!spirit) return null;
 
                       return (
@@ -1111,10 +1117,10 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                             fontSize: '0.85rem',
                           }}
                         >
-                          {spirit.def.name}
+                          {spirit.def?.name || '?'}
                           <br />
                           <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
-                            BP{spirit.level === 1 ? spirit.def.lv1.bp : spirit.def.lv2?.bp || spirit.def.lv1.bp}
+                            BP{spirit.level === 1 ? spirit.def?.lv1?.bp : spirit.def?.lv2?.bp || spirit.def?.lv1?.bp || '?'}
                           </span>
                         </button>
                       );
@@ -1122,7 +1128,8 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
 
                     {/* Nexuses */}
                     {state.pendingEffectAction.validTargets.nexusIndices.map((nexusIdx) => {
-                      const nexus = targetPlayer?.nexuses[nexusIdx];
+                      if (!validPlayer) return null;
+                      const nexus = validPlayer.nexuses[nexusIdx];
                       if (!nexus) return null;
 
                       return (
@@ -1149,7 +1156,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                             fontSize: '0.85rem',
                           }}
                         >
-                          {nexus.def.name}
+                          {nexus.def?.name || '?'}
                           <br />
                           <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>Nexus</span>
                         </button>
