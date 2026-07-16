@@ -259,3 +259,100 @@ export type Action =
   | { type: 'confirm_spirit_depletion'; proceed: boolean } // confirm if spirit should be depleted (true=deplete, false=cancel)
   | { type: 'confirm_nexus_depletion'; proceed: boolean } // confirm if nexus should be depleted (true=deplete, false=cancel)
   | { type: 'select_effect_target'; targetSpiritIndex?: number; targetNexusIndex?: number }; // select target for effect requiring target selection
+
+/**
+ * プレイヤーの開始設定（Configuration Injection）
+ *
+ * 責務:
+ * - ゲーム開始時の初期条件をすべて指定
+ * - ゲーム中に変化しない（Immutable）
+ * - プレイヤーのアイデンティティ情報は含まない（メタデータは別で管理）
+ *
+ * 非責務:
+ * - ゲーム中の状態（PlayerState で管理）
+ * - プレイヤーの名前、ID、レート（メタデータは別で管理）
+ * - AIエージェント情報（API層で管理）
+ */
+export interface PlayerConfig {
+  /** ゲーム開始時のデッキ（順序済み、シャッフル前）40枚 */
+  deck: CardDef[];
+
+  /** 初期ライフ（デフォルト: 5） */
+  initialLife?: number;
+
+  /** 初期リザーブコア（デフォルト: 3） */
+  initialCores?: number;
+
+  /** 初期ソウルコア（デフォルト: 1） */
+  initialSoulCores?: number;
+
+  /** 将来のルール拡張用に予約 */
+  customRules?: Record<string, any>;
+}
+
+/**
+ * ゲームルール設定
+ *
+ * Battle Spirits のルールは基本的に固定だが、
+ * 将来的なルール変更やバリエーション対応のため予約
+ */
+export interface GameRuleConfig {
+  /** 初期ライフ（デフォルト: 5） */
+  startingLife?: number;
+
+  /** 初期リザーブコア（デフォルト: 3） */
+  startingCores?: number;
+
+  /** 初期ソウルコア（デフォルト: 1） */
+  startingSoulCores?: number;
+
+  /** 初期手札サイズ（デフォルト: 4） */
+  startingHandSize?: number;
+}
+
+/**
+ * ゲーム開始時の完全な設定（Configuration Injection）
+ *
+ * 責務:
+ * - ゲーム初期化に必要な情報をすべて保持
+ * - ゲーム中に変化しない（Immutable）
+ * - 完全にシリアライズ可能（JSON化可能）
+ * - 決定論を確保（同じconfig + 同じrngSeed = 同じゲーム展開）
+ *
+ * 非責務:
+ * - ゲーム中の状態管理（GameState の責務）
+ * - ランタイム情報（sessionId, websocket, DB接続など）
+ * - RNG インスタンスの管理（createInitialState 内で生成）
+ * - メタデータ（プレイヤー名、レート、マッチID など）
+ */
+export interface GameConfig {
+  /** プレイヤーの開始設定 */
+  players: [PlayerConfig, PlayerConfig];
+
+  /**
+   * 乱数シード（32bit 整数）
+   *
+   * 理由:
+   * - GameConfig を完全にシリアライズ可能にする
+   * - RNG インスタンスは createInitialState 内で生成
+   * - 同じシードを使えば必ず同じゲーム展開が再現される（決定論）
+   * - テストやリプレイシステムに対応可能
+   */
+  rngSeed: number;
+
+  /**
+   * ゲームモード
+   * - 'free-battle': 自由対戦（初期設定）
+   * - 'ranked': レート戦
+   * - 'training': AI トレーニング
+   *
+   * 用途: ログ、統計、将来のルール差異対応
+   */
+  gameMode?: 'free-battle' | 'ranked' | 'training' | string;
+
+  /** ゲームルール設定 */
+  ruleConfig?: GameRuleConfig;
+
+  /** タイムスタンプ（ログ、統計用）*/
+  timestamp?: number;
+}
