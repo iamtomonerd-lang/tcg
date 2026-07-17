@@ -158,6 +158,16 @@ app.post('/api/game/new', async (req, res) => {
   const finalP0Rating = p0Rating || 1700;
   const finalP1Rating = p1Rating || 1700;
 
+  console.log('[SERVER] Initial state created:', {
+    p0Type: playerTypes[0],
+    p1Type: playerTypes[1],
+    p0Cores: state.players[0].cores,
+    p1Cores: state.players[1].cores,
+    turnCount: state.turnCount,
+    phase: state.phase,
+    currentPlayer: state.currentPlayer,
+  });
+
   sessions.set(sessionId, {
     game,
     state,
@@ -358,9 +368,19 @@ app.post('/api/game/:sessionId/action', (req, res) => {
   const actingPlayer = session.game.currentPlayer(session.state);
   const stateBefore = session.state;
 
-  console.log('[SERVER] Before applyAction:', {pendingEffectAction: !!stateBefore.pendingEffectAction, phase: stateBefore.phase});
+  console.log('[SERVER] Before applyAction:', {
+    pendingEffectAction: !!stateBefore.pendingEffectAction,
+    phase: stateBefore.phase,
+    p0Cores: stateBefore.players[0].cores,
+    p1Cores: stateBefore.players[1].cores,
+  });
   session.state = session.game.applyAction(session.state, action, session.rng);
-  console.log('[SERVER] After applyAction:', {pendingEffectAction: !!session.state.pendingEffectAction, phase: session.state.phase});
+  console.log('[SERVER] After applyAction:', {
+    pendingEffectAction: !!session.state.pendingEffectAction,
+    phase: session.state.phase,
+    p0Cores: session.state.players[0].cores,
+    p1Cores: session.state.players[1].cores,
+  });
 
   const effectResults = detectEffectResults(stateBefore, session.state, action);
 
@@ -384,6 +404,15 @@ app.post('/api/game/:sessionId/action', (req, res) => {
       session.mulliganChoices = {};
     }
   }
+
+  console.log('[SERVER] About to send state to client (action endpoint):', {
+    p0Cores: session.state.players[0].cores,
+    p1Cores: session.state.players[1].cores,
+    phase: session.state.phase,
+    turnCount: session.state.turnCount,
+    currentPlayer: session.game.currentPlayer(session.state),
+    actionType: action.type,
+  });
 
   res.json({
     state: serializeState(session.state),
@@ -439,8 +468,20 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
   const description = session.game.describeAction(session.state, action);
   const stateBefore = session.state;
   console.log(`[DEBUG] About to apply action: ${JSON.stringify(action).substring(0, 100)}`);
+  console.log(`[DEBUG] Before applyAction (ai-turn):`, {
+    p0Cores: stateBefore.players[0].cores,
+    p1Cores: stateBefore.players[1].cores,
+    phase: stateBefore.phase,
+    turnCount: stateBefore.turnCount,
+  });
   session.state = session.game.applyAction(session.state, action, session.rng);
   console.log(`[DEBUG] After applyAction: phase=${session.state.phase}, pendingMulligan=${session.state.pendingMulligan ? `{player:${session.state.pendingMulligan.player}}` : 'null'}, pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}`);
+  console.log(`[DEBUG] After applyAction (ai-turn):`, {
+    p0Cores: session.state.players[0].cores,
+    p1Cores: session.state.players[1].cores,
+    phase: session.state.phase,
+    turnCount: session.state.turnCount,
+  });
   const nextLegalActions = session.game.legalActions(session.state);
   console.log(`[DEBUG] Next legalActions count: ${nextLegalActions.length}`);
   const effectResults = detectEffectResults(stateBefore, session.state, action);

@@ -114,6 +114,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       players = [this.newPlayer(rng), this.newPlayer(rng)];
     }
 
+    console.log('[INIT] After player creation:', {
+      p0Cores: players[0].cores,
+      p1Cores: players[1].cores,
+    });
+
     const state: GameState = {
       players: players as [any, any],
       currentPlayer: 0, // Player 0 starts the dice roll phase
@@ -127,6 +132,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     for (const p of players) {
       this.drawOpeningHand(p);
     }
+
+    console.log('[INIT] After drawing opening hand:', {
+      p0Cores: state.players[0].cores,
+      p1Cores: state.players[1].cores,
+      p0HandSize: state.players[0].hand.length,
+      p1HandSize: state.players[1].hand.length,
+    });
+
     return state;
   }
 
@@ -1269,6 +1282,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   }
 
   applyAction(state: GameState, action: Action, rng: Rng): GameState {
+    const coreBefore = { p0: state.players[0].cores, p1: state.players[1].cores };
+    console.log('[ACTION] Start:', {
+      actionType: action.type,
+      phase: state.phase,
+      turnCount: state.turnCount,
+      currentPlayer: state.currentPlayer,
+      p0Cores: coreBefore.p0,
+      p1Cores: coreBefore.p1,
+    });
+
     let next = cloneState(state);
     const me = next.players[next.currentPlayer]!;
     const opponent = next.players[1 - next.currentPlayer]!;
@@ -1317,16 +1340,25 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       const winner = next.pendingDiceRoll.winner;
       const firstPlayer = action.goFirst ? winner : 1 - winner;
-      console.log('[CHOOSE_ORDER] Dice roll winner:', {
+      console.log('[CHOOSE_ORDER] Before:', {
         winner,
         goFirst: action.goFirst,
         resultingFirstPlayer: firstPlayer,
-        turnCount: next.turnCount,
+        p0Cores: next.players[0].cores,
+        p1Cores: next.players[1].cores,
       });
       next.pendingDiceRoll = null;
 
       next.pendingMulligan = { player: firstPlayer, firstPlayer };
       next.currentPlayer = firstPlayer;
+
+      console.log('[CHOOSE_ORDER] After:', {
+        p0Cores: next.players[0].cores,
+        p1Cores: next.players[1].cores,
+        currentPlayer: next.currentPlayer,
+        firstPlayer: next.pendingMulligan.firstPlayer,
+      });
+
       return next;
     }
 
@@ -1337,6 +1369,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const firstPlayer = next.pendingMulligan.firstPlayer;
       const p = next.players[decidingPlayer]!;
 
+      console.log('[MULLIGAN] Before:', {
+        decidingPlayer,
+        firstPlayer,
+        p0Cores: next.players[0].cores,
+        p1Cores: next.players[1].cores,
+        action: action.redraw ? 'redraw' : 'keep',
+      });
+
       if (action.redraw) {
         p.deck.push(...p.hand);
         p.hand = [];
@@ -1344,15 +1384,27 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         this.drawOpeningHand(p);
       }
 
+      console.log('[MULLIGAN] After redraw processing:', {
+        decidingPlayer,
+        p0Cores: next.players[0].cores,
+        p1Cores: next.players[1].cores,
+      });
+
       const otherPlayer = 1 - decidingPlayer;
       if (decidingPlayer === firstPlayer) {
         // First player completed mulligan; move to second player
         next.pendingMulligan = { player: otherPlayer, firstPlayer };
         next.currentPlayer = otherPlayer;
+        console.log('[MULLIGAN] First player done, switching to second player');
         return next;
       }
 
       // Second player completed mulligan; start the first turn
+      console.log('[MULLIGAN] Second player done, calling startTurn:', {
+        p0Cores: next.players[0].cores,
+        p1Cores: next.players[1].cores,
+        currentPlayer: firstPlayer,
+      });
       next.pendingMulligan = null;
       next.currentPlayer = firstPlayer;
       return this.startTurn(next);
@@ -2674,6 +2726,18 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
 
     checkResult(next);
+
+    const coreAfter = { p0: next.players[0].cores, p1: next.players[1].cores };
+    const p0Diff = coreAfter.p0 - coreBefore.p0;
+    const p1Diff = coreAfter.p1 - coreBefore.p1;
+    if (p0Diff !== 0 || p1Diff !== 0) {
+      console.log('[ACTION] Core change:', {
+        actionType: action.type,
+        p0: `${coreBefore.p0} → ${coreAfter.p0} (${p0Diff > 0 ? '+' : ''}${p0Diff})`,
+        p1: `${coreBefore.p1} → ${coreAfter.p1} (${p1Diff > 0 ? '+' : ''}${p1Diff})`,
+      });
+    }
+
     return next;
   }
 
