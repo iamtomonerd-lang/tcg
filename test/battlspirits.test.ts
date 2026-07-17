@@ -1053,3 +1053,97 @@ describe('GameConfig pattern', () => {
     expect(state.players[1].hand.length).toBe(4);
   });
 });
+
+
+describe('End phase progression', () => {
+  it('normal turn end without end_step effects progresses correctly', () => {
+    const rng = new Mulberry32(1);
+    let state = game.createInitialState(rng);
+    state = skipToMainPhase(state, rng);
+
+    const rng2 = new Mulberry32(2);
+    let completedTurns = 0;
+    let maxIter = 50;
+    let iter = 0;
+
+    // Play through turns and verify they complete
+    while (iter < maxIter && !state.result) {
+      const actions = game.legalActions(state);
+      if (actions.length === 0) break;
+
+      const prevTurnCount = state.turnCount;
+      state = game.applyAction(state, actions[0]!, rng2);
+
+      if (state.turnCount > prevTurnCount) {
+        completedTurns++;
+      }
+
+      iter++;
+    }
+
+    // Should complete several turns without getting stuck
+    expect(completedTurns).toBeGreaterThanOrEqual(3);
+  });
+
+  it('end phase progression completes multiple turns correctly', () => {
+    const rng = new Mulberry32(7);
+    let state = game.createInitialState(rng);
+    state = skipToMainPhase(state, rng);
+
+    const rng2 = new Mulberry32(8);
+    let completedTurns = 0;
+    let maxIter = 100;
+    let iter = 0;
+
+    // Play through multiple full turns
+    while (iter < maxIter && !state.result) {
+      const actions = game.legalActions(state);
+      if (actions.length === 0) break;
+
+      const prevTurnCount = state.turnCount;
+      const prevPlayer = state.currentPlayer;
+
+      // Take first available action (simple AI: just take first legal action)
+      state = game.applyAction(state, actions[0]!, rng2);
+
+      // Verify turn completed and player switched
+      if (state.turnCount > prevTurnCount) {
+        completedTurns++;
+        expect(state.currentPlayer).toBe(1 - prevPlayer);
+      }
+
+      iter++;
+    }
+
+    // Should complete at least 4 full turns
+    expect(completedTurns).toBeGreaterThanOrEqual(4);
+  });
+
+  it('normal game flow completes without getting stuck', () => {
+    const rng = new Mulberry32(9);
+    let state = game.createInitialState(rng);
+    state = skipToMainPhase(state, rng);
+
+    const rng2 = new Mulberry32(10);
+    let completedTurns = 0;
+    let maxIter = 200;
+    let iter = 0;
+
+    while (iter < maxIter && !state.result) {
+      const actions = game.legalActions(state);
+      if (actions.length === 0) break;
+
+      const prevTurnCount = state.turnCount;
+      state = game.applyAction(state, actions[0]!, rng2);
+
+      if (state.turnCount > prevTurnCount) {
+        completedTurns++;
+      }
+
+      iter++;
+    }
+
+    // Should complete several turns before game ends
+    expect(completedTurns).toBeGreaterThanOrEqual(4);
+  });
+});
