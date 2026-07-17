@@ -144,6 +144,7 @@ export interface PendingFlash {
   stashedAttack?: PendingAttack; // attack waiting to become pendingAttack once this flash window closes
   stashedDefenderSpiritIndex?: number; // defender spirit index for after-block flash window
   stashedAttackData?: { attackBP: number; defendBP: number }; // BP values for battle resolution after block flash
+  passCount?: number; // consecutive skip_flash count (2-pass rule: window closes after both players pass)
 }
 
 export interface PendingAttack {

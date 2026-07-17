@@ -213,6 +213,16 @@ export function fixupSpiritIndicesAfterRemoval(state: GameState, player: number,
   if (state.pendingFlash?.stashedAttack) {
     state.pendingFlash.stashedAttack = fixOne(state.pendingFlash.stashedAttack) ?? undefined;
   }
+  // After-block flash: the stashed blocker index shifts too. The blocker belongs
+  // to the window's initiating player (the defender who declared the block).
+  const pf = state.pendingFlash;
+  if (pf && pf.stashedDefenderSpiritIndex !== undefined && pf.initiatingPlayer === player) {
+    if (pf.stashedDefenderSpiritIndex === removedIndex) {
+      pf.stashedDefenderSpiritIndex = -1; // blocker itself was destroyed; battle will be cancelled at resolve
+    } else if (pf.stashedDefenderSpiritIndex > removedIndex) {
+      pf.stashedDefenderSpiritIndex -= 1;
+    }
+  }
 }
 
 /**

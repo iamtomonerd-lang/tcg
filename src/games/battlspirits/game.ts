@@ -1513,15 +1513,26 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // Always give opponent counter-timing opportunity (stack flash)
       // Even if they don't have any flash cards, they must explicitly skip flash
+      // Preserve after-block stash (defender index + BP data) so the window still
+      // resolves the battle when it closes; a flash resets the consecutive-pass count
       next.pendingFlash = {
         trigger: next.pendingFlash!.trigger,
         cardId: '',
         initiatingPlayer: next.pendingFlash!.initiatingPlayer,
         lastFlashPlayer: next.currentPlayer,
         stashedAttack,
+        stashedDefenderSpiritIndex: next.pendingFlash!.stashedDefenderSpiritIndex,
+        stashedAttackData: next.pendingFlash!.stashedAttackData,
+        passCount: 0,
       };
       // Switch to opponent for counter-timing
       next.currentPlayer = 1 - next.currentPlayer;
+      console.log('[FLASH]', {
+        event: 'flash_used',
+        trigger: next.pendingFlash.trigger,
+        currentPlayer: next.currentPlayer,
+        skipFlashAvailable: true,
+      });
       return next;
     }
 
@@ -1539,9 +1550,24 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // Check if this is after-block flash (stashedDefenderSpiritIndex present)
       if (next.pendingFlash.stashedDefenderSpiritIndex !== undefined && next.pendingFlash.stashedAttackData) {
-        // After-block flash window closed: resolve battle now
+        // 2-pass rule: the window only closes after BOTH players pass consecutively.
+        // First pass hands flash priority to the other player; second pass resolves.
+        const passCount = (next.pendingFlash.passCount ?? 0) + 1;
+        if (passCount < 2) {
+          next.pendingFlash.passCount = passCount;
+          next.currentPlayer = 1 - next.currentPlayer;
+          console.log('[FLASH]', {
+            event: 'skip_flash_pass',
+            trigger: next.pendingFlash.trigger,
+            passCount,
+            currentPlayer: next.currentPlayer,
+            skipFlashAvailable: true,
+          });
+          return next;
+        }
+
+        // After-block flash window closed (2 consecutive passes): resolve battle now
         const defenderSpiritIndex = next.pendingFlash.stashedDefenderSpiritIndex;
-        const attackData = next.pendingFlash.stashedAttackData;
         const stashedAttack = next.pendingFlash.stashedAttack;
 
         next.pendingFlash = null;
@@ -1557,13 +1583,20 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         if (!attacker || !defender) {
           // One of the spirits was destroyed during flash phase
+          console.log('[RESOLVE]', { event: 'battle_cancelled_spirit_gone', attackerAlive: !!attacker, defenderAlive: !!defender });
           next.pendingAttack = null;
           checkResult(next);
           return next;
         }
 
-        // Resolve battle with stashed BP values
-        return this.resolveBattle(next, attacker, defender, stashedAttack, attackData.attackBP, attackData.defendBP, defenderSpiritIndex);
+        // Recompute BP at resolution time so flash boosts used during the
+        // after-block window (e.g. BP+3000 magic) are reflected in the battle
+        const atkStats = attacker.level === 1 ? attacker.def.lv1 : attacker.def.lv2 || attacker.def.lv1;
+        const attackBP = atkStats.bp + (attacker.bpBoost ?? 0) + (attacker.bpBoostBattle ?? 0);
+        const defStats = defender.level === 1 ? defender.def.lv1 : defender.def.lv2 || defender.def.lv1;
+        const defendBP = defStats.bp + (defender.bpBoost ?? 0) + (defender.bpBoostBattle ?? 0);
+
+        return this.resolveBattle(next, attacker, defender, stashedAttack, attackBP, defendBP, defenderSpiritIndex);
       }
 
       // Before-block flash (original code): clear and return control to defender
@@ -1617,11 +1650,25 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         stashedAttack: pendingAttack, // Store attack info for skip_flash to use in resolveBattle
         stashedDefenderSpiritIndex: action.spiritIndex,
         stashedAttackData: { attackBP, defendBP },
+        passCount: 0,
       };
       // Clear pendingAttack: it's now stashed in pendingFlash
       next.pendingAttack = null;
       // Switch to attacker for after-block flash opportunity
       next.currentPlayer = pendingAttack.attackerPlayer;
+      console.log('[BLOCK]', {
+        attacker: `p${pendingAttack.attackerPlayer}:${attacker.def.name}`,
+        defender: `p${1 - pendingAttack.attackerPlayer}:${defender.def.name}`,
+        attackBP,
+        defendBP,
+        pendingFlashCreated: true,
+      });
+      console.log('[FLASH]', {
+        event: 'after_block_window_open',
+        trigger: 'opponent_block',
+        currentPlayer: next.currentPlayer,
+        skipFlashAvailable: true,
+      });
       return next; // Wait for flash/skip_flash decision
     }
 
@@ -2612,6 +2659,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           stashedAttack: pendingAttack,
         };
         next.currentPlayer = defenderIndex;
+        console.log('[FLASH]', {
+          event: 'before_block_window_open',
+          trigger: 'opponent_attack',
+          currentPlayer: next.currentPlayer,
+          skipFlashAvailable: true,
+        });
         return next;
       }
       case 'select_draw_arrange': {
@@ -2860,6 +2913,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     let next = state;
     const defender_player = next.players[1 - pendingAttack.attackerPlayer]!;
     const attacker_player = next.players[pendingAttack.attackerPlayer]!;
+
+    console.log('[RESOLVE]', {
+      event: 'resolveBattle_called',
+      attacker: `p${pendingAttack.attackerPlayer}:${attacker.def.name}`,
+      defender: `p${1 - pendingAttack.attackerPlayer}:${defender.def.name}`,
+      attackBP,
+      defendBP,
+    });
 
     // Resolve battle (destroyed spirits go to trash; their cores return to reserve)
     if (attackBP > defendBP) {
