@@ -377,6 +377,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   }
 
   private startTurn(state: GameState): GameState {
+    console.log('[START_TURN] Starting new turn:', {
+      currentPlayer: state.currentPlayer,
+      turnCount: state.turnCount,
+      currentPhase: state.phase,
+    });
     let next = cloneState(state);
     next.phase = 'start';
     // Auto-transition through automatic phases until we reach Main
@@ -399,11 +404,26 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
         case 'core': {
           // Official rule: ターンプレイヤーはボイドからコア1個をそのプレイヤーのリザーブに置きます
-          // Always add 1 core from the void (no limit)
-          const isFirstTurn = next.turnCount === 0;
-          if (!isFirstTurn) {
-            const p = next.players[next.currentPlayer]!;
+          // The first turn of the game (turnCount === 0) skips core step
+          const isFirstTurnOfFirstPlayer = next.turnCount === 0;
+          const p = next.players[next.currentPlayer]!;
+          const coresBeforeCore = p.cores;
+
+          console.log('[CORE] Core phase - start:', {
+            turnCount: next.turnCount,
+            currentPlayer: next.currentPlayer,
+            isFirstTurnOfFirstPlayer,
+            playerCoresBeforeCore: coresBeforeCore,
+          });
+
+          if (!isFirstTurnOfFirstPlayer) {
             p.cores += 1; // Always 1 core from void
+            console.log('[CORE] Core phase - added 1 core:', {
+              player: next.currentPlayer,
+              coresAfter: p.cores,
+            });
+          } else {
+            console.log('[CORE] Core phase - skipped for first turn of game');
           }
           next.phase = 'draw';
           break;
@@ -1297,6 +1317,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       const winner = next.pendingDiceRoll.winner;
       const firstPlayer = action.goFirst ? winner : 1 - winner;
+      console.log('[CHOOSE_ORDER] Dice roll winner:', {
+        winner,
+        goFirst: action.goFirst,
+        resultingFirstPlayer: firstPlayer,
+        turnCount: next.turnCount,
+      });
       next.pendingDiceRoll = null;
 
       next.pendingMulligan = { player: firstPlayer, firstPlayer };
