@@ -5,7 +5,7 @@
 export type CardType = 'spirit' | 'nexus' | 'magic';
 export type EffectAction = 'damage' | 'heal' | 'draw' | 'boost_bp' | 'search_deck' | 'destroy_creature' | 'trash_to_hand' | 'place_core' | 'discard_hand' | 'destroy_nexus';
 export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate' | 'battle_end' | 'end_step' | 'opponent_summon' | 'opponent_attack' | 'opponent_magic';
-export type FlashTrigger = 'opponent_summon' | 'opponent_attack' | 'opponent_magic' | 'opponent_destroy';
+export type FlashTrigger = 'opponent_summon' | 'opponent_attack' | 'opponent_magic' | 'opponent_destroy' | 'opponent_block';
 
 export interface CardEffect {
   trigger: EffectTrigger; // when it activates
@@ -142,6 +142,8 @@ export interface PendingFlash {
   initiatingPlayer: number; // player who triggered the flash window (0 or 1)
   lastFlashPlayer?: number; // player who last used a flash (for stacking)
   stashedAttack?: PendingAttack; // attack waiting to become pendingAttack once this flash window closes
+  stashedDefenderSpiritIndex?: number; // defender spirit index for after-block flash window
+  stashedAttackData?: { attackBP: number; defendBP: number }; // BP values for battle resolution after block flash
 }
 
 export interface PendingAttack {

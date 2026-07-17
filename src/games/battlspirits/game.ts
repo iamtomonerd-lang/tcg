@@ -1528,14 +1528,43 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // If there was a flash used before, return to initiator to continue
       if (next.pendingFlash.lastFlashPlayer !== undefined && next.pendingFlash.lastFlashPlayer !== next.pendingFlash.initiatingPlayer) {
-        // Return to initiating player (attacker) for potential counter-flash
+        // Return to initiating player for potential counter-flash
         next.currentPlayer = next.pendingFlash.initiatingPlayer;
         next.pendingFlash.lastFlashPlayer = undefined; // Clear last flash player to allow re-stacking
         checkResult(next);
         return next;
       }
 
-      // No more flash opportunity: clear and resolve
+      // Check if this is after-block flash (stashedDefenderSpiritIndex present)
+      if (next.pendingFlash.stashedDefenderSpiritIndex !== undefined && next.pendingFlash.stashedAttackData) {
+        // After-block flash window closed: resolve battle now
+        const defenderSpiritIndex = next.pendingFlash.stashedDefenderSpiritIndex;
+        const attackData = next.pendingFlash.stashedAttackData;
+        const stashedAttack = next.pendingFlash.stashedAttack;
+
+        next.pendingFlash = null;
+
+        if (!stashedAttack) {
+          // Should not happen, but defensive
+          checkResult(next);
+          return next;
+        }
+
+        const attacker = next.players[stashedAttack.attackerPlayer]!.spirits[stashedAttack.attackerSpiritIndex];
+        const defender = next.players[1 - stashedAttack.attackerPlayer]!.spirits[defenderSpiritIndex];
+
+        if (!attacker || !defender) {
+          // One of the spirits was destroyed during flash phase
+          next.pendingAttack = null;
+          checkResult(next);
+          return next;
+        }
+
+        // Resolve battle with stashed BP values
+        return this.resolveBattle(next, attacker, defender, stashedAttack, attackData.attackBP, attackData.defendBP, defenderSpiritIndex);
+      }
+
+      // Before-block flash (original code): clear and return control to defender
       const stashedAttack = next.pendingFlash.stashedAttack;
       next.pendingFlash = null;
       if (stashedAttack) {
@@ -1563,73 +1592,43 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         checkResult(next);
         return next;
       }
-      const attackerStats = attacker.level === 1 ? attacker.def.lv1 : attacker.def.lv2 || attacker.def.lv1;
-      const attackBP = attackerStats.bp + (attacker.bpBoost ?? 0) + (attacker.bpBoostBattle ?? 0);
 
-      const defenderStats = defender.level === 1 ? defender.def.lv1 : defender.def.lv2 || defender.def.lv1;
-      const defendBP = defenderStats.bp + (defender.bpBoost ?? 0) + (defender.bpBoostBattle ?? 0);
-
-      // Both spirits become fatigued
+      // Both spirits become fatigued immediately
       defender.canAttack = false;
       attacker.canAttack = false;
 
-      // Resolve battle (destroyed spirits go to trash; their cores return to reserve)
-      if (attackBP > defendBP) {
-        // Attacker wins: destroy defender
-        destroySpirit(me, action.spiritIndex);
-        next = triggerEffects(next, 'destroy', defender.def, next.currentPlayer);
-        // Trigger nexus destroy effects for defender's player
-        for (let ni = 0; ni < me.nexuses.length; ni++) {
-          const nexus = me.nexuses[ni]!;
-          next = triggerEffects(next, 'destroy', nexus.def, next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
-        }
-      } else if (attackBP < defendBP) {
-        // Defender wins: destroy attacker
-        const attackerPlayer = next.players[pendingAttack.attackerPlayer]!;
-        destroySpirit(attackerPlayer, pendingAttack.attackerSpiritIndex);
-        next = triggerEffects(next, 'destroy', attacker.def, 1 - next.currentPlayer);
-        // Trigger nexus destroy effects for attacker's player
-        for (let ni = 0; ni < attackerPlayer.nexuses.length; ni++) {
-          const nexus = attackerPlayer.nexuses[ni]!;
-          next = triggerEffects(next, 'destroy', nexus.def, 1 - next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
-        }
+      // Trigger block effects (trigger: 'block') for defender
+      next = triggerEffects(next, 'block', defender.def, next.currentPlayer, action.spiritIndex);
+
+      // Calculate BP values for battle resolution (needed for after-block flash)
+      const attackerStats = attacker.level === 1 ? attacker.def.lv1 : attacker.def.lv2 || attacker.def.lv1;
+      const attackBP = attackerStats.bp + (attacker.bpBoost ?? 0) + (attacker.bpBoostBattle ?? 0);
+      const defenderStats = defender.level === 1 ? defender.def.lv1 : defender.def.lv2 || defender.def.lv1;
+      const defendBP = defenderStats.bp + (defender.bpBoost ?? 0) + (defender.bpBoostBattle ?? 0);
+
+      // Check if attacker has flash opportunity after block (opponent_block trigger)
+      const attacker_player = next.players[pendingAttack.attackerPlayer]!;
+      const opponentHasFlash = this.hasAffordableFlash(attacker_player);
+
+      if (opponentHasFlash) {
+        // Attacker gets flash opportunity after block declaration
+        next.pendingFlash = {
+          trigger: 'opponent_block',
+          cardId: '',
+          initiatingPlayer: next.currentPlayer, // Defender triggered this window
+          stashedAttack: pendingAttack, // Store attack info for skip_flash to use in resolveBattle
+          stashedDefenderSpiritIndex: action.spiritIndex,
+          stashedAttackData: { attackBP, defendBP },
+        };
+        // Clear pendingAttack: it's now stashed in pendingFlash
+        next.pendingAttack = null;
+        // Switch to attacker for after-block flash opportunity
+        next.currentPlayer = pendingAttack.attackerPlayer;
+        return next; // Wait for flash/skip_flash decision
       } else {
-        // Equal BP: both destroyed
-        destroySpirit(me, action.spiritIndex);
-        destroySpirit(next.players[pendingAttack.attackerPlayer]!, pendingAttack.attackerSpiritIndex);
-        next = triggerEffects(next, 'destroy', defender.def, next.currentPlayer);
-        next = triggerEffects(next, 'destroy', attacker.def, 1 - next.currentPlayer);
-        // Trigger nexus destroy effects for both players
-        for (let ni = 0; ni < me.nexuses.length; ni++) {
-          const nexus = me.nexuses[ni]!;
-          next = triggerEffects(next, 'destroy', nexus.def, next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
-        }
-        for (let ni = 0; ni < next.players[pendingAttack.attackerPlayer]!.nexuses.length; ni++) {
-          const nexus = next.players[pendingAttack.attackerPlayer]!.nexuses[ni]!;
-          next = triggerEffects(next, 'destroy', nexus.def, 1 - next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
-        }
+        // No flash opportunity: resolve battle immediately
+        return this.resolveBattle(next, attacker, defender, pendingAttack, attackBP, defendBP, action.spiritIndex);
       }
-
-      // Trigger battle_end effects
-      // Important: only trigger battle_end if the spirit still exists on the field
-      // Check that the attacker still exists at its index
-      const attackerStillExists = next.players[pendingAttack.attackerPlayer]!.spirits[pendingAttack.attackerSpiritIndex] === attacker;
-      if (attackerStillExists) {
-        next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
-      }
-      // Check that the defender still exists at its index
-      const defenderStillExists = next.players[next.currentPlayer]!.spirits[action.spiritIndex] === defender;
-      if (defenderStillExists) {
-        next = triggerEffects(next, 'battle_end', defender.def, next.currentPlayer);
-      }
-
-      // このバトル中 boosts expire now that the battle has resolved
-      this.clearBattleBoosts(next);
-
-      next.pendingAttack = null;
-      next.currentPlayer = 1 - next.currentPlayer; // Return turn to original player
-      checkResult(next);
-      return next;
     }
 
     if (action.type === 'take_damage') {
@@ -2847,6 +2846,79 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const next = cloneState(state);
     // Shuffle unobserved opponent's deck
     rng.shuffle(next.players[1 - observer]!.deck);
+    return next;
+  }
+
+  /**
+   * Resolve a battle after block flash window (if any) has closed.
+   * Called from: block action (if no flash), or skip_flash (after block flash)
+   */
+  private resolveBattle(
+    state: GameState,
+    attacker: Spirit,
+    defender: Spirit,
+    pendingAttack: PendingAttack,
+    attackBP: number,
+    defendBP: number,
+    defenderSpiritIndex: number,
+  ): GameState {
+    let next = state;
+    const defender_player = next.players[1 - pendingAttack.attackerPlayer]!;
+    const attacker_player = next.players[pendingAttack.attackerPlayer]!;
+
+    // Resolve battle (destroyed spirits go to trash; their cores return to reserve)
+    if (attackBP > defendBP) {
+      // Attacker wins: destroy defender
+      destroySpirit(defender_player, defenderSpiritIndex);
+      next = triggerEffects(next, 'destroy', defender.def, 1 - pendingAttack.attackerPlayer);
+      // Trigger nexus destroy effects for defender's player
+      for (let ni = 0; ni < defender_player.nexuses.length; ni++) {
+        const nexus = defender_player.nexuses[ni]!;
+        next = triggerEffects(next, 'destroy', nexus.def, 1 - pendingAttack.attackerPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
+      }
+    } else if (attackBP < defendBP) {
+      // Defender wins: destroy attacker
+      destroySpirit(attacker_player, pendingAttack.attackerSpiritIndex);
+      next = triggerEffects(next, 'destroy', attacker.def, pendingAttack.attackerPlayer);
+      // Trigger nexus destroy effects for attacker's player
+      for (let ni = 0; ni < attacker_player.nexuses.length; ni++) {
+        const nexus = attacker_player.nexuses[ni]!;
+        next = triggerEffects(next, 'destroy', nexus.def, pendingAttack.attackerPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
+      }
+    } else {
+      // Equal BP: both destroyed
+      destroySpirit(defender_player, defenderSpiritIndex);
+      destroySpirit(attacker_player, pendingAttack.attackerSpiritIndex);
+      next = triggerEffects(next, 'destroy', defender.def, 1 - pendingAttack.attackerPlayer);
+      next = triggerEffects(next, 'destroy', attacker.def, pendingAttack.attackerPlayer);
+      // Trigger nexus destroy effects for both players
+      for (let ni = 0; ni < defender_player.nexuses.length; ni++) {
+        const nexus = defender_player.nexuses[ni]!;
+        next = triggerEffects(next, 'destroy', nexus.def, 1 - pendingAttack.attackerPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
+      }
+      for (let ni = 0; ni < attacker_player.nexuses.length; ni++) {
+        const nexus = attacker_player.nexuses[ni]!;
+        next = triggerEffects(next, 'destroy', nexus.def, pendingAttack.attackerPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
+      }
+    }
+
+    // Trigger battle_end effects
+    // Important: only trigger battle_end if the spirit still exists on the field
+    const attackerStillExists = next.players[pendingAttack.attackerPlayer]!.spirits[pendingAttack.attackerSpiritIndex] === attacker;
+    if (attackerStillExists) {
+      next = triggerEffects(next, 'battle_end', attacker.def, pendingAttack.attackerPlayer);
+    }
+    const defenderStillExists = next.players[1 - pendingAttack.attackerPlayer]!.spirits[defenderSpiritIndex] === defender;
+    if (defenderStillExists) {
+      next = triggerEffects(next, 'battle_end', defender.def, 1 - pendingAttack.attackerPlayer);
+    }
+
+    // このバトル中 boosts expire now that the battle has resolved
+    this.clearBattleBoosts(next);
+
+    next.pendingAttack = null;
+    next.currentPlayer = 1 - next.currentPlayer; // Return turn to original player
+    checkResult(next);
     return next;
   }
 
