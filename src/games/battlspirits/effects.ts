@@ -3,6 +3,7 @@
  */
 
 import type { CardDef, CardEffect, GameState, PendingAttack, PlayerState, Spirit } from './types.js';
+import { dbg, DEBUG_EFFECT, DEBUG_CORE } from './debug.js';
 
 /**
  * Recompute a spirit's level from the cores placed on it.
@@ -53,7 +54,7 @@ export function destroySpirit(owner: PlayerState, spiritIndex: number): Spirit |
   if (spirit.coreCount > 0) {
     const oldCores = owner.cores;
     owner.cores += spirit.coreCount;
-    console.log('[CORE_CHANGE]', {
+    dbg(DEBUG_CORE, '[CORE_CHANGE]', {
       reason: 'destroySpirit_returnCores',
       player: 0, // Player ID unknown in this function
       before: oldCores,
@@ -65,7 +66,7 @@ export function destroySpirit(owner: PlayerState, spiritIndex: number): Spirit |
   if (spirit.soulCoreCount > 0) {
     const oldSoulCores = owner.soulCores;
     owner.soulCores += spirit.soulCoreCount;
-    console.log('[SOUL_CORE_CHANGE]', {
+    dbg(DEBUG_CORE, '[SOUL_CORE_CHANGE]', {
       reason: 'destroySpirit_returnCores',
       player: 0,
       before: oldSoulCores,
@@ -107,7 +108,7 @@ export function checkEffectConditions(
   }
 
   if (effect.condition.maxHandSize && me.hand.length > effect.condition.maxHandSize) {
-    console.log('[CONDITION] Failed: maxHandSize', { handSize: me.hand.length, maxHandSize: effect.condition.maxHandSize });
+    dbg(DEBUG_EFFECT, '[CONDITION] Failed: maxHandSize', { handSize: me.hand.length, maxHandSize: effect.condition.maxHandSize });
     return false;
   }
 
@@ -117,7 +118,7 @@ export function checkEffectConditions(
       me.spirits.some((s) => s.def.symbolColors?.includes(color)) ||
       me.nexuses.some((n) => n.def.symbolColors?.includes(color));
     if (!hasSymbol) {
-      console.log('[CONDITION] Failed: requiresSymbol', { requiredColor: color });
+      dbg(DEBUG_EFFECT, '[CONDITION] Failed: requiresSymbol', { requiredColor: color });
       return false;
     }
   }
@@ -125,7 +126,7 @@ export function checkEffectConditions(
   if (effect.condition.requiresFatiguedRed) {
     const hasFatiguedRed = me.spirits.some((s: any) => !s.canAttack && s.def.symbolColors?.includes('red'));
     if (!hasFatiguedRed) {
-      console.log('[CONDITION] Failed: requiresFatiguedRed');
+      dbg(DEBUG_EFFECT, '[CONDITION] Failed: requiresFatiguedRed');
       return false;
     }
   }
@@ -134,7 +135,7 @@ export function checkEffectConditions(
     const lineage = effect.condition.requiresFatiguedLineage;
     const hasFatiguedLineage = me.spirits.some((s: any) => !s.canAttack && s.def.lineage?.includes(lineage));
     if (!hasFatiguedLineage) {
-      console.log('[CONDITION] Failed: requiresFatiguedLineage', { lineage });
+      dbg(DEBUG_EFFECT, '[CONDITION] Failed: requiresFatiguedLineage', { lineage });
       return false;
     }
   }
@@ -143,18 +144,18 @@ export function checkEffectConditions(
     const lineage = effect.condition.requiresAdjacentSymbol;
     const hasAdjacent = me.spirits.some((s: any) => s.def.lineage?.includes(lineage));
     if (!hasAdjacent) {
-      console.log('[CONDITION] Failed: requiresAdjacentSymbol', { lineage });
+      dbg(DEBUG_EFFECT, '[CONDITION] Failed: requiresAdjacentSymbol', { lineage });
       return false;
     }
   }
 
   if (effect.condition.requiresNexus && me.nexuses.length === 0) {
-    console.log('[CONDITION] Failed: requiresNexus');
+    dbg(DEBUG_EFFECT, '[CONDITION] Failed: requiresNexus');
     return false;
   }
 
   if (effect.condition.opponentHasNexus && opponent.nexuses.length === 0) {
-    console.log('[CONDITION] Failed: opponentHasNexus');
+    dbg(DEBUG_EFFECT, '[CONDITION] Failed: opponentHasNexus');
     return false;
   }
 
@@ -167,11 +168,11 @@ export function checkEffectConditions(
       matchCount = me.spirits.length;
     }
     if (count && matchCount < count) {
-      console.log('[CONDITION] Failed: requiresSpirit', { lineage, required: count, actual: matchCount });
+      dbg(DEBUG_EFFECT, '[CONDITION] Failed: requiresSpirit', { lineage, required: count, actual: matchCount });
       return false;
     }
     if (!count && matchCount === 0) {
-      console.log('[CONDITION] Failed: requiresSpirit', { lineage, required: 'at least 1', actual: 0 });
+      dbg(DEBUG_EFFECT, '[CONDITION] Failed: requiresSpirit', { lineage, required: 'at least 1', actual: 0 });
       return false;
     }
   }
@@ -242,7 +243,7 @@ export function applyEffect(
   const me = next.players[sourcePlayer]!;
   const opponent = next.players[1 - sourcePlayer]!;
 
-  console.log('[EFFECT] applyEffect called:', {
+  dbg(DEBUG_EFFECT, '[EFFECT] applyEffect called:', {
     action: effect.action,
     requiresTarget: effect.requiresTarget,
     targetSpiritIndex,
@@ -262,7 +263,7 @@ export function applyEffect(
     ? me.nexuses[targetNexusIndex]
     : undefined;
 
-  console.log('[EFFECT] Target resolved:', {
+  dbg(DEBUG_EFFECT, '[EFFECT] Target resolved:', {
     targetSpiritName: selfSpirit?.def.name,
     targetNexusName: selfNexus?.def.name,
     targetType: selfNexus ? 'nexus' : (selfSpirit ? 'spirit' : 'none'),
@@ -447,7 +448,7 @@ export function applyEffect(
       const excludeSoulCore = effect.condition?.excludeSoulCore ?? false;
       const onlySoulCore = effect.condition?.onlySoulCore ?? false;
 
-      console.log('[EFFECT] place_core processing:', {
+      dbg(DEBUG_EFFECT, '[EFFECT] place_core processing:', {
         sourcePlayer,
         targetType: selfNexus ? 'nexus' : (selfSpirit ? 'spirit' : 'none'),
         targetName: selfNexus?.def.name || selfSpirit?.def.name || 'none',
@@ -465,10 +466,10 @@ export function applyEffect(
           if (onlySoulCore) {
             if (me.trashSoulCores > 0) {
               const soulTake = Math.min(me.trashSoulCores, coreValue);
-              console.log('[EFFECT] Taking soul cores for nexus:', {soulTake, targetBefore: selfNexus.soulCoreCount, trashBefore: me.trashSoulCores});
+              dbg(DEBUG_EFFECT, '[EFFECT] Taking soul cores for nexus:', {soulTake, targetBefore: selfNexus.soulCoreCount, trashBefore: me.trashSoulCores});
               selfNexus.soulCoreCount = (selfNexus.soulCoreCount || 0) + soulTake;
               me.trashSoulCores -= soulTake;
-              console.log('[EFFECT] After taking:', {targetAfter: selfNexus.soulCoreCount, trashAfter: me.trashSoulCores});
+              dbg(DEBUG_EFFECT, '[EFFECT] After taking:', {targetAfter: selfNexus.soulCoreCount, trashAfter: me.trashSoulCores});
               taken += soulTake;
             }
           } else if (excludeSoulCore) {
@@ -502,10 +503,10 @@ export function applyEffect(
             // Only take soul cores
             if (me.trashSoulCores > 0) {
               const soulTake = Math.min(me.trashSoulCores, coreValue);
-              console.log('[EFFECT] Taking soul cores:', {soulTake, targetBefore: selfSpirit.soulCoreCount, trashBefore: me.trashSoulCores});
+              dbg(DEBUG_EFFECT, '[EFFECT] Taking soul cores:', {soulTake, targetBefore: selfSpirit.soulCoreCount, trashBefore: me.trashSoulCores});
               selfSpirit.soulCoreCount = (selfSpirit.soulCoreCount || 0) + soulTake;
               me.trashSoulCores -= soulTake;
-              console.log('[EFFECT] After taking:', {targetAfter: selfSpirit.soulCoreCount, trashAfter: me.trashSoulCores});
+              dbg(DEBUG_EFFECT, '[EFFECT] After taking:', {targetAfter: selfSpirit.soulCoreCount, trashAfter: me.trashSoulCores});
               taken += soulTake;
             }
           } else if (excludeSoulCore) {
@@ -544,7 +545,7 @@ export function applyEffect(
             const oldCores = me.cores;
             me.cores += regularTake;
             me.trashCores -= regularTake;
-            console.log('[CORE_CHANGE]', {
+            dbg(DEBUG_CORE, '[CORE_CHANGE]', {
               reason: 'place_core_reserve',
               player: 0, // Will be identified from context
               before: oldCores,
@@ -559,7 +560,7 @@ export function applyEffect(
             const oldCores = me.soulCores;
             me.soulCores += soulTake;
             me.trashSoulCores -= soulTake;
-            console.log('[SOUL_CORE_CHANGE]', {
+            dbg(DEBUG_CORE, '[SOUL_CORE_CHANGE]', {
               reason: 'place_core_reserve',
               player: 0,
               before: oldCores,
@@ -576,7 +577,7 @@ export function applyEffect(
             me.soulCores += soulTake;
             me.trashSoulCores -= soulTake;
             taken += soulTake;
-            console.log('[SOUL_CORE_CHANGE]', {
+            dbg(DEBUG_CORE, '[SOUL_CORE_CHANGE]', {
               reason: 'place_core_reserve',
               player: 0,
               before: oldSoulCores,
@@ -589,7 +590,7 @@ export function applyEffect(
             const oldCores = me.cores;
             me.cores += regularTake;
             me.trashCores -= regularTake;
-            console.log('[CORE_CHANGE]', {
+            dbg(DEBUG_CORE, '[CORE_CHANGE]', {
               reason: 'place_core_reserve',
               player: 0,
               before: oldCores,
@@ -600,7 +601,7 @@ export function applyEffect(
         }
       }
 
-      console.log('[EFFECT] place_core complete:', {
+      dbg(DEBUG_EFFECT, '[EFFECT] place_core complete:', {
         targetType: selfNexus ? 'nexus' : (selfSpirit ? 'spirit' : 'none'),
         targetName: selfNexus?.def.name || selfSpirit?.def.name || 'none',
         targetSoulCoresEnd: selfNexus?.soulCoreCount || selfSpirit?.soulCoreCount || 0,

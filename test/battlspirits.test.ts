@@ -471,9 +471,12 @@ describe('BP boost durations', () => {
     state = game.applyAction(state, attack, new Mulberry32(1));
     expect(state.players[0].spirits[0]!.bpBoostBattle).toBe(2000);
 
-    // Opponent must skip flash before taking damage
-    const skipFlash = game.legalActions(state).find((a) => a.type === 'skip_flash');
-    if (skipFlash) state = game.applyAction(state, skipFlash, new Mulberry32(1));
+    // Both players must pass the before-block flash window (2-pass rule)
+    let skipGuard = 0;
+    while (state.pendingFlash && skipGuard++ < 5) {
+      const skipFlash = game.legalActions(state).find((a) => a.type === 'skip_flash')!;
+      state = game.applyAction(state, skipFlash, new Mulberry32(1));
+    }
 
     // Opponent takes the damage — battle over, boost expires
     const takeDamage = game.legalActions(state).find((a) => a.type === 'take_damage')!;
@@ -510,13 +513,15 @@ describe('BP boost durations', () => {
     state = game.applyAction(state, flashActions[0]!, new Mulberry32(1));
     expect(state.players[1].spirits[0]!.bpBoost).toBe(3000);
 
-    // Attacker (player 0) must skip flash for counter-timing before defender can block
-    const attackerSkip = game.legalActions(state).find((a) => a.type === 'skip_flash');
-    if (attackerSkip) state = game.applyAction(state, attackerSkip, new Mulberry32(1));
+    // Both players pass until the before-block window closes (2-pass rule;
+    // counter-timing after the flash adds an extra priority round)
+    let preBlockGuard = 0;
+    while (state.pendingFlash && preBlockGuard++ < 6) {
+      const skip = game.legalActions(state).find((a) => a.type === 'skip_flash')!;
+      state = game.applyAction(state, skip, new Mulberry32(1));
+    }
 
     // Resolve the attack by blocking: 2000+3000 vs 2000 — defender wins, boost persists (turn duration)
-    const defenderSkip = game.legalActions(state).find((a) => a.type === 'skip_flash');
-    if (defenderSkip) state = game.applyAction(state, defenderSkip, new Mulberry32(1));
     const block = game.legalActions(state).find((a) => a.type === 'block');
     expect(block).toBeDefined();
     state = game.applyAction(state, block!, new Mulberry32(1));
@@ -745,8 +750,11 @@ describe('Attack-time search_deck effects', () => {
     expect(state.players[0].hand.some(c => c.id === 'spirit_moon_shacco')).toBe(true);
     expect(state.players[0].trash.some(c => c.id === 'magic_offering_draw')).toBe(true);
 
-    // Defender skips flash → pendingAttack; then takes damage → attack resolves
-    state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(3));
+    // Both players pass the flash window (2-pass rule) → pendingAttack; then take damage
+    state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(3)); // defender passes
+    expect(state.pendingFlash).toBeDefined(); // window stays open, attacker's priority
+    expect(state.currentPlayer).toBe(0);
+    state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(3)); // attacker passes
     expect(state.pendingAttack).toBeDefined();
     state = game.applyAction(state, { type: 'take_damage' }, new Mulberry32(4));
     expect(state.players[1].life).toBe(4); // 1 symbol damage dealt

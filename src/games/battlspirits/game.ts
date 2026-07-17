@@ -4,6 +4,7 @@ import { CARD_DB } from './cards.js';
 import { DeckFactory } from './deckFactory.js';
 import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef, CardEffect, GameConfig, PlayerConfig, GameRuleConfig } from './types.js';
 import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit, checkEffectConditions } from './effects.js';
+import { dbg, DEBUG_FLASH, DEBUG_CORE, DEBUG_VERBOSE } from './debug.js';
 
 /**
  * Battle Spirits Phase 1: simplified rules.
@@ -100,7 +101,7 @@ function logCoreChange(
   const oldCores = player.cores;
   const diff = newCores - oldCores;
   if (diff !== 0) {
-    console.log('[CORE_CHANGE]', {
+    dbg(DEBUG_CORE, '[CORE_CHANGE]', {
       reason,
       player: playerId,
       before: oldCores,
@@ -123,7 +124,7 @@ function logSoulCoreChange(
   const oldCores = player.soulCores;
   const diff = newCores - oldCores;
   if (diff !== 0) {
-    console.log('[SOUL_CORE_CHANGE]', {
+    dbg(DEBUG_CORE, '[SOUL_CORE_CHANGE]', {
       reason,
       player: playerId,
       before: oldCores,
@@ -160,7 +161,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       players = [this.newPlayer(rng), this.newPlayer(rng)];
     }
 
-    console.log('[INIT] After player creation:', {
+    dbg(DEBUG_VERBOSE, '[INIT] After player creation:', {
       p0Cores: players[0].cores,
       p1Cores: players[1].cores,
     });
@@ -179,7 +180,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       this.drawOpeningHand(p);
     }
 
-    console.log('[INIT] After drawing opening hand:', {
+    dbg(DEBUG_VERBOSE, '[INIT] After drawing opening hand:', {
       p0Cores: state.players[0].cores,
       p1Cores: state.players[1].cores,
       p0HandSize: state.players[0].hand.length,
@@ -444,7 +445,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   }
 
   private startTurn(state: GameState): GameState {
-    console.log('[START_TURN] Starting new turn:', {
+    dbg(DEBUG_VERBOSE, '[START_TURN] Starting new turn:', {
       currentPlayer: state.currentPlayer,
       turnCount: state.turnCount,
       currentPhase: state.phase,
@@ -476,7 +477,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           const p = next.players[next.currentPlayer]!;
           const coresBeforeCore = p.cores;
 
-          console.log('[CORE] Core phase - start:', {
+          dbg(DEBUG_VERBOSE, '[CORE] Core phase - start:', {
             turnCount: next.turnCount,
             currentPlayer: next.currentPlayer,
             isFirstTurnOfFirstPlayer,
@@ -486,7 +487,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           if (!isFirstTurnOfFirstPlayer) {
             logCoreChange(p, next.currentPlayer, p.cores + 1, 'coreStep');
           } else {
-            console.log('[CORE] Core phase - skipped for first turn of game');
+            dbg(DEBUG_VERBOSE, '[CORE] Core phase - skipped for first turn of game');
           }
           next.phase = 'draw';
           break;
@@ -1339,7 +1340,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
   applyAction(state: GameState, action: Action, rng: Rng): GameState {
     const coreBefore = { p0: state.players[0].cores, p1: state.players[1].cores };
-    console.log('[ACTION] Start:', {
+    dbg(DEBUG_VERBOSE, '[ACTION] Start:', {
       actionType: action.type,
       phase: state.phase,
       turnCount: state.turnCount,
@@ -1396,7 +1397,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       const winner = next.pendingDiceRoll.winner;
       const firstPlayer = action.goFirst ? winner : 1 - winner;
-      console.log('[CHOOSE_ORDER] Before:', {
+      dbg(DEBUG_VERBOSE, '[CHOOSE_ORDER] Before:', {
         winner,
         goFirst: action.goFirst,
         resultingFirstPlayer: firstPlayer,
@@ -1408,7 +1409,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       next.pendingMulligan = { player: firstPlayer, firstPlayer };
       next.currentPlayer = firstPlayer;
 
-      console.log('[CHOOSE_ORDER] After:', {
+      dbg(DEBUG_VERBOSE, '[CHOOSE_ORDER] After:', {
         p0Cores: next.players[0].cores,
         p1Cores: next.players[1].cores,
         currentPlayer: next.currentPlayer,
@@ -1425,7 +1426,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const firstPlayer = next.pendingMulligan.firstPlayer;
       const p = next.players[decidingPlayer]!;
 
-      console.log('[MULLIGAN] Before:', {
+      dbg(DEBUG_VERBOSE, '[MULLIGAN] Before:', {
         decidingPlayer,
         firstPlayer,
         p0Cores: next.players[0].cores,
@@ -1440,7 +1441,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         this.drawOpeningHand(p);
       }
 
-      console.log('[MULLIGAN] After redraw processing:', {
+      dbg(DEBUG_VERBOSE, '[MULLIGAN] After redraw processing:', {
         decidingPlayer,
         p0Cores: next.players[0].cores,
         p1Cores: next.players[1].cores,
@@ -1451,12 +1452,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // First player completed mulligan; move to second player
         next.pendingMulligan = { player: otherPlayer, firstPlayer };
         next.currentPlayer = otherPlayer;
-        console.log('[MULLIGAN] First player done, switching to second player');
+        dbg(DEBUG_VERBOSE, '[MULLIGAN] First player done, switching to second player');
         return next;
       }
 
       // Second player completed mulligan; start the first turn
-      console.log('[MULLIGAN] Second player done, calling startTurn:', {
+      dbg(DEBUG_VERBOSE, '[MULLIGAN] Second player done, calling startTurn:', {
         p0Cores: next.players[0].cores,
         p1Cores: next.players[1].cores,
         currentPlayer: firstPlayer,
@@ -1527,11 +1528,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       };
       // Switch to opponent for counter-timing
       next.currentPlayer = 1 - next.currentPlayer;
-      console.log('[FLASH]', {
-        event: 'flash_used',
-        trigger: next.pendingFlash.trigger,
-        currentPlayer: next.currentPlayer,
-        skipFlashAvailable: true,
+      dbg(DEBUG_FLASH, '[FLASH_USE]', {
+        player: 1 - next.currentPlayer,
+        card: card.name,
       });
       return next;
     }
@@ -1541,6 +1540,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // If there was a flash used before, return to initiator to continue
       if (next.pendingFlash.lastFlashPlayer !== undefined && next.pendingFlash.lastFlashPlayer !== next.pendingFlash.initiatingPlayer) {
+        dbg(DEBUG_FLASH, '[FLASH_PASS]', { player: next.currentPlayer, passCount: next.pendingFlash.passCount ?? 0 });
         // Return to initiating player for potential counter-flash
         next.currentPlayer = next.pendingFlash.initiatingPlayer;
         next.pendingFlash.lastFlashPlayer = undefined; // Clear last flash player to allow re-stacking
@@ -1553,18 +1553,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // 2-pass rule: the window only closes after BOTH players pass consecutively.
         // First pass hands flash priority to the other player; second pass resolves.
         const passCount = (next.pendingFlash.passCount ?? 0) + 1;
+        dbg(DEBUG_FLASH, '[FLASH_PASS]', { player: next.currentPlayer, passCount });
         if (passCount < 2) {
           next.pendingFlash.passCount = passCount;
           next.currentPlayer = 1 - next.currentPlayer;
-          console.log('[FLASH]', {
-            event: 'skip_flash_pass',
-            trigger: next.pendingFlash.trigger,
-            passCount,
-            currentPlayer: next.currentPlayer,
-            skipFlashAvailable: true,
-          });
           return next;
         }
+        dbg(DEBUG_FLASH, '[FLASH_END]', { reason: 'battle_resolve' });
 
         // After-block flash window closed (2 consecutive passes): resolve battle now
         const defenderSpiritIndex = next.pendingFlash.stashedDefenderSpiritIndex;
@@ -1583,7 +1578,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         if (!attacker || !defender) {
           // One of the spirits was destroyed during flash phase
-          console.log('[RESOLVE]', { event: 'battle_cancelled_spirit_gone', attackerAlive: !!attacker, defenderAlive: !!defender });
+          dbg(DEBUG_FLASH, '[BATTLE_RESOLVE]', { result: 'cancelled_spirit_gone', attackerAlive: !!attacker, defenderAlive: !!defender });
           next.pendingAttack = null;
           checkResult(next);
           return next;
@@ -1599,7 +1594,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         return this.resolveBattle(next, attacker, defender, stashedAttack, attackBP, defendBP, defenderSpiritIndex);
       }
 
-      // Before-block flash (original code): clear and return control to defender
+      // Before-block flash: same 2-pass rule — the first pass hands flash
+      // priority to the other player; the second consecutive pass closes the
+      // window and control returns to the defender to choose block/take_damage.
+      const beforePassCount = (next.pendingFlash.passCount ?? 0) + 1;
+      dbg(DEBUG_FLASH, '[FLASH_PASS]', { player: next.currentPlayer, passCount: beforePassCount });
+      if (beforePassCount < 2) {
+        next.pendingFlash.passCount = beforePassCount;
+        next.currentPlayer = 1 - next.currentPlayer;
+        return next;
+      }
+      dbg(DEBUG_FLASH, '[FLASH_END]', { reason: 'double_pass' });
       const stashedAttack = next.pendingFlash.stashedAttack;
       next.pendingFlash = null;
       if (stashedAttack) {
@@ -1656,18 +1661,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       next.pendingAttack = null;
       // Switch to attacker for after-block flash opportunity
       next.currentPlayer = pendingAttack.attackerPlayer;
-      console.log('[BLOCK]', {
-        attacker: `p${pendingAttack.attackerPlayer}:${attacker.def.name}`,
-        defender: `p${1 - pendingAttack.attackerPlayer}:${defender.def.name}`,
-        attackBP,
-        defendBP,
-        pendingFlashCreated: true,
-      });
-      console.log('[FLASH]', {
-        event: 'after_block_window_open',
-        trigger: 'opponent_block',
+      dbg(DEBUG_FLASH, '[FLASH_START]', {
+        trigger: 'block_after',
         currentPlayer: next.currentPlayer,
-        skipFlashAvailable: true,
+        passCount: 0,
       });
       return next; // Wait for flash/skip_flash decision
     }
@@ -1842,7 +1839,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         // If there's a target-requiring effect, wait for selection
         if (targetRequiringEffect) {
-          console.log('[SUMMON] Found target-requiring effect:', {
+          dbg(DEBUG_VERBOSE, '[SUMMON] Found target-requiring effect:', {
             cardName: card.name,
             effect: targetRequiringEffect.description,
             conditionsMet: true,
@@ -1881,7 +1878,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
 
           // If there are valid targets, wait for selection
-          console.log('[SUMMON] Valid targets calculation:', {
+          dbg(DEBUG_VERBOSE, '[SUMMON] Valid targets calculation:', {
             cardName: card.name,
             action: targetRequiringEffect.action,
             validSpiritIndices: validTargets.spiritIndices,
@@ -1900,13 +1897,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               trigger: 'summon',
               remainingEffects: [],
             };
-            console.log('[SUMMON] Set pendingEffectAction:', {
+            dbg(DEBUG_VERBOSE, '[SUMMON] Set pendingEffectAction:', {
               cardName: card.name,
               validTargetCount: validTargets.spiritIndices.length + validTargets.nexusIndices.length,
             });
             return next; // Wait for target selection
           } else {
-            console.log('[SUMMON] No valid targets found for effect:', {
+            dbg(DEBUG_VERBOSE, '[SUMMON] No valid targets found for effect:', {
               cardName: card.name,
               action: targetRequiringEffect.action,
               opponentSpiritCount: next.players[1 - next.currentPlayer]!.spirits.length,
@@ -1988,21 +1985,21 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         break;
       }
       case 'select_effect_target': {
-        console.log('[GAME] Processing select_effect_target:', {
+        dbg(DEBUG_VERBOSE, '[GAME] Processing select_effect_target:', {
           hasPending: !!next.pendingEffectAction,
           targetSpiritIndex: action.targetSpiritIndex,
           targetNexusIndex: action.targetNexusIndex,
         });
 
         if (!next.pendingEffectAction) {
-          console.log('[ERROR] No pendingEffectAction to process');
+          console.error('[ERROR] No pendingEffectAction to process');
           return next;
         }
 
         const pending = next.pendingEffectAction;
         const effect = pending.effect;
 
-        console.log('[GAME] Effect details:', {
+        dbg(DEBUG_VERBOSE, '[GAME] Effect details:', {
           action: effect.action,
           trigger: pending.trigger,
           sourcePlayer: pending.sourcePlayer,
@@ -2012,11 +2009,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Apply the effect with the selected target
         const sourceLevel = pending.sourceCard.effects?.find((e) => e === effect) ? (effect.level?.[0] ?? 1) : undefined;
 
-        console.log('[GAME] Before triggerEffects, pendingEffectAction:', !!next.pendingEffectAction);
+        dbg(DEBUG_VERBOSE, '[GAME] Before triggerEffects, pendingEffectAction:', !!next.pendingEffectAction);
 
         if (pending.spiritIndex !== undefined) {
           // Effect triggered from a spirit
-          console.log('[GAME] Triggering from spirit');
+          dbg(DEBUG_VERBOSE, '[GAME] Triggering from spirit');
           next = triggerEffects(
             next,
             pending.trigger,
@@ -2033,7 +2030,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           );
         } else if (pending.sourceNexusIndex !== undefined) {
           // Effect triggered from a nexus
-          console.log('[GAME] Triggering from nexus');
+          dbg(DEBUG_VERBOSE, '[GAME] Triggering from nexus');
           next = triggerEffects(
             next,
             pending.trigger,
@@ -2049,14 +2046,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             pending.sourceNexusIndex
           );
         } else {
-          console.log('[ERROR] Neither spiritIndex nor sourceNexusIndex defined');
+          console.error('[ERROR] Neither spiritIndex nor sourceNexusIndex defined');
         }
 
-        console.log('[GAME] After triggerEffects, before clearing');
+        dbg(DEBUG_VERBOSE, '[GAME] After triggerEffects, before clearing');
 
         // Clear the pending effect action
         next.pendingEffectAction = null;
-        console.log('[GAME] Cleared pendingEffectAction');
+        dbg(DEBUG_VERBOSE, '[GAME] Cleared pendingEffectAction');
 
         // Process remaining effects based on trigger type
         if (pending.trigger === 'end_step' && pending.remainingEffects.length > 0) {
@@ -2143,6 +2140,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               stashedAttack: pendingAttack,
             };
             next.currentPlayer = defenderIndex;
+            dbg(DEBUG_FLASH, '[FLASH_START]', {
+              trigger: 'attack',
+              currentPlayer: next.currentPlayer,
+              passCount: 0,
+            });
           }
         }
 
@@ -2659,11 +2661,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           stashedAttack: pendingAttack,
         };
         next.currentPlayer = defenderIndex;
-        console.log('[FLASH]', {
-          event: 'before_block_window_open',
-          trigger: 'opponent_attack',
+        dbg(DEBUG_FLASH, '[FLASH_START]', {
+          trigger: 'attack',
           currentPlayer: next.currentPlayer,
-          skipFlashAvailable: true,
+          passCount: 0,
         });
         return next;
       }
@@ -2737,6 +2738,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             stashedAttack: pendingAttack,
           };
           next.currentPlayer = defenderIndex;
+          dbg(DEBUG_FLASH, '[FLASH_START]', {
+            trigger: 'attack',
+            currentPlayer: next.currentPlayer,
+            passCount: 0,
+          });
           return next;
         }
 
@@ -2870,7 +2876,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const p0Diff = coreAfter.p0 - coreBefore.p0;
     const p1Diff = coreAfter.p1 - coreBefore.p1;
     if (p0Diff !== 0 || p1Diff !== 0) {
-      console.log('[ACTION] Core change:', {
+      dbg(DEBUG_VERBOSE, '[ACTION] Core change:', {
         actionType: action.type,
         p0: `${coreBefore.p0} → ${coreAfter.p0} (${p0Diff > 0 ? '+' : ''}${p0Diff})`,
         p1: `${coreBefore.p1} → ${coreAfter.p1} (${p1Diff > 0 ? '+' : ''}${p1Diff})`,
@@ -2914,12 +2920,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const defender_player = next.players[1 - pendingAttack.attackerPlayer]!;
     const attacker_player = next.players[pendingAttack.attackerPlayer]!;
 
-    console.log('[RESOLVE]', {
-      event: 'resolveBattle_called',
-      attacker: `p${pendingAttack.attackerPlayer}:${attacker.def.name}`,
-      defender: `p${1 - pendingAttack.attackerPlayer}:${defender.def.name}`,
-      attackBP,
-      defendBP,
+    dbg(DEBUG_FLASH, '[BATTLE_RESOLVE]', {
+      attacker: attacker.def.name,
+      defender: defender.def.name,
+      attackerBP: attackBP,
+      defenderBP: defendBP,
+      result: attackBP > defendBP ? 'attacker_win' : attackBP < defendBP ? 'defender_win' : 'both_destroy',
     });
 
     // Resolve battle (destroyed spirits go to trash; their cores return to reserve)

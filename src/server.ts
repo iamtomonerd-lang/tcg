@@ -10,6 +10,7 @@ import { DeckFactory } from './games/battlspirits/deckFactory.js';
 import type { GameState, Action, EffectResult, GameConfig, PlayerConfig } from './games/battlspirits/types.js';
 import { Mulberry32 } from './core/rng.js';
 import { IsmctsAgent } from './ai/ismcts.js';
+import { dbg, DEBUG_VERBOSE, DEBUG_FLASH, suspendGameLogs } from './games/battlspirits/debug.js';
 import { cardToRulebook } from './games/battlspirits/cardRulebook.js';
 import { deckOptimizer } from './ai/learning/deck-optimizer.js';
 import { gameLogger } from './ai/learning/game-logger.js';
@@ -139,12 +140,12 @@ app.post('/api/game/new', async (req, res) => {
   const p1Agent = createAgent(playerTypes[1], actualP1Iters, rng);
 
   // ✅ ゲーム開始直前のデッキ・手札内容確認
-  console.log(`\n========== ゲーム開始直前の最終確認 ==========`);
-  console.log(`📋 P0 deck (返却前): ${state.players[0].deck.map((c: any) => c.id).join(', ')}`);
-  console.log(`🎴 P0 hand (返却前): ${state.players[0].hand.map((c: any) => c.id).join(', ')}`);
-  console.log(`📋 P1 deck (返却前): ${state.players[1].deck.map((c: any) => c.id).join(', ')}`);
-  console.log(`🎴 P1 hand (返却前): ${state.players[1].hand.map((c: any) => c.id).join(', ')}`);
-  console.log(`==========================================\n`);
+  dbg(DEBUG_VERBOSE, `\n========== ゲーム開始直前の最終確認 ==========`);
+  dbg(DEBUG_VERBOSE, `📋 P0 deck (返却前): ${state.players[0].deck.map((c: any) => c.id).join(', ')}`);
+  dbg(DEBUG_VERBOSE, `🎴 P0 hand (返却前): ${state.players[0].hand.map((c: any) => c.id).join(', ')}`);
+  dbg(DEBUG_VERBOSE, `📋 P1 deck (返却前): ${state.players[1].deck.map((c: any) => c.id).join(', ')}`);
+  dbg(DEBUG_VERBOSE, `🎴 P1 hand (返却前): ${state.players[1].hand.map((c: any) => c.id).join(', ')}`);
+  dbg(DEBUG_VERBOSE, `==========================================\n`);
 
   // Extract deck info from loaded decks for learning logging
   const p0DeckInfo = state.players[0].deck.length > 0
@@ -158,7 +159,7 @@ app.post('/api/game/new', async (req, res) => {
   const finalP0Rating = p0Rating || 1700;
   const finalP1Rating = p1Rating || 1700;
 
-  console.log('[SERVER] Initial state created:', {
+  dbg(DEBUG_VERBOSE, '[SERVER] Initial state created:', {
     p0Type: playerTypes[0],
     p1Type: playerTypes[1],
     p0Cores: state.players[0].cores,
@@ -362,20 +363,20 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     return res.status(400).json({ error: 'Invalid action' });
   }
 
-  console.log('[SERVER] Action received:', {type: action.type, targetSpiritIndex: action.targetSpiritIndex, targetNexusIndex: action.targetNexusIndex, pendingEffectAction: !!session.state.pendingEffectAction});
+  dbg(DEBUG_VERBOSE, '[SERVER] Action received:', {type: action.type, targetSpiritIndex: action.targetSpiritIndex, targetNexusIndex: action.targetNexusIndex, pendingEffectAction: !!session.state.pendingEffectAction});
 
   const description = session.game.describeAction(session.state, action);
   const actingPlayer = session.game.currentPlayer(session.state);
   const stateBefore = session.state;
 
-  console.log('[SERVER] Before applyAction:', {
+  dbg(DEBUG_VERBOSE, '[SERVER] Before applyAction:', {
     pendingEffectAction: !!stateBefore.pendingEffectAction,
     phase: stateBefore.phase,
     p0Cores: stateBefore.players[0].cores,
     p1Cores: stateBefore.players[1].cores,
   });
   session.state = session.game.applyAction(session.state, action, session.rng);
-  console.log('[SERVER] After applyAction:', {
+  dbg(DEBUG_VERBOSE, '[SERVER] After applyAction:', {
     pendingEffectAction: !!session.state.pendingEffectAction,
     phase: session.state.phase,
     p0Cores: session.state.players[0].cores,
@@ -405,7 +406,7 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     }
   }
 
-  console.log('[SERVER] About to send state to client (action endpoint):', {
+  dbg(DEBUG_VERBOSE, '[SERVER] About to send state to client (action endpoint):', {
     p0Cores: session.state.players[0].cores,
     p1Cores: session.state.players[1].cores,
     phase: session.state.phase,
@@ -450,7 +451,7 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
   // Get best action from AI (describe BEFORE applying — indices refer to the pre-action state)
   try {
     const legalActionsDebug = session.game.legalActions(session.state);
-    console.log(`[DEBUG ai-turn] sessionId=${req.params.sessionId}, decidingPlayer=${decidingPlayer}, phase=${session.state.phase}, pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}, pendingMulligan=${session.state.pendingMulligan ? `{player:${session.state.pendingMulligan.player}}` : 'null'}, legalActionsCount=${legalActionsDebug.length}`);
+    dbg(DEBUG_VERBOSE, `[DEBUG ai-turn] sessionId=${req.params.sessionId}, decidingPlayer=${decidingPlayer}, phase=${session.state.phase}, pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}, pendingMulligan=${session.state.pendingMulligan ? `{player:${session.state.pendingMulligan.player}}` : 'null'}, legalActionsCount=${legalActionsDebug.length}`);
 
     if (legalActionsDebug.length === 0) {
       console.error(`❌ ERROR: legalActions is empty!`);
@@ -464,26 +465,47 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
     return res.status(400).json({ error: `Error getting legal actions: ${e}` });
   }
 
-  const action = agent.chooseAction(session.game, session.state, session.rng);
+  // Silence per-action logs while the AI simulates thousands of playouts
+  suspendGameLogs(true);
+  let action: Action;
+  try {
+    action = agent.chooseAction(session.game, session.state, session.rng);
+  } finally {
+    suspendGameLogs(false);
+  }
+
+  // AI flash-priority visibility: did the AI have flash cards, and did it use one?
+  if (session.state.pendingFlash && DEBUG_FLASH) {
+    const legalNow = session.game.legalActions(session.state);
+    const flashCardCount = new Set(
+      legalNow.filter((a) => a.type === 'flash').map((a) => (a as { handIndex?: number }).handIndex),
+    ).size;
+    console.log('[AI_FLASH]', {
+      hasPriority: true,
+      availableFlashCards: flashCardCount,
+      decision: action.type === 'flash' ? 'use' : 'pass',
+    });
+  }
+
   const description = session.game.describeAction(session.state, action);
   const stateBefore = session.state;
-  console.log(`[DEBUG] About to apply action: ${JSON.stringify(action).substring(0, 100)}`);
-  console.log(`[DEBUG] Before applyAction (ai-turn):`, {
+  dbg(DEBUG_VERBOSE, `[DEBUG] About to apply action: ${JSON.stringify(action).substring(0, 100)}`);
+  dbg(DEBUG_VERBOSE, `[DEBUG] Before applyAction (ai-turn):`, {
     p0Cores: stateBefore.players[0].cores,
     p1Cores: stateBefore.players[1].cores,
     phase: stateBefore.phase,
     turnCount: stateBefore.turnCount,
   });
   session.state = session.game.applyAction(session.state, action, session.rng);
-  console.log(`[DEBUG] After applyAction: phase=${session.state.phase}, pendingMulligan=${session.state.pendingMulligan ? `{player:${session.state.pendingMulligan.player}}` : 'null'}, pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}`);
-  console.log(`[DEBUG] After applyAction (ai-turn):`, {
+  dbg(DEBUG_VERBOSE, `[DEBUG] After applyAction: phase=${session.state.phase}, pendingMulligan=${session.state.pendingMulligan ? `{player:${session.state.pendingMulligan.player}}` : 'null'}, pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}`);
+  dbg(DEBUG_VERBOSE, `[DEBUG] After applyAction (ai-turn):`, {
     p0Cores: session.state.players[0].cores,
     p1Cores: session.state.players[1].cores,
     phase: session.state.phase,
     turnCount: session.state.turnCount,
   });
   const nextLegalActions = session.game.legalActions(session.state);
-  console.log(`[DEBUG] Next legalActions count: ${nextLegalActions.length}`);
+  dbg(DEBUG_VERBOSE, `[DEBUG] Next legalActions count: ${nextLegalActions.length}`);
   const effectResults = detectEffectResults(stateBefore, session.state, action);
 
   let actionDescription = `P${decidingPlayer}: ${description}`;
