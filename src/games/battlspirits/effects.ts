@@ -121,11 +121,31 @@ export function applyEffect(
   const me = next.players[sourcePlayer]!;
   const opponent = next.players[1 - sourcePlayer]!;
 
+  console.log('[EFFECT] applyEffect called:', {
+    action: effect.action,
+    requiresTarget: effect.requiresTarget,
+    targetSpiritIndex,
+    targetNexusIndex,
+    spiritIndex,
+    sourceCard: effect.description?.substring(0, 30),
+  });
+
   // Resolve the spirit this effect self-targets: an explicitly player-chosen target takes
   // priority (e.g. "自分のスピリット1体を指定できる"), otherwise the triggering spirit itself.
   const selfSpirit = effect.requiresTarget && targetSpiritIndex !== undefined
     ? me.spirits[targetSpiritIndex]
     : (spiritIndex !== undefined ? me.spirits[spiritIndex] : undefined);
+
+  // Resolve the nexus this effect targets (for effects that can target nexuses)
+  const selfNexus = effect.requiresTarget && targetNexusIndex !== undefined
+    ? me.nexuses[targetNexusIndex]
+    : undefined;
+
+  console.log('[EFFECT] Target resolved:', {
+    targetSpiritName: selfSpirit?.def.name,
+    targetNexusName: selfNexus?.def.name,
+    targetType: selfNexus ? 'nexus' : (selfSpirit ? 'spirit' : 'none'),
+  });
 
   // Check effect conditions
   if (effect.condition) {
@@ -291,7 +311,7 @@ export function applyEffect(
       break;
     }
     case 'place_core': {
-      // Place cores on this spirit (or in reserve if no target)
+      // Place cores on this spirit or nexus (or in reserve if no target)
       // Source can be 'trash' or 'void' (default)
       const coreValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       const source = effect.source ?? 'void';
@@ -300,16 +320,52 @@ export function applyEffect(
 
       console.log('[EFFECT] place_core processing:', {
         sourcePlayer,
-        hasTarget: !!selfSpirit,
-        targetName: selfSpirit?.def.name,
+        targetType: selfNexus ? 'nexus' : (selfSpirit ? 'spirit' : 'none'),
+        targetName: selfNexus?.def.name || selfSpirit?.def.name || 'none',
         coreValue,
         source,
         onlySoulCore,
         trashSoulCoresBegin: me.trashSoulCores,
-        targetSoulCoresBegin: selfSpirit?.soulCoreCount || 0,
+        targetSoulCoresBegin: selfNexus?.soulCoreCount || selfSpirit?.soulCoreCount || 0,
       });
 
-      if (selfSpirit) {
+      if (selfNexus) {
+        // Place cores on nexus
+        if (source === 'trash') {
+          let taken = 0;
+          if (onlySoulCore) {
+            if (me.trashSoulCores > 0) {
+              const soulTake = Math.min(me.trashSoulCores, coreValue);
+              console.log('[EFFECT] Taking soul cores for nexus:', {soulTake, targetBefore: selfNexus.soulCoreCount, trashBefore: me.trashSoulCores});
+              selfNexus.soulCoreCount = (selfNexus.soulCoreCount || 0) + soulTake;
+              me.trashSoulCores -= soulTake;
+              console.log('[EFFECT] After taking:', {targetAfter: selfNexus.soulCoreCount, trashAfter: me.trashSoulCores});
+              taken += soulTake;
+            }
+          } else if (excludeSoulCore) {
+            if (me.trashCores > 0) {
+              const regularTake = Math.min(me.trashCores, coreValue);
+              selfNexus.coreCount += regularTake;
+              me.trashCores -= regularTake;
+              taken += regularTake;
+            }
+          } else {
+            if (me.trashSoulCores > 0) {
+              const soulTake = Math.min(me.trashSoulCores, coreValue);
+              selfNexus.soulCoreCount = (selfNexus.soulCoreCount || 0) + soulTake;
+              me.trashSoulCores -= soulTake;
+              taken += soulTake;
+            }
+            if (taken < coreValue && me.trashCores > 0) {
+              const regularTake = Math.min(me.trashCores, coreValue - taken);
+              selfNexus.coreCount += regularTake;
+              me.trashCores -= regularTake;
+            }
+          }
+        } else {
+          selfNexus.coreCount += coreValue;
+        }
+      } else if (selfSpirit) {
         if (source === 'trash') {
           // Take cores from trash with conditions
           let taken = 0;
@@ -384,8 +440,10 @@ export function applyEffect(
       }
 
       console.log('[EFFECT] place_core complete:', {
-        targetName: selfSpirit?.def.name,
-        targetSoulCoresEnd: selfSpirit?.soulCoreCount || 0,
+        targetType: selfNexus ? 'nexus' : (selfSpirit ? 'spirit' : 'none'),
+        targetName: selfNexus?.def.name || selfSpirit?.def.name || 'none',
+        targetSoulCoresEnd: selfNexus?.soulCoreCount || selfSpirit?.soulCoreCount || 0,
+        targetCoresEnd: selfNexus?.coreCount || selfSpirit?.coreCount || 0,
         trashSoulCoresEnd: me.trashSoulCores,
       });
 
