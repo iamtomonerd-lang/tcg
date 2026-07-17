@@ -1296,6 +1296,68 @@ describe('【起動：フラッシュ】 activated flash effects (cost ▶ effec
       const again = game.legalActions(state).filter((a) => a.type === 'activate_flash');
       expect(again).toEqual([]);
     }
+
+    // Resolve the battle: boosted Graipher 5000+2000 vs ムーシャッコ 2000 via block
+    let guard = 0;
+    while (state.pendingFlash && guard++ < 6) {
+      state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1));
+    }
+    const block = game.legalActions(state).find((a) => a.type === 'block');
+    expect(block).toBeDefined();
+    state = game.applyAction(state, block!, new Mulberry32(1));
+    guard = 0;
+    while (state.pendingFlash && guard++ < 6) {
+      state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1));
+    }
+    // Battle over: defender destroyed, このバトル中 boost expired
+    expect(state.players[1].spirits.length).toBe(0);
+    expect(state.players[0].spirits.length).toBe(1);
+    expect(state.players[0].spirits[0]!.bpBoostBattle ?? 0).toBe(0);
+  });
+
+  it('風牙岩 nexus cannot activate during the OPPONENT\'s attack step (自分のアタックステップ only)', () => {
+    // P0 attacks; P1 (defender) owns 風牙岩 and has flash priority — must not be offered
+    const windFang = { def: CARD_DB.nexus_wind_fang_rock!, level: 1 as const, coreCount: 0, soulCoreCount: 0 };
+    const p0 = makePlayer([makeGraipher()]);
+    const p1: PlayerState = { ...makePlayer([makeSpirit()]), nexuses: [windFang] };
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0, turnCount: 2, phase: 'attack', battle: null, result: null,
+    };
+    const attack = game.legalActions(state).find((a) => a.type === 'attack')!;
+    state = game.applyAction(state, attack, new Mulberry32(1));
+    expect(state.currentPlayer).toBe(1); // defender priority
+    const activations = game.legalActions(state).filter((a) => a.type === 'activate_flash');
+    expect(activations).toEqual([]);
+    // Direct application is also rejected: nexus stays untouched
+    const after = game.applyAction(state, { type: 'activate_flash', sourceType: 'nexus', sourceIndex: 0, targetSpiritIndex: 0 }, new Mulberry32(1));
+    expect(after.players[1].nexuses[0]!.exhausted ?? false).toBe(false);
+    expect(after.players[0].spirits[0]!.bpBoostBattle ?? 0).toBe(0);
+  });
+
+  it('風牙岩 nexus cannot target a non-風牙 attacking spirit (targetLineage restriction)', () => {
+    const windFang = { def: CARD_DB.nexus_wind_fang_rock!, level: 1 as const, coreCount: 0, soulCoreCount: 0 };
+    // Attacker without 風牙 lineage (constructed test card)
+    const nonFuugaAttacker: Spirit = {
+      def: { ...CARD_DB.spirit_graipher!, id: 'test_non_fuuga_spirit', lineage: ['他系統'], effects: [] },
+      level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true,
+    };
+    const p0: PlayerState = { ...makePlayer([nonFuugaAttacker]), nexuses: [windFang] };
+    const p1 = makePlayer([makeSpirit()]);
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0, turnCount: 2, phase: 'attack', battle: null, result: null,
+    };
+    const attack = game.legalActions(state).find((a) => a.type === 'attack')!;
+    state = game.applyAction(state, attack, new Mulberry32(1));
+    state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1)); // defender pass → attacker priority
+
+    const activations = game.legalActions(state).filter((a) => a.type === 'activate_flash');
+    expect(activations).toEqual([]); // attacking spirit lacks 風牙 → no valid target
+    // Direct application also rejected
+    const after = game.applyAction(state, { type: 'activate_flash', sourceType: 'nexus', sourceIndex: 0, targetSpiritIndex: 0 }, new Mulberry32(1));
+    expect(after.players[0].nexuses[0]!.exhausted ?? false).toBe(false);
+    expect(after.players[0].spirits[0]!.bpBoostBattle ?? 0).toBe(0);
   });
 
   it('defender spirits cannot use アタック中 activated flash (not attacking)', () => {

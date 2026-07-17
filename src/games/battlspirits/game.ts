@@ -814,6 +814,19 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   }
 
   /** Does the player have a flash magic card they can actually afford? */
+
+  /**
+   * 【起動：フラッシュ】 effect type: a flash-timing ability with an activation
+   * cost (the text before ▶) and a resolution effect (the text after ▶).
+   * Card-type agnostic — spirits, nexuses, and any future field card types are
+   * recognized purely by their effect data:
+   *   - cost part: costAction (+costSymbol) / costExhaustSelf / future cost fields
+   *   - effect part: action/value/duration etc. (resolved via triggerEffects)
+   */
+  private isActivatedFlashEffect(e: CardEffect): boolean {
+    return (e.isFlash === true || e.mode === 'flash') && (e.costAction !== undefined || e.costExhaustSelf === true);
+  }
+
   private hasAffordableFlash(player: PlayerState): boolean {
     const totalCores = this.getTotalAvailableCores(player);
     const canPaySoulCore = player.soulCores >= 1 || player.spirits.some((s) => s.soulCoreCount > 0);
@@ -1047,8 +1060,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       for (let si = 0; si < me.spirits.length; si++) {
         const spirit = me.spirits[si]!;
         for (const e of spirit.def.effects ?? []) {
-          if (!(e.isFlash || e.mode === 'flash')) continue;
-          if (!e.costAction && !e.costExhaustSelf) continue; // not an activated (起動) effect
+          if (!this.isActivatedFlashEffect(e)) continue; // 【起動：フラッシュ】 only
           if (e.level && !e.level.includes(spirit.level)) continue;
           if (e.oncePerTurn && spirit.flashActivatedThisTurn) continue; // 〔ターン1回〕
           // 『アタック中』: this spirit itself must be the current attacker
@@ -1069,8 +1081,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       for (let ni = 0; ni < me.nexuses.length; ni++) {
         const nexus = me.nexuses[ni]!;
         for (const e of nexus.def.effects ?? []) {
-          if (!(e.isFlash || e.mode === 'flash')) continue;
-          if (!e.costAction && !e.costExhaustSelf) continue;
+          if (!this.isActivatedFlashEffect(e)) continue; // 【起動：フラッシュ】 only
           if (e.level && !e.level.includes(nexus.level)) continue;
           if (e.costExhaustSelf && nexus.exhausted) continue; // already paid this turn
           // 『自分のアタックステップ』: my spirit must be attacking
@@ -1599,7 +1610,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const spirit = me.spirits[action.sourceIndex];
         if (!spirit) return next;
         const effect = (spirit.def.effects ?? []).find(
-          (e) => (e.isFlash || e.mode === 'flash') && (e.costAction || e.costExhaustSelf) && (!e.level || e.level.includes(spirit.level)),
+          (e) => this.isActivatedFlashEffect(e) && (!e.level || e.level.includes(spirit.level)),
         );
         if (!effect) return next;
         if (effect.oncePerTurn && spirit.flashActivatedThisTurn) return next; // 〔ターン1回〕
@@ -1621,7 +1632,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const nexus = me.nexuses[action.sourceIndex];
         if (!nexus) return next;
         const effect = (nexus.def.effects ?? []).find(
-          (e) => (e.isFlash || e.mode === 'flash') && (e.costAction || e.costExhaustSelf) && (!e.level || e.level.includes(nexus.level)),
+          (e) => this.isActivatedFlashEffect(e) && (!e.level || e.level.includes(nexus.level)),
         );
         if (!effect) return next;
         if (effect.costExhaustSelf && nexus.exhausted) return next;
@@ -3264,7 +3275,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'activate_flash': {
         const source = action.sourceType === 'spirit' ? me.spirits[action.sourceIndex] : me.nexuses[action.sourceIndex];
-        const eff = source?.def.effects?.find((e) => (e.isFlash || e.mode === 'flash') && (e.costAction || e.costExhaustSelf));
+        const eff = source?.def.effects?.find((e) => this.isActivatedFlashEffect(e));
         let desc = `【起動：フラッシュ】${source?.def.name ?? '?'}`;
         const costLabel = action.discardCardIndex !== undefined
           ? `${me.hand[action.discardCardIndex]?.name ?? '?'}を破棄`
