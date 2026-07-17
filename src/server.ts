@@ -956,6 +956,7 @@ function serializeState(state: GameState) {
     pendingAttack: state.pendingAttack
       ? {
           attackerPlayer: state.pendingAttack.attackerPlayer,
+          attackerSpiritIndex: state.pendingAttack.attackerSpiritIndex,
           attackerName:
             state.players[state.pendingAttack.attackerPlayer]?.spirits[
               state.pendingAttack.attackerSpiritIndex
@@ -963,7 +964,23 @@ function serializeState(state: GameState) {
           damage: state.pendingAttack.damage,
         }
       : null,
-    pendingFlash: state.pendingFlash ? { trigger: state.pendingFlash.trigger } : null,
+    pendingFlash: state.pendingFlash
+      ? {
+          trigger: state.pendingFlash.trigger,
+          stashedAttack: state.pendingFlash.stashedAttack
+            ? {
+                attackerPlayer: state.pendingFlash.stashedAttack.attackerPlayer,
+                attackerSpiritIndex: state.pendingFlash.stashedAttack.attackerSpiritIndex,
+                attackerName:
+                  state.players[state.pendingFlash.stashedAttack.attackerPlayer]?.spirits[
+                    state.pendingFlash.stashedAttack.attackerSpiritIndex
+                  ]?.def.name ?? '?',
+                damage: state.pendingFlash.stashedAttack.damage,
+              }
+            : null,
+          stashedDefenderSpiritIndex: state.pendingFlash.stashedDefenderSpiritIndex,
+        }
+      : null,
     pendingMulligan: state.pendingMulligan ? { player: state.pendingMulligan.player } : null,
     pendingDraw: state.pendingDraw
       ? {

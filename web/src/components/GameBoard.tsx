@@ -675,8 +675,8 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           onCardRightClick={(cardId, imagePath, name) => handleShowCardRulebook(cardId, imagePath, name)}
           onViewTrash={() => setTrashViewPlayer(topPlayer)}
           onViewBottomDeck={() => setBottomDeckViewPlayer(topPlayer)}
-          attackingSpiritPlayer={state.pendingAttack?.attackerPlayer}
-          attackingSpiritIndex={state.pendingAttack?.attackerSpiritIndex}
+          attackingSpiritPlayer={state.pendingAttack?.attackerPlayer ?? state.pendingFlash?.stashedAttack?.attackerPlayer}
+          attackingSpiritIndex={state.pendingAttack?.attackerSpiritIndex ?? state.pendingFlash?.stashedAttack?.attackerSpiritIndex}
         />
 
         <div className="center-bar">
@@ -688,6 +688,10 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           ) : state.pendingAttack ? (
             <span className="center-alert attack">
               ⚔️ 「{state.pendingAttack.attackerName}」がアタック中！（ライフダメージ {state.pendingAttack.damage}）
+            </span>
+          ) : state.pendingFlash?.stashedAttack ? (
+            <span className="center-alert attack">
+              ⚔️ 「{state.pendingFlash.stashedAttack.attackerName}」がアタック中！（ライフダメージ {state.pendingFlash.stashedAttack.damage}）
             </span>
           ) : state.pendingFlash ? (
             <span className="center-alert flash">⚡ フラッシュタイミング</span>
@@ -715,8 +719,8 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           onCardRightClick={(cardId, imagePath, name) => handleShowCardRulebook(cardId, imagePath, name)}
           onViewTrash={() => setTrashViewPlayer(bottomPlayer)}
           onViewBottomDeck={() => setBottomDeckViewPlayer(bottomPlayer)}
-          attackingSpiritPlayer={state.pendingAttack?.attackerPlayer}
-          attackingSpiritIndex={state.pendingAttack?.attackerSpiritIndex}
+          attackingSpiritPlayer={state.pendingAttack?.attackerPlayer ?? state.pendingFlash?.stashedAttack?.attackerPlayer}
+          attackingSpiritIndex={state.pendingAttack?.attackerSpiritIndex ?? state.pendingFlash?.stashedAttack?.attackerSpiritIndex}
         />
       </div>
 
