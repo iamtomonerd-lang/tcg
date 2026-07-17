@@ -2502,6 +2502,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
                 validTargets.spiritIndices.push(i);
               }
             }
+            // Include nexuses only for 'any' target type (not 'opponent_creature')
+            const allowNexusTarget = !targetRequiringEffect.target || targetRequiringEffect.target === 'any';
+            if (allowNexusTarget) {
+              for (let i = 0; i < opponent.nexuses.length; i++) {
+                validTargets.nexusIndices.push(i);
+              }
+            }
           } else if (targetRequiringEffect.action === 'place_core') {
             // Find own spirits matching condition
             validTargets = this.findValidTargetsForEffect(next, next.currentPlayer, targetRequiringEffect);
