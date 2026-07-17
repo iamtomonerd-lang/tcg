@@ -1608,29 +1608,21 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const defenderStats = defender.level === 1 ? defender.def.lv1 : defender.def.lv2 || defender.def.lv1;
       const defendBP = defenderStats.bp + (defender.bpBoost ?? 0) + (defender.bpBoostBattle ?? 0);
 
-      // Check if attacker has flash opportunity after block (opponent_block trigger)
-      const attacker_player = next.players[pendingAttack.attackerPlayer]!;
-      const opponentHasFlash = this.hasAffordableFlash(attacker_player);
-
-      if (opponentHasFlash) {
-        // Attacker gets flash opportunity after block declaration
-        next.pendingFlash = {
-          trigger: 'opponent_block',
-          cardId: '',
-          initiatingPlayer: next.currentPlayer, // Defender triggered this window
-          stashedAttack: pendingAttack, // Store attack info for skip_flash to use in resolveBattle
-          stashedDefenderSpiritIndex: action.spiritIndex,
-          stashedAttackData: { attackBP, defendBP },
-        };
-        // Clear pendingAttack: it's now stashed in pendingFlash
-        next.pendingAttack = null;
-        // Switch to attacker for after-block flash opportunity
-        next.currentPlayer = pendingAttack.attackerPlayer;
-        return next; // Wait for flash/skip_flash decision
-      } else {
-        // No flash opportunity: resolve battle immediately
-        return this.resolveBattle(next, attacker, defender, pendingAttack, attackBP, defendBP, action.spiritIndex);
-      }
+      // After-block flash timing ALWAYS occurs (regardless of flash card availability)
+      // The attacker gets an opportunity to respond after the block declaration
+      next.pendingFlash = {
+        trigger: 'opponent_block',
+        cardId: '',
+        initiatingPlayer: next.currentPlayer, // Defender triggered this window
+        stashedAttack: pendingAttack, // Store attack info for skip_flash to use in resolveBattle
+        stashedDefenderSpiritIndex: action.spiritIndex,
+        stashedAttackData: { attackBP, defendBP },
+      };
+      // Clear pendingAttack: it's now stashed in pendingFlash
+      next.pendingAttack = null;
+      // Switch to attacker for after-block flash opportunity
+      next.currentPlayer = pendingAttack.attackerPlayer;
+      return next; // Wait for flash/skip_flash decision
     }
 
     if (action.type === 'take_damage') {
@@ -2611,7 +2603,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const defenderIndex = 1 - next.currentPlayer;
 
         // Always give the defender a flash opportunity before they must choose defend/take_damage
-        // They must explicitly skip flash, even if they don't have any flash cards
+        // Flash timing ALWAYS occurs, regardless of whether they have flash cards
+        // (they can still pass, even with no cards)
         next.pendingFlash = {
           trigger: 'opponent_attack',
           cardId: '',

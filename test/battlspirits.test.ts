@@ -521,6 +521,10 @@ describe('BP boost durations', () => {
     expect(block).toBeDefined();
     state = game.applyAction(state, block!, new Mulberry32(1));
 
+    // After-block flash window opens for attacker to respond. Since attacker has no flash cards, skip flash.
+    const afterBlockFlash = game.legalActions(state).find((a) => a.type === 'skip_flash');
+    if (afterBlockFlash) state = game.applyAction(state, afterBlockFlash, new Mulberry32(1));
+
     // Attacker (BP2000) destroyed, defender (BP5000) survives with its turn boost intact
     expect(state.players[0].spirits.length).toBe(0);
     expect(state.players[1].spirits.length).toBe(1);
