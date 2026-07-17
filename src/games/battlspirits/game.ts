@@ -2597,6 +2597,21 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           next.turnCount++;
           next = this.startTurn(next);
           return next;
+        } else if (next.phase === 'end') {
+          // Transition from End to next turn (Start phase)
+          // Reset BP boosts if not already done
+          for (const p of next.players) {
+            for (const s of p.spirits) {
+              s.bpBoost = 0;
+              s.bpBoostBattle = 0;
+            }
+          }
+
+          // Move to next turn
+          next.currentPlayer = 1 - next.currentPlayer;
+          next.turnCount++;
+          next = this.startTurn(next);
+          return next;
         }
         return next;
       }
