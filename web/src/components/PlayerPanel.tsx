@@ -206,8 +206,8 @@ export default function PlayerPanel({
       {player.nexuses.map((nexus: any, i: number) => (
         <div key={`n${i}`} className="fcard-wrap">
           <div
-            className={`fcard nexus ${dragOverCard === `nexus-${i}` ? 'drag-over' : ''}`}
-            title={`${nexus.name}（ネクサス Lv${nexus.level}｜コア${(nexus.coreCount ?? 0) + (nexus.soulCoreCount ?? 0)}）`}
+            className={`fcard nexus ${nexus.exhausted ? 'nexus-exhausted' : ''} ${dragOverCard === `nexus-${i}` ? 'drag-over' : ''}`}
+            title={`${nexus.name}（ネクサス Lv${nexus.level}｜コア${(nexus.coreCount ?? 0) + (nexus.soulCoreCount ?? 0)}${nexus.exhausted ? '｜疲労' : ''}）`}
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';

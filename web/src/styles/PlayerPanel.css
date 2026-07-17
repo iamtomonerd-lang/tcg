@@ -273,6 +273,15 @@
   max-height: var(--card-w);
 }
 
+/* Exhausted (rotated) nexuses — 【起動：フラッシュ】 activation cost paid this turn */
+.fcard.nexus-exhausted {
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: transform 0.3s ease;
+  clip-path: inset(0);
+  max-height: var(--card-w);
+}
+
 /* Attacking spirits */
 .fcard.spirit.attacking {
   border-color: #ff6b6b;
