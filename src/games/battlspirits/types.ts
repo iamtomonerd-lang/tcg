@@ -32,6 +32,7 @@ export interface CardEffect {
     maxHandSize?: number; // maximum hand size for effect to activate
     requiresSymbol?: string; // requires this symbol color on field
     requiresFatiguedRed?: boolean; // requires fatigued red spirit on field
+    requiresFatiguedLineage?: string; // requires fatigued spirit with this lineage on field
     requiresAdjacentSymbol?: string; // requires adjacent spirit with this symbol
     excludeEXSymbol?: boolean; // exclude cards with EX symbol
     excludeSoulCore?: boolean; // exclude soul cores (for place_core effects)

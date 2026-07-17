@@ -281,7 +281,7 @@ export const CARD_DB: Record<string, CardDef> = {
         value: 5000,
         level: [1, 2],
         requiresTarget: true,
-        condition: { requiresFatiguedRed: true },
+        condition: { requiresFatiguedLineage: '風牙' },
         description: 'Lv1-2時、召喚時に疲労状態の系統：「風牙」を持つ自分のスピリットがいるなら、BP5000以下の相手のスピリット1体を破壊',
       },
       {

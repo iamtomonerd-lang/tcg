@@ -3,7 +3,7 @@ import { Mulberry32 } from '../../core/rng.js';
 import { CARD_DB } from './cards.js';
 import { DeckFactory } from './deckFactory.js';
 import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef, CardEffect, GameConfig, PlayerConfig, GameRuleConfig } from './types.js';
-import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit } from './effects.js';
+import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit, checkEffectConditions } from './effects.js';
 
 /**
  * Battle Spirits Phase 1: simplified rules.
@@ -1796,11 +1796,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const targetRequiringEffect = card.effects?.find(e =>
           e.trigger === 'summon' &&
           e.requiresTarget &&
-          (!e.level || e.level.includes(spirit.level))
+          (!e.level || e.level.includes(spirit.level)) &&
+          checkEffectConditions(e, next, next.currentPlayer)
         );
 
         // If there's a target-requiring effect, wait for selection
         if (targetRequiringEffect) {
+          console.log('[SUMMON] Found target-requiring effect:', {
+            cardName: card.name,
+            effect: targetRequiringEffect.description,
+            conditionsMet: true,
+          });
           let validTargets: { spiritIndices: number[]; nexusIndices: number[] } = { spiritIndices: [], nexusIndices: [] };
 
           if (targetRequiringEffect.action === 'destroy_creature') {
@@ -1829,6 +1835,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
 
           // If there are valid targets, wait for selection
+          console.log('[SUMMON] Valid targets calculation:', {
+            cardName: card.name,
+            action: targetRequiringEffect.action,
+            validSpiritIndices: validTargets.spiritIndices,
+            validNexusIndices: validTargets.nexusIndices,
+            totalValid: validTargets.spiritIndices.length + validTargets.nexusIndices.length,
+          });
+
           if (validTargets.spiritIndices.length > 0 || validTargets.nexusIndices.length > 0) {
             next.pendingEffectAction = {
               effect: targetRequiringEffect,
@@ -1840,7 +1854,18 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               trigger: 'summon',
               remainingEffects: [],
             };
+            console.log('[SUMMON] Set pendingEffectAction:', {
+              cardName: card.name,
+              validTargetCount: validTargets.spiritIndices.length + validTargets.nexusIndices.length,
+            });
             return next; // Wait for target selection
+          } else {
+            console.log('[SUMMON] No valid targets found for effect:', {
+              cardName: card.name,
+              action: targetRequiringEffect.action,
+              opponentSpiritCount: next.players[1 - next.currentPlayer]!.spirits.length,
+              opponentNexusCount: next.players[1 - next.currentPlayer]!.nexuses.length,
+            });
           }
         }
 

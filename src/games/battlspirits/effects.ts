@@ -91,6 +91,95 @@ export function removeDeadSpirit(owner: PlayerState, spiritIndex: number): Spiri
 }
 
 /**
+ * 効果の条件がすべて満たされているかをチェック
+ */
+export function checkEffectConditions(
+  effect: CardEffect,
+  state: GameState,
+  player: number,
+  skipSymbolCheck?: boolean,
+): boolean {
+  const me = state.players[player]!;
+  const opponent = state.players[1 - player]!;
+
+  if (!effect.condition) {
+    return true;
+  }
+
+  if (effect.condition.maxHandSize && me.hand.length > effect.condition.maxHandSize) {
+    console.log('[CONDITION] Failed: maxHandSize', { handSize: me.hand.length, maxHandSize: effect.condition.maxHandSize });
+    return false;
+  }
+
+  if (effect.condition.requiresSymbol && !skipSymbolCheck) {
+    const color = effect.condition.requiresSymbol;
+    const hasSymbol =
+      me.spirits.some((s) => s.def.symbolColors?.includes(color)) ||
+      me.nexuses.some((n) => n.def.symbolColors?.includes(color));
+    if (!hasSymbol) {
+      console.log('[CONDITION] Failed: requiresSymbol', { requiredColor: color });
+      return false;
+    }
+  }
+
+  if (effect.condition.requiresFatiguedRed) {
+    const hasFatiguedRed = me.spirits.some((s: any) => !s.canAttack && s.def.symbolColors?.includes('red'));
+    if (!hasFatiguedRed) {
+      console.log('[CONDITION] Failed: requiresFatiguedRed');
+      return false;
+    }
+  }
+
+  if (effect.condition.requiresFatiguedLineage) {
+    const lineage = effect.condition.requiresFatiguedLineage;
+    const hasFatiguedLineage = me.spirits.some((s: any) => !s.canAttack && s.def.lineage?.includes(lineage));
+    if (!hasFatiguedLineage) {
+      console.log('[CONDITION] Failed: requiresFatiguedLineage', { lineage });
+      return false;
+    }
+  }
+
+  if (effect.condition.requiresAdjacentSymbol) {
+    const lineage = effect.condition.requiresAdjacentSymbol;
+    const hasAdjacent = me.spirits.some((s: any) => s.def.lineage?.includes(lineage));
+    if (!hasAdjacent) {
+      console.log('[CONDITION] Failed: requiresAdjacentSymbol', { lineage });
+      return false;
+    }
+  }
+
+  if (effect.condition.requiresNexus && me.nexuses.length === 0) {
+    console.log('[CONDITION] Failed: requiresNexus');
+    return false;
+  }
+
+  if (effect.condition.opponentHasNexus && opponent.nexuses.length === 0) {
+    console.log('[CONDITION] Failed: opponentHasNexus');
+    return false;
+  }
+
+  if (effect.condition.requiresSpirit) {
+    const { lineage, count } = effect.condition.requiresSpirit;
+    let matchCount = 0;
+    if (lineage) {
+      matchCount = me.spirits.filter((s: any) => s.def.lineage?.includes(lineage)).length;
+    } else {
+      matchCount = me.spirits.length;
+    }
+    if (count && matchCount < count) {
+      console.log('[CONDITION] Failed: requiresSpirit', { lineage, required: count, actual: matchCount });
+      return false;
+    }
+    if (!count && matchCount === 0) {
+      console.log('[CONDITION] Failed: requiresSpirit', { lineage, required: 'at least 1', actual: 0 });
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * BP threshold for a destroy_creature effect ("BP◯◯以下").
  * Soul Magic red raises the limit to 10000 if the player took damage this turn.
  */
@@ -192,6 +281,14 @@ export function applyEffect(
       // Check if there's a fatigued (canAttack: false) red spirit
       const hasFatiguedRed = me.spirits.some((s: any) => !s.canAttack && s.def.symbolColors?.includes('red'));
       if (!hasFatiguedRed) {
+        return next;
+      }
+    }
+    if (effect.condition.requiresFatiguedLineage) {
+      // Check if there's a fatigued spirit with matching lineage
+      const lineage = effect.condition.requiresFatiguedLineage;
+      const hasFatiguedLineage = me.spirits.some((s: any) => !s.canAttack && s.def.lineage?.includes(lineage));
+      if (!hasFatiguedLineage) {
         return next;
       }
     }
