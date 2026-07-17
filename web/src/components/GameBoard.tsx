@@ -1122,10 +1122,10 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                             fontSize: '0.85rem',
                           }}
                         >
-                          {spirit.def?.name || '?'}
+                          {spirit.name || '?'}
                           <br />
                           <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
-                            BP{spirit.level === 1 ? spirit.def?.lv1?.bp : spirit.def?.lv2?.bp || spirit.def?.lv1?.bp || '?'}
+                            BP{spirit.bp || '?'}
                           </span>
                         </button>
                       );
@@ -1160,7 +1160,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                             fontSize: '0.85rem',
                           }}
                         >
-                          {nexus.def?.name || '?'}
+                          {nexus.name || '?'}
                           <br />
                           <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>Nexus</span>
                         </button>
