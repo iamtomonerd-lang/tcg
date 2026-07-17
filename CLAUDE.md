@@ -41,6 +41,46 @@ drive to the relevant state → assert `/api/game/:id/actions` contains the new
 action). Restarting wipes in-memory sessions, so always start a NEW game after
 a restart — an old browser tab's session is gone.
 
+## UI State-Sync Rules (MANDATORY when adding card effects or game states)
+
+A state that exists only server-side is invisible to players. Every
+player-relevant state must survive the FULL data path:
+
+```
+GameState (types.ts)
+  → cloneState (game.ts — a field missing here silently vanishes in AI search)
+  → serializeState() (src/server.ts)
+  → API response
+  → React component reads the field (web/src/components/)
+  → className / CSS visual change
+```
+
+Past real bugs, one per layer: `nexus.exhausted` was serialized but no
+component read it (invisible exhaustion); `pendingAttack.attackerSpiritIndex`
+is read by GameBoard but was never serialized (attacker highlight dead);
+`stashedAttack` inside pendingFlash is not serialized, so the attack banner
+vanishes during flash windows even though a battle is in progress.
+
+### カード効果追加時チェック
+
+- [ ] **内部状態**: `applyAction`/`effects.ts` が状態を正しく変更するか。
+      新フィールドは `cloneState`/`clonePlayerState` にも追加したか
+- [ ] **API送信**: `serializeState()` が送るか。逆に、相手の非公開情報
+      （手札内容など）を送りすぎていないかも確認
+- [ ] **UI参照**: `grep -r "<fieldName>" web/src` が 0 件なら未実装。
+      表示パターンはスピリット疲労 (`spirit-fatigued`) / ネクサス疲労
+      (`nexus-exhausted`) を踏襲する
+- [ ] **視覚変化**: プレイヤーが見て分かるか（回転・ハイライト・バッジ等）。
+      `npm run web:build` が通り、dist にクラス/CSS が含まれるか
+- [ ] **解除時**: 効果終了（バトル終了・ターン終了・リフレッシュ）で
+      表示も内部状態と同時に戻るか
+- [ ] **pending 系**: 新しい pending を追加したら serializeState と UI の
+      両方に対応を追加。既存 pending を stash する場合（例: フラッシュ中の
+      pendingAttack）、stash 中も表示が継続するかを確認
+- [ ] **実機検証**: HTTP フロー（`scripts/verify-activated-flash.mjs` が
+      雛形）で該当フィールドのシリアライズ値を assert する。
+      「コード上は修正済み」は未検証（API Server Freshness Protocol 参照）
+
 ## Artifact Update Convention
 
 **When implementing new card effects or game mechanics**, update the card effects HTML artifact at:
