@@ -1074,23 +1074,28 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
               {/* Determine target player based on effect.target field */}
               {(() => {
                 const effect = state.pendingEffectAction.effect;
-                // target: 'opponent_creature' means opponent, otherwise default is self
                 const targetIsOpponent = effect.target === 'opponent_creature';
                 const targetPlayerIndex = targetIsOpponent ? 1 - state.currentPlayer : state.currentPlayer;
                 const targetPlayer = state.players[targetPlayerIndex];
 
-                // Defensive check: if targetPlayer doesn't exist, try the other player
-                // This handles potential state sync issues
-                const fallbackTargetPlayer = state.players[1 - targetPlayerIndex];
-                const validPlayer = targetPlayer || fallbackTargetPlayer;
+                // DEBUG logging
+                console.log('[DEBUG] Effect target selection:', {
+                  effectAction: effect.action,
+                  effectTarget: effect.target,
+                  targetIsOpponent,
+                  currentPlayer: state.currentPlayer,
+                  targetPlayerIndex,
+                  validTargets: state.pendingEffectAction.validTargets,
+                  targetPlayerSpirits: targetPlayer?.spirits.map(s => ({name: s.def?.name, lineage: s.def?.lineage})),
+                });
 
                 return (
                   <>
                     {/* Spirits */}
                     {state.pendingEffectAction.validTargets.spiritIndices.map((spiritIdx) => {
-                      if (spiritIdx < 0) return null; // Skip special markers
-                      if (!validPlayer) return null;
-                      const spirit = validPlayer.spirits[spiritIdx];
+                      if (spiritIdx < 0) return null;
+                      const spirit = targetPlayer?.spirits[spiritIdx];
+                      console.log('[DEBUG] Spirit at index', spiritIdx, ':', {exists: !!spirit, name: spirit?.def?.name});
                       if (!spirit) return null;
 
                       return (
@@ -1128,8 +1133,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
 
                     {/* Nexuses */}
                     {state.pendingEffectAction.validTargets.nexusIndices.map((nexusIdx) => {
-                      if (!validPlayer) return null;
-                      const nexus = validPlayer.nexuses[nexusIdx];
+                      const nexus = targetPlayer?.nexuses[nexusIdx];
                       if (!nexus) return null;
 
                       return (
