@@ -10,6 +10,7 @@ npm run test              # Run all tests (~5 seconds)
 npm run test:watch        # Watch mode for iterative testing
 npm run play -- --help    # CLI demo of MiniTCG (see ./README.md for examples)
 npm run web:dev           # Launch dev server (web UI) on localhost:5173
+npm run web:server        # API server (tsx watch: auto-restarts on engine changes; run alongside web:dev)
 npm run web               # Production build + run server
 npm start                 # Launcher for choosing between play/web modes
 ```
