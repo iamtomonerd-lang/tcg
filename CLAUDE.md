@@ -17,6 +17,30 @@ npm start                 # Launcher for choosing between play/web modes
 
 No build step needed; TSC is run on demand via `tsx`.
 
+## API Server Freshness Protocol (MANDATORY after game-logic changes)
+
+Vite (`web:dev`) hot-reloads ONLY the frontend. The API server process serves
+whatever engine code it loaded at boot — a stale process silently produces
+"works in tests but not in browser" symptoms. After changing game logic
+(`game.ts`, `effects.ts`, `cards.ts`, `types.ts`, `server.ts`), ALWAYS include
+these steps in any investigation or verification:
+
+1. **Check the running server is fresh**: `curl -s localhost:3000/api/health`
+   → `startedAt` must be later than your last edit; note the `pid`.
+2. **Restart if stale**: prefer `npm run web:server` (tsx watch, auto-restarts
+   on engine changes) over plain `tsx src/server.ts`.
+3. **Confirm the PID**: the pid from `/api/health` must match the process you
+   just started.
+4. **Hunt orphan processes**: `pgrep -fl "src/server.ts"` (careful: the pattern
+   matches your own shell — check PIDs, don't blind-`pkill`). Multiple servers
+   fighting over port 3000 mask each other.
+
+For significant logic changes, "fixed in code" is NOT verified. Confirm over
+real HTTP that a fresh session serves the new behavior (e.g. `/api/game/new` →
+drive to the relevant state → assert `/api/game/:id/actions` contains the new
+action). Restarting wipes in-memory sessions, so always start a NEW game after
+a restart — an old browser tab's session is gone.
+
 ## Artifact Update Convention
 
 **When implementing new card effects or game mechanics**, update the card effects HTML artifact at:

@@ -49,6 +49,20 @@ interface GameSession {
 
 const sessions = new Map<string, GameSession>();
 
+// The API server has no hot reload (tsx watch restarts the whole process), so a
+// stale process silently serves old engine code while Vite keeps the frontend
+// fresh. startedAt/pid let anyone verify over HTTP that the server they are
+// talking to was booted AFTER their last engine change.
+const SERVER_STARTED_AT = new Date().toISOString();
+app.get('/api/health', (_req, res) => {
+  res.json({
+    startedAt: SERVER_STARTED_AT,
+    pid: process.pid,
+    uptimeSec: Math.round(process.uptime()),
+    activeSessions: sessions.size,
+  });
+});
+
 /**
  * Create a new game session
  */
