@@ -813,7 +813,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     return player.hand.some(
       (c) =>
         c.cardType === 'magic' &&
-        c.effects?.some((e) => e.trigger === 'immediate' && (e.isFlash || !e.mode || e.mode === 'flash')) &&
+        // Any magic with flash-mode effects can be used in flash timing
+        // (trigger can be 'immediate', 'attack', 'summon', etc.; mode='flash' or isFlash=true indicates flash timing)
+        c.effects?.some((e) => (e.isFlash || e.mode === 'flash')) &&
         (this.effectiveCost(player, c) <= totalCores ||
           // Soul Magic alternative cost: 1 soul core
           (isSoulMagicRedCard(c) && canPaySoulCore)),
