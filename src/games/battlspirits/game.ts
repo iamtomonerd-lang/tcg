@@ -88,6 +88,52 @@ function calculateCostAfterReduction(
   return Math.max(0, cost);
 }
 
+/**
+ * ヘルパー関数：コア変化をログする
+ */
+function logCoreChange(
+  player: PlayerState,
+  playerId: number,
+  newCores: number,
+  reason: string,
+): void {
+  const oldCores = player.cores;
+  const diff = newCores - oldCores;
+  if (diff !== 0) {
+    console.log('[CORE_CHANGE]', {
+      reason,
+      player: playerId,
+      before: oldCores,
+      after: newCores,
+      diff: diff > 0 ? `+${diff}` : `${diff}`,
+    });
+  }
+  player.cores = newCores;
+}
+
+/**
+ * ヘルパー関数：ソウルコア変化をログする
+ */
+function logSoulCoreChange(
+  player: PlayerState,
+  playerId: number,
+  newCores: number,
+  reason: string,
+): void {
+  const oldCores = player.soulCores;
+  const diff = newCores - oldCores;
+  if (diff !== 0) {
+    console.log('[SOUL_CORE_CHANGE]', {
+      reason,
+      player: playerId,
+      before: oldCores,
+      after: newCores,
+      diff: diff > 0 ? `+${diff}` : `${diff}`,
+    });
+  }
+  player.soulCores = newCores;
+}
+
 export class BattlSpiritsGame implements Game<GameState, Action> {
   readonly playerCount = 2;
 
@@ -234,6 +280,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     paidRegularCores?: number,
     paidSoulCores?: number,
     legacyCoreType?: 'regular' | 'soul',
+    playerId?: number,
   ): boolean {
     // Calculate total available cores (reserve + spirits)
     let totalAvailable = player.cores + player.soulCores;
@@ -247,14 +294,19 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
     // If no specific core distribution provided, use legacy behavior
     if (paidRegularCores === undefined && paidSoulCores === undefined) {
-      return this.payCostLegacy(player, amount, legacyCoreType);
+      return this.payCostLegacy(player, amount, legacyCoreType, playerId);
     }
 
     // Take exactly the specified number of regular cores
     // From reserve first, then from spirits
     if (regularRemaining > 0) {
       const fromReserve = Math.min(player.cores, regularRemaining);
-      player.cores -= fromReserve;
+      if (fromReserve > 0) {
+        const pid = playerId ?? 0;
+        logCoreChange(player, pid, player.cores - fromReserve, 'payCost');
+      } else {
+        player.cores -= fromReserve;
+      }
       player.trashCores += fromReserve;
       regularRemaining -= fromReserve;
 
@@ -296,18 +348,20 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   }
 
   /** Legacy payCost behavior when core distribution is not specified */
-  private payCostLegacy(player: PlayerState, amount: number, coreType?: 'regular' | 'soul'): boolean {
+  private payCostLegacy(player: PlayerState, amount: number, coreType?: 'regular' | 'soul', playerId?: number): boolean {
     let remaining = amount;
+    const pid = playerId ?? 0;
 
     if (coreType === 'soul') {
       // Use soul cores first (from reserve, then spirits), then regular cores
       if (player.soulCores >= remaining) {
-        player.soulCores -= remaining;
+        if (remaining > 0) logSoulCoreChange(player, pid, player.soulCores - remaining, 'payCostLegacy');
         player.trashSoulCores += remaining;
         remaining = 0;
       } else {
         player.trashSoulCores += player.soulCores;
         remaining -= player.soulCores;
+        if (player.soulCores > 0) logSoulCoreChange(player, pid, 0, 'payCostLegacy');
         player.soulCores = 0;
 
         // Take regular cores from reserve
@@ -430,11 +484,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           });
 
           if (!isFirstTurnOfFirstPlayer) {
-            p.cores += 1; // Always 1 core from void
-            console.log('[CORE] Core phase - added 1 core:', {
-              player: next.currentPlayer,
-              coresAfter: p.cores,
-            });
+            logCoreChange(p, next.currentPlayer, p.cores + 1, 'coreStep');
           } else {
             console.log('[CORE] Core phase - skipped for first turn of game');
           }
@@ -472,8 +522,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             nexus.exhausted = false;
           }
           // Return cores from trash to reserve
-          p.cores += p.trashCores;
-          p.soulCores += p.trashSoulCores;
+          if (p.trashCores > 0) {
+            logCoreChange(p, next.currentPlayer, p.cores + p.trashCores, 'refreshTrashCores');
+          }
+          if (p.trashSoulCores > 0) {
+            logSoulCoreChange(p, next.currentPlayer, p.soulCores + p.trashSoulCores, 'refreshTrashSoulCores');
+          }
           p.trashCores = 0;
           p.trashSoulCores = 0;
           next.phase = 'main';
@@ -1597,7 +1651,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       // Take damage and place cores in reserve
       const damage = next.pendingAttack.damage;
       me.life -= damage;
-      me.cores += damage; // Add cores to reserve when taking damage
+      logCoreChange(me, next.currentPlayer, me.cores + damage, 'damageToCore');
       me.damageThisTurn = (me.damageThisTurn ?? 0) + damage; // Soul Magic red condition (ライフが減った)
 
       // Trigger battle_end effects

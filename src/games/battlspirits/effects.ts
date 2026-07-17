@@ -50,8 +50,30 @@ export function destroySpirit(owner: PlayerState, spiritIndex: number): Spirit |
   owner.spirits.splice(spiritIndex, 1);
   owner.trash.push(spirit.def);
   // Return cores to reserve immediately
-  owner.cores += spirit.coreCount;
-  owner.soulCores += spirit.soulCoreCount;
+  if (spirit.coreCount > 0) {
+    const oldCores = owner.cores;
+    owner.cores += spirit.coreCount;
+    console.log('[CORE_CHANGE]', {
+      reason: 'destroySpirit_returnCores',
+      player: 0, // Player ID unknown in this function
+      before: oldCores,
+      after: owner.cores,
+      diff: `+${spirit.coreCount}`,
+      spirit: spirit.def.name,
+    });
+  }
+  if (spirit.soulCoreCount > 0) {
+    const oldSoulCores = owner.soulCores;
+    owner.soulCores += spirit.soulCoreCount;
+    console.log('[SOUL_CORE_CHANGE]', {
+      reason: 'destroySpirit_returnCores',
+      player: 0,
+      before: oldSoulCores,
+      after: owner.soulCores,
+      diff: `+${spirit.soulCoreCount}`,
+      spirit: spirit.def.name,
+    });
+  }
   return spirit;
 }
 
@@ -412,29 +434,61 @@ export function applyEffect(
           // Only take regular cores from trash
           if (me.trashCores > 0) {
             const regularTake = Math.min(me.trashCores, coreValue);
+            const oldCores = me.cores;
             me.cores += regularTake;
             me.trashCores -= regularTake;
+            console.log('[CORE_CHANGE]', {
+              reason: 'place_core_reserve',
+              player: 0, // Will be identified from context
+              before: oldCores,
+              after: me.cores,
+              diff: `+${regularTake}`,
+            });
           }
         } else if (onlySoulCore) {
           // Only take soul cores from trash
           if (me.trashSoulCores > 0) {
             const soulTake = Math.min(me.trashSoulCores, coreValue);
+            const oldCores = me.soulCores;
             me.soulCores += soulTake;
             me.trashSoulCores -= soulTake;
+            console.log('[SOUL_CORE_CHANGE]', {
+              reason: 'place_core_reserve',
+              player: 0,
+              before: oldCores,
+              after: me.soulCores,
+              diff: `+${soulTake}`,
+            });
           }
         } else {
           // Take soul cores first, then regular cores
           let taken = 0;
           if (me.trashSoulCores > 0) {
             const soulTake = Math.min(me.trashSoulCores, coreValue);
+            const oldSoulCores = me.soulCores;
             me.soulCores += soulTake;
             me.trashSoulCores -= soulTake;
             taken += soulTake;
+            console.log('[SOUL_CORE_CHANGE]', {
+              reason: 'place_core_reserve',
+              player: 0,
+              before: oldSoulCores,
+              after: me.soulCores,
+              diff: `+${soulTake}`,
+            });
           }
           if (taken < coreValue && me.trashCores > 0) {
             const regularTake = Math.min(me.trashCores, coreValue - taken);
+            const oldCores = me.cores;
             me.cores += regularTake;
             me.trashCores -= regularTake;
+            console.log('[CORE_CHANGE]', {
+              reason: 'place_core_reserve',
+              player: 0,
+              before: oldCores,
+              after: me.cores,
+              diff: `+${regularTake}`,
+            });
           }
         }
       }
