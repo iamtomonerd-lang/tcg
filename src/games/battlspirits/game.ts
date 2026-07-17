@@ -1817,13 +1817,19 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               const stats = sp.level === 1 ? sp.def.lv1 : sp.def.lv2 || sp.def.lv1;
               return stats.bp + (sp.bpBoost ?? 0) + (sp.bpBoostBattle ?? 0);
             };
+            // Always check opponent spirits
             for (let i = 0; i < opponent.spirits.length; i++) {
               if (bpLimit === undefined || spiritBp(opponent.spirits[i]!) <= bpLimit) {
                 validTargets.spiritIndices.push(i);
               }
             }
-            for (let i = 0; i < opponent.nexuses.length; i++) {
-              validTargets.nexusIndices.push(i);
+            // Include nexuses only for 'any' target type (not 'opponent_creature')
+            // 'opponent_creature' means spirits only per Battle Spirits rules
+            const allowNexusTarget = !targetRequiringEffect.target || targetRequiringEffect.target === 'any';
+            if (allowNexusTarget) {
+              for (let i = 0; i < opponent.nexuses.length; i++) {
+                validTargets.nexusIndices.push(i);
+              }
             }
           } else if (targetRequiringEffect.action === 'trash_to_hand') {
             // For trash_to_hand, we're selecting cards from own trash
