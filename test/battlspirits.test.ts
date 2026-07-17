@@ -1164,3 +1164,153 @@ describe('End phase progression', () => {
     expect(completedTurns).toBeGreaterThanOrEqual(4);
   });
 });
+
+describe('【起動：フラッシュ】 activated flash effects (cost ▶ effect)', () => {
+  const makeGraipher = (): Spirit => ({
+    def: CARD_DB.spirit_graipher!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true,
+  });
+  const fuugaCard = () => CARD_DB.spirit_moon_shacco!; // lineage 風牙
+  // Every starter-deck card carries 風牙, so build a non-風牙 card for cost filtering
+  const nonFuugaCard = () => ({ ...CARD_DB.magic_flame_hurricane!, id: 'test_non_fuuga', lineage: ['他系統'] });
+
+  const setupAttackWindow = () => {
+    // Graipher (P0) attacks; before-block flash window opens with defender (P1) priority
+    const p0: PlayerState = { ...makePlayer([makeGraipher()]), hand: [fuugaCard(), nonFuugaCard()] };
+    const p1 = makePlayer([makeSpirit()]);
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0, turnCount: 2, phase: 'attack', battle: null, result: null,
+    };
+    const attack = game.legalActions(state).find((a) => a.type === 'attack')!;
+    state = game.applyAction(state, attack, new Mulberry32(1));
+    expect(state.pendingFlash).toBeDefined();
+    // Defender passes so the attacker (P0) gets flash priority
+    state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1));
+    expect(state.currentPlayer).toBe(0);
+    return state;
+  };
+
+  it('the activated flash appears in legalActions only for discardable 風牙 cards', () => {
+    const state = setupAttackWindow();
+    const activations = game.legalActions(state).filter((a) => a.type === 'activate_flash');
+    // Hand: [風牙 spirit, non-風牙 magic] → exactly one activation (discardCardIndex 0)
+    expect(activations).toEqual([
+      { type: 'activate_flash', sourceType: 'spirit', sourceIndex: 0, discardCardIndex: 0 },
+    ]);
+  });
+
+  it('activation pays the discard cost and grants BP+3000 for the battle', () => {
+    let state = setupAttackWindow();
+    state = game.applyAction(state, { type: 'activate_flash', sourceType: 'spirit', sourceIndex: 0, discardCardIndex: 0 }, new Mulberry32(1));
+
+    // Cost paid: 風牙 card left the hand and went to trash
+    expect(state.players[0].hand.length).toBe(1);
+    expect(state.players[0].trash.some((c) => c.id === 'spirit_moon_shacco')).toBe(true);
+    // ▶ effect: battle-duration boost on the attacking spirit
+    expect(state.players[0].spirits[0]!.bpBoostBattle).toBe(3000);
+    // 〔ターン1回〕 marked used; window stays open with opponent priority
+    expect(state.players[0].spirits[0]!.flashActivatedThisTurn).toBe(true);
+    expect(state.pendingFlash).toBeDefined();
+    expect(state.currentPlayer).toBe(1);
+  });
+
+  it('boosted BP decides the battle and the boost expires when the battle resolves', () => {
+    let state = setupAttackWindow();
+    state = game.applyAction(state, { type: 'activate_flash', sourceType: 'spirit', sourceIndex: 0, discardCardIndex: 0 }, new Mulberry32(1));
+
+    // Close the window (skip until it ends), then defender blocks
+    let guard = 0;
+    while (state.pendingFlash && guard++ < 6) {
+      state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1));
+    }
+    const block = game.legalActions(state).find((a) => a.type === 'block');
+    expect(block).toBeDefined();
+    state = game.applyAction(state, block!, new Mulberry32(1));
+    // After-block flash window: both pass
+    guard = 0;
+    while (state.pendingFlash && guard++ < 6) {
+      state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1));
+    }
+
+    // Graipher 5000+3000 vs ムーシャッコ 2000 → defender destroyed, attacker survives
+    expect(state.players[1].spirits.length).toBe(0);
+    expect(state.players[0].spirits.length).toBe(1);
+    // このバトル中 boost expired at battle end
+    expect(state.players[0].spirits[0]!.bpBoostBattle ?? 0).toBe(0);
+  });
+
+  it('〔ターン1回〕: the same spirit cannot activate twice in one turn', () => {
+    const p0: PlayerState = { ...makePlayer([makeGraipher()]), hand: [fuugaCard(), fuugaCard()] };
+    const p1 = makePlayer([makeSpirit()]);
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0, turnCount: 2, phase: 'attack', battle: null, result: null,
+    };
+    const attack = game.legalActions(state).find((a) => a.type === 'attack')!;
+    state = game.applyAction(state, attack, new Mulberry32(1));
+    state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1)); // defender pass
+
+    state = game.applyAction(state, { type: 'activate_flash', sourceType: 'spirit', sourceIndex: 0, discardCardIndex: 0 }, new Mulberry32(1));
+    expect(state.players[0].spirits[0]!.bpBoostBattle).toBe(3000);
+
+    // Opponent passes counter-timing; priority returns — no second activation offered
+    state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1));
+    // Walk priority back to P0 if needed
+    if (state.currentPlayer !== 0) state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1));
+    if (state.pendingFlash && state.currentPlayer === 0) {
+      const again = game.legalActions(state).filter((a) => a.type === 'activate_flash');
+      expect(again).toEqual([]);
+    }
+    // Direct application is also rejected (state unchanged)
+    if (state.pendingFlash && state.currentPlayer === 0) {
+      const before = state.players[0].hand.length;
+      const after = game.applyAction(state, { type: 'activate_flash', sourceType: 'spirit', sourceIndex: 0, discardCardIndex: 0 }, new Mulberry32(1));
+      expect(after.players[0].hand.length).toBe(before);
+      expect(after.players[0].spirits[0]!.bpBoostBattle).toBe(3000); // not stacked
+    }
+  });
+
+  it('風牙岩 nexus: exhaust ▶ BP+2000 on the attacking 風牙 spirit; exhausted nexus cannot re-activate', () => {
+    const windFang = { def: CARD_DB.nexus_wind_fang_rock!, level: 1 as const, coreCount: 0, soulCoreCount: 0 };
+    const p0: PlayerState = { ...makePlayer([makeGraipher()]), nexuses: [windFang] };
+    const p1 = makePlayer([makeSpirit()]);
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0, turnCount: 2, phase: 'attack', battle: null, result: null,
+    };
+    const attack = game.legalActions(state).find((a) => a.type === 'attack')!;
+    state = game.applyAction(state, attack, new Mulberry32(1));
+    state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1)); // defender pass
+
+    const activations = game.legalActions(state).filter((a) => a.type === 'activate_flash');
+    expect(activations).toContainEqual({ type: 'activate_flash', sourceType: 'nexus', sourceIndex: 0, targetSpiritIndex: 0 });
+
+    state = game.applyAction(state, { type: 'activate_flash', sourceType: 'nexus', sourceIndex: 0, targetSpiritIndex: 0 }, new Mulberry32(1));
+    expect(state.players[0].spirits[0]!.bpBoostBattle).toBe(2000);
+    expect(state.players[0].nexuses[0]!.exhausted).toBe(true);
+
+    // Exhausted: no further activation offered on later priority
+    state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1));
+    if (state.currentPlayer !== 0 && state.pendingFlash) state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(1));
+    if (state.pendingFlash && state.currentPlayer === 0) {
+      const again = game.legalActions(state).filter((a) => a.type === 'activate_flash');
+      expect(again).toEqual([]);
+    }
+  });
+
+  it('defender spirits cannot use アタック中 activated flash (not attacking)', () => {
+    // P0 attacks with a plain spirit; P1 holds Graipher on field + 風牙 card in hand
+    const p0 = makePlayer([makeSpirit()]);
+    const p1: PlayerState = { ...makePlayer([makeGraipher()]), hand: [fuugaCard()] };
+    let state: GameState = {
+      players: [p0, p1],
+      currentPlayer: 0, turnCount: 2, phase: 'attack', battle: null, result: null,
+    };
+    const attack = game.legalActions(state).find((a) => a.type === 'attack')!;
+    state = game.applyAction(state, attack, new Mulberry32(1));
+    // Defender (P1) has flash priority — but their Graipher is not attacking
+    expect(state.currentPlayer).toBe(1);
+    const activations = game.legalActions(state).filter((a) => a.type === 'activate_flash');
+    expect(activations).toEqual([]);
+  });
+});

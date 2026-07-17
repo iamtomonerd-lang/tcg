@@ -686,6 +686,7 @@ export function triggerEffects(
   sourceNexusIndex?: number, // index of the nexus whose effect is firing (for costExhaustSelf)
   skipSymbolCheck?: boolean, // Skip requiresSymbol condition (e.g., for Soul Magic Red paid with normal cost)
   excludeActions?: string[], // Actions to skip (e.g., ['search_deck'] for manual handling)
+  onlyActivated?: boolean, // Only fire 【起動】 effects (those with an activation cost); used by activate_flash
 ): GameState {
   let next = state;
   // Soul Magic: Red cards can be cast in main phase even though their effect is flash-mode
@@ -697,6 +698,7 @@ export function triggerEffects(
     if (modeFilter === 'flash' && !(e.isFlash || !e.mode || e.mode === 'flash')) return false;
     if (e.level && sourceLevel !== undefined && !e.level.includes(sourceLevel)) return false;
     if (excludeActions && excludeActions.includes(e.action)) return false;
+    if (onlyActivated && !e.costAction && !e.costExhaustSelf) return false;
     return true;
   });
 

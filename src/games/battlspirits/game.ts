@@ -522,6 +522,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           for (const nexus of p.nexuses) {
             nexus.exhausted = false;
           }
+          // 〔ターン1回〕【起動：フラッシュ】 usage resets at the turn boundary (both players)
+          for (const pl of next.players) {
+            for (const spirit of pl.spirits) {
+              spirit.flashActivatedThisTurn = false;
+            }
+          }
           // Return cores from trash to reserve
           if (p.trashCores > 0) {
             logCoreChange(p, next.currentPlayer, p.cores + p.trashCores, 'refreshTrashCores');
@@ -1034,6 +1040,53 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
         }
       }
+      // 【起動：フラッシュ】 activated effects on own field (pay cost ▶ effect)
+      const stashedAtk = state.pendingFlash.stashedAttack;
+      const iAmAttacker = stashedAtk?.attackerPlayer === state.currentPlayer;
+
+      for (let si = 0; si < me.spirits.length; si++) {
+        const spirit = me.spirits[si]!;
+        for (const e of spirit.def.effects ?? []) {
+          if (!(e.isFlash || e.mode === 'flash')) continue;
+          if (!e.costAction && !e.costExhaustSelf) continue; // not an activated (起動) effect
+          if (e.level && !e.level.includes(spirit.level)) continue;
+          if (e.oncePerTurn && spirit.flashActivatedThisTurn) continue; // 〔ターン1回〕
+          // 『アタック中』: this spirit itself must be the current attacker
+          if (e.trigger === 'attack' && !(iAmAttacker && stashedAtk!.attackerSpiritIndex === si)) continue;
+          if (e.costAction === 'discard_hand') {
+            // One action per discardable hand card (player chooses which card to pay)
+            for (let h = 0; h < me.hand.length; h++) {
+              const c = me.hand[h]!;
+              if (e.costSymbol && !c.lineage?.includes(e.costSymbol)) continue;
+              actions.push({ type: 'activate_flash', sourceType: 'spirit', sourceIndex: si, discardCardIndex: h });
+            }
+          } else {
+            actions.push({ type: 'activate_flash', sourceType: 'spirit', sourceIndex: si });
+          }
+        }
+      }
+
+      for (let ni = 0; ni < me.nexuses.length; ni++) {
+        const nexus = me.nexuses[ni]!;
+        for (const e of nexus.def.effects ?? []) {
+          if (!(e.isFlash || e.mode === 'flash')) continue;
+          if (!e.costAction && !e.costExhaustSelf) continue;
+          if (e.level && !e.level.includes(nexus.level)) continue;
+          if (e.costExhaustSelf && nexus.exhausted) continue; // already paid this turn
+          // 『自分のアタックステップ』: my spirit must be attacking
+          if (e.trigger === 'attack' && !iAmAttacker) continue;
+          if (e.requiresTarget && e.targetType === 'attacking') {
+            const ti = stashedAtk!.attackerSpiritIndex;
+            const target = me.spirits[ti];
+            if (!target) continue;
+            if (e.targetLineage && !target.def.lineage?.includes(e.targetLineage)) continue;
+            actions.push({ type: 'activate_flash', sourceType: 'nexus', sourceIndex: ni, targetSpiritIndex: ti });
+          } else {
+            actions.push({ type: 'activate_flash', sourceType: 'nexus', sourceIndex: ni });
+          }
+        }
+      }
+
       // Always can skip flash
       actions.push({ type: 'skip_flash' });
       return actions;
@@ -1532,6 +1585,67 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         player: 1 - next.currentPlayer,
         card: card.name,
       });
+      return next;
+    }
+
+    if (action.type === 'activate_flash') {
+      // 【起動：フラッシュ】: pay activation cost (discard/exhaust) ▶ resolve effect.
+      // Only legal inside an open flash window; the window stays open afterwards.
+      if (!next.pendingFlash) return next;
+      const player = next.currentPlayer;
+      const stashedAtk = next.pendingFlash.stashedAttack;
+
+      if (action.sourceType === 'spirit') {
+        const spirit = me.spirits[action.sourceIndex];
+        if (!spirit) return next;
+        const effect = (spirit.def.effects ?? []).find(
+          (e) => (e.isFlash || e.mode === 'flash') && (e.costAction || e.costExhaustSelf) && (!e.level || e.level.includes(spirit.level)),
+        );
+        if (!effect) return next;
+        if (effect.oncePerTurn && spirit.flashActivatedThisTurn) return next; // 〔ターン1回〕
+        // 『アタック中』: this spirit itself must be the current attacker
+        if (effect.trigger === 'attack' && !(stashedAtk && stashedAtk.attackerPlayer === player && stashedAtk.attackerSpiritIndex === action.sourceIndex)) return next;
+        // Validate the discard cost up-front so 〔ターン1回〕 is only consumed on success
+        if (effect.costAction === 'discard_hand') {
+          const costCard = action.discardCardIndex !== undefined ? me.hand[action.discardCardIndex] : undefined;
+          if (!costCard || (effect.costSymbol && !costCard.lineage?.includes(effect.costSymbol))) return next;
+        }
+        // triggerEffects pays the cost and applies the ▶ effect (onlyActivated: other
+        // attack-trigger effects of this card do NOT fire here)
+        next = triggerEffects(next, effect.trigger, spirit.def, player, action.sourceIndex, undefined, undefined, action.discardCardIndex, 'flash', undefined, spirit.level, undefined, undefined, undefined, true);
+        // Re-fetch across the clone boundary before marking 〔ターン1回〕 usage
+        const spiritNow = next.players[player]!.spirits[action.sourceIndex];
+        if (spiritNow && effect.oncePerTurn) spiritNow.flashActivatedThisTurn = true;
+        dbg(DEBUG_FLASH, '[FLASH_USE]', { player, card: spirit.def.name });
+      } else {
+        const nexus = me.nexuses[action.sourceIndex];
+        if (!nexus) return next;
+        const effect = (nexus.def.effects ?? []).find(
+          (e) => (e.isFlash || e.mode === 'flash') && (e.costAction || e.costExhaustSelf) && (!e.level || e.level.includes(nexus.level)),
+        );
+        if (!effect) return next;
+        if (effect.costExhaustSelf && nexus.exhausted) return next;
+        // 『自分のアタックステップ』 + targetType 'attacking': target must be my attacking spirit
+        if (effect.requiresTarget) {
+          const target = action.targetSpiritIndex !== undefined ? me.spirits[action.targetSpiritIndex] : undefined;
+          if (!target) return next;
+          if (effect.targetType === 'attacking' && !(stashedAtk && stashedAtk.attackerPlayer === player && stashedAtk.attackerSpiritIndex === action.targetSpiritIndex)) return next;
+          if (effect.targetLineage && !target.def.lineage?.includes(effect.targetLineage)) return next;
+        }
+        next = triggerEffects(next, effect.trigger, nexus.def, player, undefined, action.targetSpiritIndex, undefined, undefined, 'flash', undefined, nexus.level, action.sourceIndex, undefined, undefined, true);
+        dbg(DEBUG_FLASH, '[FLASH_USE]', { player, card: nexus.def.name });
+      }
+
+      checkResult(next);
+      if (next.result) return next;
+
+      // Keep the flash window open: opponent gets counter-timing, pass count resets
+      next.pendingFlash = {
+        ...next.pendingFlash!,
+        lastFlashPlayer: player,
+        passCount: 0,
+      };
+      next.currentPlayer = 1 - player;
       return next;
     }
 
@@ -3019,6 +3133,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (action.coreType === 'soul') key += `SC`; // soul-core payment variant
         return key;
       }
+      case 'activate_flash': {
+        let key = `AF${action.sourceType === 'spirit' ? 'S' : 'N'}${action.sourceIndex}`;
+        if (action.discardCardIndex !== undefined) key += `D${action.discardCardIndex}`;
+        if (action.targetSpiritIndex !== undefined) key += `T${action.targetSpiritIndex}`;
+        return key;
+      }
       case 'skip_flash': return 'SF';
       case 'mulligan': return action.redraw ? 'MU-redraw' : 'MU-keep';
       case 'select_effect_target': {
@@ -3139,6 +3259,23 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
         if (action.effectValue !== undefined) {
           desc += `（値: ${action.effectValue}）`;
+        }
+        return desc;
+      }
+      case 'activate_flash': {
+        const source = action.sourceType === 'spirit' ? me.spirits[action.sourceIndex] : me.nexuses[action.sourceIndex];
+        const eff = source?.def.effects?.find((e) => (e.isFlash || e.mode === 'flash') && (e.costAction || e.costExhaustSelf));
+        let desc = `【起動：フラッシュ】${source?.def.name ?? '?'}`;
+        const costLabel = action.discardCardIndex !== undefined
+          ? `${me.hand[action.discardCardIndex]?.name ?? '?'}を破棄`
+          : eff?.costExhaustSelf ? '疲労させる' : 'コスト支払い';
+        if (eff?.action === 'boost_bp') {
+          const targetName = action.targetSpiritIndex !== undefined
+            ? me.spirits[action.targetSpiritIndex]?.def.name
+            : source?.def.name;
+          desc += `（${costLabel} ▶ ${targetName ?? '?'}をBP+${eff.value ?? 0}）`;
+        } else {
+          desc += `（${costLabel} ▶ 効果発動）`;
         }
         return desc;
       }

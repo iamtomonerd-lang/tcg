@@ -26,6 +26,8 @@ export interface CardEffect {
   costValue?: number; // value for cost action
   costSymbol?: string; // symbol requirement for cost action
   costExhaustSelf?: boolean; // cost to activate this effect: exhaust the source card itself (e.g., nexus "疲労させる")
+  oncePerTurn?: boolean; // 〔ターン1回〕: this activated effect can only be used once per turn
+  targetLineage?: string; // required lineage of the target spirit (e.g. 風牙岩: "アタックしている系統：「風牙」を持つ自分のスピリット")
   duration?: 'battle' | 'turn'; // for boost_bp: 'battle' (このバトル中, expires when the battle ends) or 'turn' (このターン中, default)
   condition?: {
     minHandSize?: number;
@@ -97,6 +99,8 @@ export interface Spirit {
   cannotAttackUntilNextTurn?: boolean;
   /** cannot defend until next turn */
   cannotDefendUntilNextTurn?: boolean;
+  /** 〔ターン1回〕【起動：フラッシュ】 already used this turn (reset at refresh) */
+  flashActivatedThisTurn?: boolean;
   /** status effects like paralysis, weakness */
   statusEffects?: string[];
 }
@@ -256,6 +260,7 @@ export type Action =
   | { type: 'take_damage' } // ダメージ受け入れ：防御せずにダメージを受ける
   | { type: 'pass' } // end current action phase
   | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; targetNexusIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean } // activate a flash magic card
+  | { type: 'activate_flash'; sourceType: 'spirit' | 'nexus'; sourceIndex: number; discardCardIndex?: number; targetSpiritIndex?: number } // 【起動：フラッシュ】: pay activation cost (discard/exhaust) ▶ resolve effect
   | { type: 'skip_flash' } // pass on flash opportunity
   | { type: 'select_draw_arrange'; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; cardIndices?: number[] } // arrange and select cards for offering draw
   | { type: 'mulligan'; redraw: boolean } // opening hand: keep as-is, or shuffle it back and redraw (no selection)

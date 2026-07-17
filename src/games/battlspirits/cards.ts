@@ -213,6 +213,7 @@ export const CARD_DB: Record<string, CardDef> = {
         duration: 'battle',
         costAction: 'discard_hand',
         costSymbol: '風牙',
+        oncePerTurn: true,
         isFlash: true,
         mode: 'flash',
         level: [1, 2],
@@ -355,6 +356,7 @@ export const CARD_DB: Record<string, CardDef> = {
         duration: 'battle',
         costAction: 'discard_hand',
         costSymbol: '風牙',
+        oncePerTurn: true,
         isFlash: true,
         mode: 'flash',
         level: [1, 2],
@@ -436,6 +438,7 @@ export const CARD_DB: Record<string, CardDef> = {
         level: [1, 2],
         requiresTarget: true,
         targetType: 'attacking',
+        targetLineage: '風牙',
         description: '［Lv1-2］『自分のアタックステップ』【起動：フラッシュ】このネクサスを疲労させる▶アタックしている系統：「風牙」を持つ自分のスピリット1体を指定する。このバトル中、それをBP+2000する',
       },
       {
