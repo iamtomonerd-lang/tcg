@@ -1785,16 +1785,35 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         break;
       }
       case 'select_effect_target': {
-        if (!next.pendingEffectAction) return next;
+        console.log('[GAME] Processing select_effect_target:', {
+          hasPending: !!next.pendingEffectAction,
+          targetSpiritIndex: action.targetSpiritIndex,
+          targetNexusIndex: action.targetNexusIndex,
+        });
+
+        if (!next.pendingEffectAction) {
+          console.log('[ERROR] No pendingEffectAction to process');
+          return next;
+        }
 
         const pending = next.pendingEffectAction;
         const effect = pending.effect;
 
+        console.log('[GAME] Effect details:', {
+          action: effect.action,
+          trigger: pending.trigger,
+          sourcePlayer: pending.sourcePlayer,
+          sourceCard: pending.sourceCard.name,
+        });
+
         // Apply the effect with the selected target
         const sourceLevel = pending.sourceCard.effects?.find((e) => e === effect) ? (effect.level?.[0] ?? 1) : undefined;
 
+        console.log('[GAME] Before triggerEffects, pendingEffectAction:', !!next.pendingEffectAction);
+
         if (pending.spiritIndex !== undefined) {
           // Effect triggered from a spirit
+          console.log('[GAME] Triggering from spirit');
           next = triggerEffects(
             next,
             pending.trigger,
@@ -1811,6 +1830,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           );
         } else if (pending.sourceNexusIndex !== undefined) {
           // Effect triggered from a nexus
+          console.log('[GAME] Triggering from nexus');
           next = triggerEffects(
             next,
             pending.trigger,
@@ -1825,10 +1845,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             sourceLevel,
             pending.sourceNexusIndex
           );
+        } else {
+          console.log('[ERROR] Neither spiritIndex nor sourceNexusIndex defined');
         }
+
+        console.log('[GAME] After triggerEffects, before clearing');
 
         // Clear the pending effect action
         next.pendingEffectAction = null;
+        console.log('[GAME] Cleared pendingEffectAction');
 
         // Process remaining effects based on trigger type
         if (pending.trigger === 'end_step' && pending.remainingEffects.length > 0) {

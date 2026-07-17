@@ -1095,19 +1095,24 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                     {state.pendingEffectAction.validTargets.spiritIndices.map((spiritIdx) => {
                       if (spiritIdx < 0) return null;
                       const spirit = targetPlayer?.spirits[spiritIdx];
-                      console.log('[DEBUG] Spirit at index', spiritIdx, ':', {exists: !!spirit, name: spirit?.def?.name});
                       if (!spirit) return null;
 
                       return (
                         <button
                           key={`spirit-${spiritIdx}`}
                           onClick={() => {
+                            console.log('[ACTION] Clicking target spirit:', {spiritIdx, spiritName: spirit?.name});
                             const selectAction = legalActions.find(a =>
                               a.action?.type === 'select_effect_target' &&
                               a.action?.targetSpiritIndex === spiritIdx
                             );
+                            console.log('[ACTION] Found selectAction:', {found: !!selectAction, actionIndex: selectAction?.index, action: selectAction?.action});
                             if (selectAction) {
+                              console.log('[ACTION] Executing action with index:', selectAction.index);
                               executeAction(selectAction.index);
+                            } else {
+                              console.log('[ERROR] No matching select_effect_target action found in legalActions');
+                              console.log('[DEBUG] Available actions:', legalActions.map(a => ({type: a.action?.type, spiritIdx: a.action?.targetSpiritIndex})));
                             }
                           }}
                           disabled={isBusy}
@@ -1140,12 +1145,18 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                         <button
                           key={`nexus-${nexusIdx}`}
                           onClick={() => {
+                            console.log('[ACTION] Clicking target nexus:', {nexusIdx, nexusName: nexus?.name});
                             const selectAction = legalActions.find(a =>
                               a.action?.type === 'select_effect_target' &&
                               a.action?.targetNexusIndex === nexusIdx
                             );
+                            console.log('[ACTION] Found selectAction:', {found: !!selectAction, actionIndex: selectAction?.index, action: selectAction?.action});
                             if (selectAction) {
+                              console.log('[ACTION] Executing action with index:', selectAction.index);
                               executeAction(selectAction.index);
+                            } else {
+                              console.log('[ERROR] No matching select_effect_target action found in legalActions');
+                              console.log('[DEBUG] Available actions:', legalActions.map(a => ({type: a.action?.type, nexusIdx: a.action?.targetNexusIndex})));
                             }
                           }}
                           disabled={isBusy}

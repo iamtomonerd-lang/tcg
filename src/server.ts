@@ -352,10 +352,16 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     return res.status(400).json({ error: 'Invalid action' });
   }
 
+  console.log('[SERVER] Action received:', {type: action.type, targetSpiritIndex: action.targetSpiritIndex, targetNexusIndex: action.targetNexusIndex, pendingEffectAction: !!session.state.pendingEffectAction});
+
   const description = session.game.describeAction(session.state, action);
   const actingPlayer = session.game.currentPlayer(session.state);
   const stateBefore = session.state;
+
+  console.log('[SERVER] Before applyAction:', {pendingEffectAction: !!stateBefore.pendingEffectAction, phase: stateBefore.phase});
   session.state = session.game.applyAction(session.state, action, session.rng);
+  console.log('[SERVER] After applyAction:', {pendingEffectAction: !!session.state.pendingEffectAction, phase: session.state.phase});
+
   const effectResults = detectEffectResults(stateBefore, session.state, action);
 
   let actionDescription = `P${actingPlayer}: ${description}`;
