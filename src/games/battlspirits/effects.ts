@@ -298,6 +298,17 @@ export function applyEffect(
       const excludeSoulCore = effect.condition?.excludeSoulCore ?? false;
       const onlySoulCore = effect.condition?.onlySoulCore ?? false;
 
+      console.log('[EFFECT] place_core processing:', {
+        sourcePlayer,
+        hasTarget: !!selfSpirit,
+        targetName: selfSpirit?.def.name,
+        coreValue,
+        source,
+        onlySoulCore,
+        trashSoulCoresBegin: me.trashSoulCores,
+        targetSoulCoresBegin: selfSpirit?.soulCoreCount || 0,
+      });
+
       if (selfSpirit) {
         if (source === 'trash') {
           // Take cores from trash with conditions
@@ -306,8 +317,10 @@ export function applyEffect(
             // Only take soul cores
             if (me.trashSoulCores > 0) {
               const soulTake = Math.min(me.trashSoulCores, coreValue);
+              console.log('[EFFECT] Taking soul cores:', {soulTake, targetBefore: selfSpirit.soulCoreCount, trashBefore: me.trashSoulCores});
               selfSpirit.soulCoreCount = (selfSpirit.soulCoreCount || 0) + soulTake;
               me.trashSoulCores -= soulTake;
+              console.log('[EFFECT] After taking:', {targetAfter: selfSpirit.soulCoreCount, trashAfter: me.trashSoulCores});
               taken += soulTake;
             }
           } else if (excludeSoulCore) {
@@ -369,6 +382,13 @@ export function applyEffect(
           }
         }
       }
+
+      console.log('[EFFECT] place_core complete:', {
+        targetName: selfSpirit?.def.name,
+        targetSoulCoresEnd: selfSpirit?.soulCoreCount || 0,
+        trashSoulCoresEnd: me.trashSoulCores,
+      });
+
       break;
     }
     case 'discard_hand': {
