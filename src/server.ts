@@ -1116,6 +1116,8 @@ function serializeState(state: GameState) {
           inheritanceCandidates: state.pendingInheritanceSelection.inheritanceCandidates.map((c) => ({
             id: c.id,
             name: c.name,
+            imagePath: c.imagePath,
+            cardType: c.cardType,
             symbolColors: c.symbolColors || [],
           })),
           selectedCardIds: state.pendingInheritanceSelection.selectedCardIds,

@@ -225,6 +225,8 @@ export interface PendingInheritanceSelection {
   inheritanceCandidates: {
     id: string;
     name: string;
+    imagePath?: string; // カード画像パス（UI表示用）
+    cardType?: CardType; // カードタイプ（表示用：不要ならUI側で無視してよい）
     symbolColors: string[];
   }[]; // トラッシュの対応EXカード候補
   selectedCardIds: string[]; // プレイヤーが選択したカードID（空配列 = 未選択）

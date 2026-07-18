@@ -3,7 +3,7 @@
  * 継召、ソウルコア支払い、特殊軽減などを1つの仕組みで扱う
  */
 
-import type { CardDef, PlayerState, GameState } from './types';
+import type { CardDef, PlayerState, GameState, CardType } from './types';
 
 export type PaymentType = 'normal' | 'inheritance' | 'soulMagic' | 'free';
 
@@ -94,7 +94,7 @@ function countInheritableEX(trash: CardDef[], card: CardDef): number {
 function getInheritanceCandidates(
   trash: CardDef[],
   card: CardDef
-): Array<{ id: string; name: string; symbolColors: string[] }> {
+): Array<{ id: string; name: string; imagePath?: string; cardType?: CardType; symbolColors: string[] }> {
   if (!card.inheritance || !card.symbolColors) return [];
 
   // 継召可能なカード（対応色の EX シンボル）を抽出
@@ -105,6 +105,8 @@ function getInheritanceCandidates(
     .map((c) => ({
       id: c.id,
       name: c.name,
+      imagePath: c.imagePath,
+      cardType: c.cardType,
       symbolColors: c.symbolColors ?? [],
     }));
 }
