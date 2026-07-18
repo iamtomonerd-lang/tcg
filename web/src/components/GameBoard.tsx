@@ -1093,21 +1093,28 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
             }}>
               {/* Determine target player based on effect.target field */}
               {(() => {
-                const effect = state.pendingEffectAction.effect;
-                const targetIsOpponent = effect.target === 'opponent_creature';
-                const targetPlayerIndex = targetIsOpponent ? 1 - state.currentPlayer : state.currentPlayer;
-                const targetPlayer = state.players[targetPlayerIndex];
+                try {
+                  const effect = state.pendingEffectAction?.effect;
+                  if (!effect) {
+                    console.error('[ERROR_RENDER] pendingEffectAction.effect is undefined:', state.pendingEffectAction);
+                    return <div style={{color: 'red'}}>エラー: 効果情報がありません</div>;
+                  }
 
-                // DEBUG logging
-                console.log('[DEBUG] Effect target selection:', {
-                  effectAction: effect.action,
-                  effectTarget: effect.target,
-                  targetIsOpponent,
-                  currentPlayer: state.currentPlayer,
-                  targetPlayerIndex,
-                  validTargets: state.pendingEffectAction.validTargets,
-                  targetPlayerSpirits: targetPlayer?.spirits.map(s => ({name: s.def?.name, lineage: s.def?.lineage})),
-                });
+                  const targetIsOpponent = effect.target === 'opponent_creature';
+                  const targetPlayerIndex = targetIsOpponent ? 1 - state.currentPlayer : state.currentPlayer;
+                  const targetPlayer = state.players?.[targetPlayerIndex];
+
+                  // DEBUG logging
+                  console.log('[DEBUG] Effect target selection:', {
+                    effectAction: effect.action,
+                    effectTarget: effect.target,
+                    targetIsOpponent,
+                    currentPlayer: state.currentPlayer,
+                    targetPlayerIndex,
+                    validTargets: state.pendingEffectAction?.validTargets,
+                    targetPlayer: targetPlayer ? 'present' : 'undefined',
+                    trash: targetPlayer?.trash ? `${targetPlayer.trash.length} cards` : 'undefined',
+                  });
 
                 return (
                   <>
@@ -1266,7 +1273,15 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                       );
                     })}
                   </>
-                );
+                  );
+                } catch (err) {
+                  console.error('[RENDER_ERROR] Effect target selection failed:', err);
+                  return (
+                    <div style={{color: 'red', padding: '1rem', backgroundColor: '#fee'}}>
+                      エラーが発生しました: {String(err)}
+                    </div>
+                  );
+                }
               })()}
             </div>
           </div>
