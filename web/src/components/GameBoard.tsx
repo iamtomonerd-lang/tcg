@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import PlayerPanel from './PlayerPanel';
+import InheritanceSelectionModal from './InheritanceSelectionModal';
 import '../styles/GameBoard.css';
 
 interface GameBoardProps {
@@ -45,7 +46,6 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
   const [selectedCardImage, setSelectedCardImage] = useState<{ imagePath: string; name: string } | null>(null);
   const [trashViewPlayer, setTrashViewPlayer] = useState<number | null>(null);
   const [bottomDeckViewPlayer, setBottomDeckViewPlayer] = useState<number | null>(null);
-  const [selectedInheritanceIds, setSelectedInheritanceIds] = useState<Set<string>>(new Set());
   const historyRef = useRef<HTMLDivElement>(null);
 
   const isHumanTurn = !isTerminal && (
@@ -252,7 +252,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     }
   };
 
-  const executeAction = async (actionIndex: number, options?: { cardIndices?: number[]; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean; selectedInheritanceIds?: string[] }) => {
+  const executeAction = async (actionIndex: number, options?: { cardIndices?: number[]; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean; inheritanceCount?: number; selectedCardIds?: string[]; selectedInheritanceIds?: string[] }) => {
     if (isBusy) return;
     setIsBusy(true);
     try {
@@ -277,6 +277,12 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       }
       if (options?.useInheritance !== undefined) {
         body.useInheritance = options.useInheritance;
+      }
+      if (options?.inheritanceCount !== undefined) {
+        body.inheritanceCount = options.inheritanceCount;
+      }
+      if (options?.selectedCardIds !== undefined) {
+        body.selectedCardIds = options.selectedCardIds;
       }
       if (options?.selectedInheritanceIds !== undefined) {
         body.selectedInheritanceIds = options.selectedInheritanceIds;
@@ -1569,93 +1575,22 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         </div>
       )}
 
-      {/* ===== Inheritance selection overlay ===== */}
-      {!isTerminal && state.pendingInheritanceSelection && isHumanTurn && (() => {
-        const pending = state.pendingInheritanceSelection;
-        const candidates = pending.inheritanceCandidates || [];
-        const needed = pending.inheritanceCount;
-        const selected = selectedInheritanceIds.size;
-        const canConfirm = selected === needed;
-
-        // ③ Debug: Log UI state
-        console.log('[INHERITANCE_UI_DEBUG]', {
-          cardName: pending.cardName,
-          candidateCount: candidates.length,
-          candidates: candidates.map(c => ({ id: c.id, name: c.name })),
-          selectedIds: Array.from(selectedInheritanceIds),
-          selectedCount: selected,
-          maxSelectable: needed,
-          canConfirm,
-        });
-
-        return (
-          <div className="game-over">
-            <div className="game-over-content inheritance-selection-content">
-              <h3>【継召】{pending.cardName}を召喚</h3>
-              <p className="inheritance-prompt">
-                対応色のEXカード{needed}枚を選択してください
-              </p>
-
-              {candidates.length === 0 ? (
-                <div className="inheritance-candidates-empty">
-                  <p>対応色のEXシンボルカードがトラッシュにありません</p>
-                </div>
-              ) : (
-                <div className="inheritance-candidates">
-                  {candidates.map((candidate) => {
-                    const isSelected = selectedInheritanceIds.has(candidate.id);
-                    const isDisabled = !isSelected && selectedInheritanceIds.size >= needed;
-                    return (
-                      <button
-                        key={candidate.id}
-                        className={`inheritance-card-button ${isSelected ? 'selected' : ''}`}
-                        onClick={() => {
-                          const newSelection = new Set(selectedInheritanceIds);
-                          if (isSelected) {
-                            newSelection.delete(candidate.id);
-                          } else {
-                            newSelection.add(candidate.id);
-                          }
-                          setSelectedInheritanceIds(newSelection);
-                        }}
-                        disabled={isDisabled}
-                      >
-                        <div className="inheritance-card-name">{candidate.name}</div>
-                        <div className="inheritance-card-symbols">
-                          {candidate.symbolColors?.map(sym => (
-                            <span key={sym} className="symbol-badge">{sym}</span>
-                          ))}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="inheritance-selection-info">
-                <span className={`selection-count ${canConfirm ? 'complete' : 'incomplete'}`}>
-                  {selected} / {needed}枚選択
-                </span>
-              </div>
-
-              <div className="inheritance-confirm-buttons">
-                <button
-                  className="confirm-button"
-                  onClick={() => {
-                    const actionIdx = legalActions.findIndex(a => a.action?.type === 'select_inheritance');
-                    if (actionIdx >= 0) {
-                      executeAction(actionIdx, { selectedInheritanceIds: Array.from(selectedInheritanceIds) });
-                    }
-                  }}
-                  disabled={!canConfirm || isBusy}
-                >
-                  決定
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* ===== Inheritance selection modal ===== */}
+      {!isTerminal && state.pendingInheritanceSelection && isHumanTurn && (
+        <InheritanceSelectionModal
+          pendingInheritanceSelection={state.pendingInheritanceSelection}
+          onConfirm={(inheritanceCount, selectedCardIds) => {
+            const actionIdx = legalActions.findIndex(a => a.action?.type === 'select_inheritance');
+            if (actionIdx >= 0) {
+              executeAction(actionIdx, {
+                inheritanceCount,
+                selectedCardIds,
+              });
+            }
+          }}
+          isBusy={isBusy}
+        />
+      )}
 
       {/* ===== Offering draw overlay ===== */}
       {!isTerminal && state.pendingDraw && isHumanTurn && (() => {
