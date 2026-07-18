@@ -504,6 +504,13 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
   // CRITICAL: If pendingInheritanceSelection exists, only human player can proceed
   // AI must not execute select_inheritance automatically
   if (session.state.pendingInheritanceSelection) {
+    console.log('[AI_GUARD_TRIGGERED]', {
+      reason: 'Waiting for player inheritance selection',
+      pendingPlayer: session.state.pendingInheritanceSelection.player,
+      cardName: session.state.pendingInheritanceSelection.cardName,
+      currentPlayer: session.game.currentPlayer(session.state),
+      decidingPlayer,
+    });
     return res.status(400).json({ error: 'Waiting for player inheritance selection; use /action instead' });
   }
 
@@ -533,6 +540,14 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
     return res.status(400).json({ error: `Error getting legal actions: ${e}` });
   }
 
+  // Log legal actions available to AI
+  const legalForAI = session.game.legalActions(session.state);
+  console.log('[AI_LEGAL_ACTIONS]', {
+    count: legalForAI.length,
+    types: legalForAI.slice(0, 5).map((a: any) => a.type),
+    hasPendingInheritance: !!session.state.pendingInheritanceSelection,
+  });
+
   // Silence per-action logs while the AI simulates thousands of playouts
   suspendGameLogs(true);
   let action: Action;
@@ -541,6 +556,15 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
   } finally {
     suspendGameLogs(false);
   }
+
+  // Log what AI chose
+  console.log('[AI_NEXT_ACTION]', {
+    actionType: action.type,
+    cardName: (action as any).cardName || (action as any).handIndex !== undefined
+      ? `hand[${(action as any).handIndex}]`
+      : undefined,
+    selectedCardIds: (action as any).selectedCardIds,
+  });
 
   // AI flash-priority visibility: did the AI have flash cards, and did it use one?
   if (session.state.pendingFlash && DEBUG_FLASH) {
@@ -579,6 +603,19 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
     pendingInheritanceAfter: !!session.state.pendingInheritanceSelection,
     stateChanged: stateBefore.turnCount !== session.state.turnCount,
   });
+
+  // Log inheritance selection state after summon
+  if (session.state.pendingInheritanceSelection) {
+    console.log('[PENDING_AFTER_SUMMON]', {
+      pending: {
+        player: session.state.pendingInheritanceSelection.player,
+        cardName: session.state.pendingInheritanceSelection.cardName,
+        maxInheritanceCount: session.state.pendingInheritanceSelection.maxInheritanceCount,
+      },
+      currentPlayer: session.game.currentPlayer(session.state),
+      phase: session.state.phase,
+    });
+  }
 
   dbg(DEBUG_VERBOSE, `[DEBUG] After applyAction: phase=${session.state.phase}, pendingMulligan=${session.state.pendingMulligan ? `{player:${session.state.pendingMulligan.player}}` : 'null'}, pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}`);
   dbg(DEBUG_VERBOSE, `[DEBUG] After applyAction (ai-turn):`, {
