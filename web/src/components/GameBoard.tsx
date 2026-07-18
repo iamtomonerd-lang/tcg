@@ -86,7 +86,20 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     try {
       const response = await fetch(`/api/game/${sessionId}/actions`);
       const data = await response.json();
-      setLegalActions(data.actions ?? []);
+      const actions = data.actions ?? [];
+      setLegalActions(actions);
+
+      // Stage ⓪ diagnostic: Log actions received from API
+      if (actions.length > 0) {
+        const actionSummary = actions.map((a: any) => ({
+          type: a.type,
+          paymentPlan: a.paymentPlan,
+          paymentType: a.paymentPlan?.paymentType,
+          inheritanceCount: a.paymentPlan?.inheritanceCount,
+        }));
+        console.log('[STAGE⓪ API_ACTIONS] Total:', actions.length);
+        console.log('[STAGE⓪ API_ACTIONS]', actionSummary);
+      }
     } catch (error) {
       console.error('Failed to fetch actions:', error);
     }
@@ -1275,6 +1288,18 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                   // Separate actions: cost payment (from card play) vs core placement (add_core)
                   const costActions = legalActions.filter(a => !a.description.includes('コア配置') && !a.description.includes('コアを追加'));
                   const coreActions = legalActions.filter(a => a.description.includes('コア配置') || a.description.includes('コアを追加'));
+
+                  // Stage ⓪ diagnostic: Log UI buttons being rendered
+                  if (costActions.length > 0) {
+                    console.log('[STAGE⓪ UI_RENDER] Cost actions (支払うコア):');
+                    const uiButtons = costActions.map(a => a.description).join('\n  ・');
+                    console.log('  ・' + uiButtons);
+                  }
+                  if (coreActions.length > 0) {
+                    console.log('[STAGE⓪ UI_RENDER] Core actions (乗せるコア):');
+                    const uiButtons = coreActions.map(a => a.description).join('\n  ・');
+                    console.log('  ・' + uiButtons);
+                  }
 
                   return (
                     <>
