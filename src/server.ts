@@ -486,6 +486,17 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
 
+  // Log session state at entry point
+  console.log('[AI_TURN_START]', {
+    sessionId: req.params.sessionId,
+    turnCount: session.state.turnCount,
+    phase: session.state.phase,
+    currentPlayer: session.game.currentPlayer(session.state),
+    p0Cores: session.state.players[0].cores,
+    p1Cores: session.state.players[1].cores,
+    isTerminal: session.game.isTerminal(session.state),
+  });
+
   if (session.game.isTerminal(session.state)) {
     return res.status(400).json({ error: 'Game is already terminal' });
   }
@@ -583,6 +594,19 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
   const stateBefore = session.state;
   const currentPlayerBefore = session.game.currentPlayer(stateBefore);
 
+  // Generate state hash before action
+  const stateHashBefore = JSON.stringify({
+    turnCount: stateBefore.turnCount,
+    phase: stateBefore.phase,
+    currentPlayer: currentPlayerBefore,
+    p0Hand: stateBefore.players[0].hand.length,
+    p0Spirits: stateBefore.players[0].spirits.length,
+    p0Cores: stateBefore.players[0].cores,
+    p1Hand: stateBefore.players[1].hand.length,
+    p1Spirits: stateBefore.players[1].spirits.length,
+    p1Cores: stateBefore.players[1].cores,
+  });
+
   dbg(DEBUG_VERBOSE, `[DEBUG] About to apply action: ${JSON.stringify(action).substring(0, 100)}`);
   dbg(DEBUG_VERBOSE, `[DEBUG] Before applyAction (ai-turn):`, {
     p0Cores: stateBefore.players[0].cores,
@@ -593,7 +617,33 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
 
   session.state = session.game.applyAction(session.state, action, session.rng);
 
+  // Generate state hash after action
+  const stateHashAfter = JSON.stringify({
+    turnCount: session.state.turnCount,
+    phase: session.state.phase,
+    currentPlayer: session.game.currentPlayer(session.state),
+    p0Hand: session.state.players[0].hand.length,
+    p0Spirits: session.state.players[0].spirits.length,
+    p0Cores: session.state.players[0].cores,
+    p1Hand: session.state.players[1].hand.length,
+    p1Spirits: session.state.players[1].spirits.length,
+    p1Cores: session.state.players[1].cores,
+  });
+
   const currentPlayerAfter = session.game.currentPlayer(session.state);
+  const stateActuallyChanged = stateHashBefore !== stateHashAfter;
+
+  // Log AI action with state comparison
+  console.log('[AI_ACTION]', {
+    actionType: action.type,
+    cardName: (action as any).cardName ||
+              (session.state.players[currentPlayerBefore]?.hand[(action as any).handIndex]?.name || 'N/A'),
+    beforeTurn: stateBefore.turnCount,
+    afterTurn: session.state.turnCount,
+    stateChanged: stateActuallyChanged,
+    hashMatch: stateHashBefore === stateHashAfter,
+  });
+
   console.log('[AI_ACTION_RESULT]', {
     actionType: action.type,
     playerBefore: currentPlayerBefore,
