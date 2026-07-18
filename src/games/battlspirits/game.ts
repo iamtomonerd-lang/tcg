@@ -2094,6 +2094,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             // For trash_to_hand, we're selecting cards from own trash
             // Store as temporary info; actual card selection happens differently
             validTargets.spiritIndices = [-1]; // Special marker: selecting from trash
+            console.log('[SUMMON_TRASH_TO_HAND] Set validTargets for trash selection:', {
+              cardName: card.name,
+              hasTrash: me.trash.length > 0,
+              trashCardCount: me.trash.length,
+              validTargets,
+            });
           } else if (targetRequiringEffect.action === 'place_core') {
             // Find own spirits/nexuses matching condition
             validTargets = this.findValidTargetsForEffect(next, next.currentPlayer, targetRequiringEffect);
@@ -2119,6 +2125,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               trigger: 'summon',
               remainingEffects: [],
             };
+            console.log('[SUMMON_EFFECT_ACTION_SET] pendingEffectAction created:', {
+              cardName: card.name,
+              effectAction: targetRequiringEffect.action,
+              validSpiritIndices: validTargets.spiritIndices,
+              validTargetCount: validTargets.spiritIndices.length + validTargets.nexusIndices.length,
+            });
             dbg(DEBUG_VERBOSE, '[SUMMON] Set pendingEffectAction:', {
               cardName: card.name,
               validTargetCount: validTargets.spiritIndices.length + validTargets.nexusIndices.length,
@@ -2857,6 +2869,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           if (targetRequiringEffect.action === 'trash_to_hand') {
             // For trash_to_hand, we're selecting cards from own trash
             validTargets.spiritIndices = [-1]; // Special marker: selecting from trash
+            console.log('[PLACE_NEXUS_TRASH_TO_HAND] Set validTargets for trash selection:', {
+              cardName: card.name,
+              hasTrash: me.trash.length > 0,
+              trashCardCount: me.trash.length,
+              validTargets,
+            });
           } else if (targetRequiringEffect.action === 'place_core') {
             // Find own spirits/nexuses matching condition
             validTargets = this.findValidTargetsForEffect(next, next.currentPlayer, targetRequiringEffect);
@@ -2874,6 +2892,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               trigger: 'summon',
               remainingEffects: [],
             };
+            console.log('[NEXUS_EFFECT_ACTION_SET] pendingEffectAction created:', {
+              cardName: card.name,
+              effectAction: targetRequiringEffect.action,
+              validSpiritIndices: validTargets.spiritIndices,
+              validTargetCount: validTargets.spiritIndices.length + validTargets.nexusIndices.length,
+            });
             dbg(DEBUG_VERBOSE, '[PLACE_NEXUS] Set pendingEffectAction:', {
               cardName: card.name,
               validTargetCount: validTargets.spiritIndices.length + validTargets.nexusIndices.length,

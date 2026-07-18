@@ -1112,8 +1112,12 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                     currentPlayer: state.currentPlayer,
                     targetPlayerIndex,
                     validTargets: state.pendingEffectAction?.validTargets,
+                    spiritIndices: state.pendingEffectAction?.validTargets?.spiritIndices,
+                    spiritIndicesHasNegativeOne: state.pendingEffectAction?.validTargets?.spiritIndices?.includes(-1),
                     targetPlayer: targetPlayer ? 'present' : 'undefined',
-                    trash: targetPlayer?.trash ? `${targetPlayer.trash.length} cards` : 'undefined',
+                    trash: targetPlayer?.trash,
+                    trashCards: targetPlayer?.trash?.cards,
+                    trashCardCount: targetPlayer?.trash?.cards?.length,
                   });
 
                 return (
