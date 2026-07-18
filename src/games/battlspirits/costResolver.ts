@@ -103,7 +103,20 @@ function selectInheritanceCards(
   );
 
   // 枚数分を取得
-  return inheritableCards.slice(0, exCount).map((c) => c.id);
+  const selected = inheritableCards.slice(0, exCount).map((c) => c.id);
+
+  // ② selectInheritanceCards() 診断ログ
+  if (exCount > 0) {
+    console.log('[INHERITANCE②] selectInheritanceCards called:', {
+      cardName: card.name,
+      exCount,
+      inheritableCards: inheritableCards.map(c => c.name),
+      selectedCardIds: selected,
+      selectedCardNames: inheritableCards.slice(0, exCount).map(c => c.name),
+    });
+  }
+
+  return selected;
 }
 
 /**
@@ -128,6 +141,13 @@ export class CostResolver {
    * 指定カードの支払い可能プランを生成（副作用なし）
    */
   static getPaymentPlans(state: GameState, player: PlayerState, card: CardDef): PaymentPlan[] {
+    // ① getPaymentPlans() 診断ログ
+    console.log('[INHERITANCE①] getPaymentPlans called:', {
+      cardName: card.name,
+      cardType: card.cardType,
+      hasInheritance: card.inheritance,
+    });
+
     const plans: PaymentPlan[] = [];
     const totalCores = getTotalAvailableCores(player);
 
@@ -202,6 +222,20 @@ export class CostResolver {
           inheritance: 0,
           effect: 0,
         },
+      });
+    }
+
+    // ③ inheritanceCardIds が生成されたかログ
+    const inheritancePlans = plans.filter(p => p.inheritanceCount > 0);
+    if (inheritancePlans.length > 0) {
+      console.log('[INHERITANCE③] inheritanceCardIds in PaymentPlans:', {
+        cardName: card.name,
+        inheritancePlansCount: inheritancePlans.length,
+        plans: inheritancePlans.map(p => ({
+          paymentType: p.paymentType,
+          inheritanceCount: p.inheritanceCount,
+          inheritanceCardIds: p.inheritanceCardIds,
+        })),
       });
     }
 
