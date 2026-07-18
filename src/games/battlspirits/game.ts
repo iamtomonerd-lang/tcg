@@ -2807,8 +2807,51 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           });
         }
 
+        // Check for summon effects that require target selection (e.g., trash_to_hand)
+        const targetRequiringEffects = card.effects?.filter(e => e.requiresTarget && e.trigger === 'summon') || [];
+        for (const targetRequiringEffect of targetRequiringEffects) {
+          // Check if the effect's condition is met
+          if (!checkEffectConditions(targetRequiringEffect, next, next.currentPlayer)) {
+            continue;
+          }
+
+          dbg(DEBUG_VERBOSE, '[PLACE_NEXUS] Found target-requiring effect:', {
+            cardName: card.name,
+            effect: targetRequiringEffect.description,
+            conditionsMet: true,
+          });
+          let validTargets: { spiritIndices: number[]; nexusIndices: number[] } = { spiritIndices: [], nexusIndices: [] };
+
+          if (targetRequiringEffect.action === 'trash_to_hand') {
+            // For trash_to_hand, we're selecting cards from own trash
+            validTargets.spiritIndices = [-1]; // Special marker: selecting from trash
+          } else if (targetRequiringEffect.action === 'place_core') {
+            // Find own spirits/nexuses matching condition
+            validTargets = this.findValidTargetsForEffect(next, next.currentPlayer, targetRequiringEffect);
+          }
+
+          // If there are valid targets, wait for selection
+          if (validTargets.spiritIndices.length > 0 || validTargets.nexusIndices.length > 0) {
+            next.pendingEffectAction = {
+              effect: targetRequiringEffect,
+              sourceCard: card,
+              sourcePlayer: next.currentPlayer,
+              spiritIndex: undefined,
+              sourceNexusIndex: nexusIndex,
+              validTargets,
+              trigger: 'summon',
+              remainingEffects: [],
+            };
+            dbg(DEBUG_VERBOSE, '[PLACE_NEXUS] Set pendingEffectAction:', {
+              cardName: card.name,
+              validTargetCount: validTargets.spiritIndices.length + validTargets.nexusIndices.length,
+            });
+            return next; // Wait for target selection
+          }
+        }
+
         // Trigger deployment effects
-        next = triggerEffects(next, 'summon', card, next.currentPlayer);
+        next = triggerEffects(next, 'summon', card, next.currentPlayer, undefined, nexusIndex);
         break;
       }
       case 'use_magic': {
