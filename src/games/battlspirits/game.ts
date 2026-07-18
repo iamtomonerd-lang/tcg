@@ -3350,7 +3350,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const card = me.hand[action.handIndex];
         // Only show payment cost, not Lv1 placement cost. Reflect whether this
         // particular action uses 継召 so the choice dialog can distinguish variants.
-        const useInh = action.useInheritance !== false;
+        const useInh = action.paymentPlan
+          ? action.paymentPlan.inheritanceCount > 0
+          : action.useInheritance !== false;
         const cost = card ? this.effectiveCostWithFlag(me, card, useInh) : 0;
         const inhLabel = card?.inheritance && useInh ? '・継召あり' : card?.inheritance ? '・継召なし' : '';
         return `${card?.name ?? '?'}を召喚（コア${cost}個${inhLabel}）`;
@@ -3381,7 +3383,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'place_nexus': {
         const card = me.hand[action.handIndex];
-        const useInh = action.useInheritance !== false;
+        const useInh = action.paymentPlan
+          ? action.paymentPlan.inheritanceCount > 0
+          : action.useInheritance !== false;
         const cost = card ? this.effectiveCostWithFlag(me, card, useInh) : 0;
         const inhLabel = card?.inheritance && useInh ? '・継召あり' : card?.inheritance ? '・継召なし' : '';
         return `${card?.name ?? '?'}を配置（コア${cost}個${inhLabel}）`;
@@ -3392,7 +3396,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (action.coreType === 'soul' && card && isSoulMagicRedCard(card)) {
           desc += `（ソウルコア払い）`;
         } else if (card?.inheritance) {
-          desc += action.useInheritance !== false ? `（継召あり）` : `（継召なし）`;
+          const useInh = action.paymentPlan
+            ? action.paymentPlan.inheritanceCount > 0
+            : action.useInheritance !== false;
+          desc += useInh ? `（継召あり）` : `（継召なし）`;
         }
         if (action.targetSpiritIndex !== undefined) {
           const opponent = state.players[1 - state.currentPlayer]!;
