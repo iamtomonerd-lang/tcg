@@ -291,7 +291,6 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       setIsTerminal(data.isTerminal);
       setCurrentPlayer(data.currentPlayer ?? data.state.currentPlayer);
       setError(null);
-      setSelectedInheritanceIds(new Set()); // Clear inheritance selection
       if (data.actionDescription) {
         const historyEntries = [data.actionDescription];
         if (data.effectResults && Array.isArray(data.effectResults)) {
