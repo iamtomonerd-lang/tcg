@@ -976,9 +976,34 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const actions: Action[] = [];
       const pending = state.pendingEffectAction;
 
+      // Check if this is a trash_to_hand effect (marked by spiritIndices: [-1])
+      if (pending.validTargets.spiritIndices.includes(-1)) {
+        // Generate actions for each valid trash card
+        const me = state.players[pending.sourcePlayer]!;
+        const effect = pending.effect;
+        const targetLineage = effect.symbol;
+        const excludeId = effect.excludeId;
+        const excludeEXSymbol = effect.condition?.excludeEXSymbol ?? false;
+        const maxCost = effect.condition?.maxCost;
+
+        for (let i = 0; i < me.trash.length; i++) {
+          const card = me.trash[i]!;
+          if ((!targetLineage || card.lineage?.includes(targetLineage)) &&
+              (!excludeId || card.id !== excludeId) &&
+              (!excludeEXSymbol || !card.exSymbol) &&
+              (maxCost === undefined || card.cost <= maxCost) &&
+              card.cardType === 'spirit') {
+            actions.push({ type: 'select_effect_target', trashCardId: card.id });
+          }
+        }
+        return actions;
+      }
+
       // Generate actions for each valid spirit target
       for (const spiritIdx of pending.validTargets.spiritIndices) {
-        actions.push({ type: 'select_effect_target', targetSpiritIndex: spiritIdx });
+        if (spiritIdx >= 0) { // Skip the -1 marker if present
+          actions.push({ type: 'select_effect_target', targetSpiritIndex: spiritIdx });
+        }
       }
 
       // Generate actions for each valid nexus target
@@ -1556,7 +1581,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       me.trash.push(card);
       // For Soul Magic Red: skip symbol check when cast with the normal cost (not the soul-core cost)
       const skipSymbolCheck = hasSoulMagicRedEffect && action.paymentPlan.paymentType !== 'soulMagic';
-      next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex, undefined, undefined, skipSymbolCheck);
+      next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex, undefined, undefined, undefined, skipSymbolCheck);
       checkResult(next);
       if (next.result) return next;
 
@@ -1612,7 +1637,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
         // triggerEffects pays the cost and applies the ▶ effect (onlyActivated: other
         // attack-trigger effects of this card do NOT fire here)
-        next = triggerEffects(next, effect.trigger, spirit.def, player, action.sourceIndex, undefined, undefined, action.discardCardIndex, 'flash', undefined, spirit.level, undefined, undefined, undefined, true);
+        next = triggerEffects(next, effect.trigger, spirit.def, player, action.sourceIndex, undefined, undefined, action.discardCardIndex, 'flash', undefined, spirit.level, undefined, undefined, undefined, undefined, true);
         // Re-fetch across the clone boundary before marking 〔ターン1回〕 usage
         const spiritNow = next.players[player]!.spirits[action.sourceIndex];
         if (spiritNow && effect.oncePerTurn) spiritNow.flashActivatedThisTurn = true;
@@ -1632,7 +1657,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           if (effect.targetType === 'attacking' && !(stashedAtk && stashedAtk.attackerPlayer === player && stashedAtk.attackerSpiritIndex === action.targetSpiritIndex)) return next;
           if (effect.targetLineage && !target.def.lineage?.includes(effect.targetLineage)) return next;
         }
-        next = triggerEffects(next, effect.trigger, nexus.def, player, undefined, action.targetSpiritIndex, undefined, undefined, 'flash', undefined, nexus.level, action.sourceIndex, undefined, undefined, true);
+        next = triggerEffects(next, effect.trigger, nexus.def, player, undefined, action.targetSpiritIndex, undefined, undefined, 'flash', undefined, nexus.level, action.sourceIndex, undefined, undefined, undefined, true);
         dbg(DEBUG_FLASH, '[FLASH_USE]', { player, card: nexus.def.name });
       }
 
@@ -2300,6 +2325,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           hasPending: !!next.pendingEffectAction,
           targetSpiritIndex: action.targetSpiritIndex,
           targetNexusIndex: action.targetNexusIndex,
+          trashCardId: (action as any).trashCardId,
         });
 
         if (!next.pendingEffectAction) {
@@ -2322,6 +2348,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         dbg(DEBUG_VERBOSE, '[GAME] Before triggerEffects, pendingEffectAction:', !!next.pendingEffectAction);
 
+        // Pass targetTrashCardId via effectValue (use as context for trash_to_hand)
+        const effectValue = (action as any).trashCardId ? undefined : undefined;
+        const targetTrashCardId = (action as any).trashCardId;
+
         if (pending.spiritIndex !== undefined) {
           // Effect triggered from a spirit
           dbg(DEBUG_VERBOSE, '[GAME] Triggering from spirit');
@@ -2337,7 +2367,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             undefined,
             action.targetNexusIndex,
             sourceLevel,
-            pending.sourceNexusIndex
+            pending.sourceNexusIndex,
+            targetTrashCardId
           );
         } else if (pending.sourceNexusIndex !== undefined) {
           // Effect triggered from a nexus
@@ -2354,7 +2385,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             undefined,
             action.targetNexusIndex,
             sourceLevel,
-            pending.sourceNexusIndex
+            pending.sourceNexusIndex,
+            targetTrashCardId
           );
         } else {
           console.error('[ERROR] Neither spiritIndex nor sourceNexusIndex defined');
@@ -3058,7 +3090,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Trigger magic effects with optional target and value (skipSymbolCheck already defined above)
-        next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'main', action.targetNexusIndex, undefined, undefined, skipSymbolCheck);
+        next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'main', action.targetNexusIndex, undefined, undefined, undefined, skipSymbolCheck);
         // Fall through to flash checking below
         break;
       }
@@ -3133,7 +3165,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         // Trigger attack effects (may boost BP, place cores, etc.), passing discardCardIndex/effectTargetIndex if provided
         // This EXCLUDES search_deck (requires user selection) and flash effects (need user activation)
-        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, action.spiritIndex, action.effectTargetIndex, undefined, action.discardCardIndex, 'main', undefined, spirit.level, undefined, undefined, ['search_deck']);
+        next = triggerEffects(next, 'attack', spirit.def, next.currentPlayer, action.spiritIndex, action.effectTargetIndex, undefined, action.discardCardIndex, 'main', undefined, spirit.level, undefined, undefined, undefined, ['search_deck']);
 
         // Remove spirits that lost their cores during attack effects.
         // This can SHIFT the attacker's index, so re-resolve it by object identity

@@ -288,7 +288,7 @@ export type Action =
   | { type: 'confirm_spell_chain'; proceed: boolean } // confirm if summon effects should destroy opponent's spirits/nexuses (true=proceed, false=cancel)
   | { type: 'confirm_spirit_depletion'; proceed: boolean } // confirm if spirit should be depleted (true=deplete, false=cancel)
   | { type: 'confirm_nexus_depletion'; proceed: boolean } // confirm if nexus should be depleted (true=deplete, false=cancel)
-  | { type: 'select_effect_target'; targetSpiritIndex?: number; targetNexusIndex?: number } // select target for effect requiring target selection
+  | { type: 'select_effect_target'; targetSpiritIndex?: number; targetNexusIndex?: number; trashCardId?: string } // select target for effect requiring target selection
   | { type: 'select_inheritance'; selectedCardIds: string[]; inheritanceCount?: number }; // select inheritance count and EX cards from trash
 
 /**

@@ -238,6 +238,7 @@ export function applyEffect(
   targetSpiritIndex?: number,
   effectValue?: number,
   skipSymbolCheck?: boolean, // Skip requiresSymbol condition (e.g., for Soul Magic Red paid with normal cost)
+  targetTrashCardId?: string, // For trash_to_hand: specific card ID from trash
 ): GameState {
   const next = cloneGameState(state);
   const me = next.players[sourcePlayer]!;
@@ -426,16 +427,30 @@ export function applyEffect(
       const excludeId = effect.excludeId;
       const excludeEXSymbol = effect.condition?.excludeEXSymbol ?? false;
       const maxCost = effect.condition?.maxCost;
-      for (let i = 0; i < me.trash.length; i++) {
-        const card = me.trash[i]!;
-        if ((!targetLineage || card.lineage?.includes(targetLineage)) &&
-            (!excludeId || card.id !== excludeId) &&
-            (!excludeEXSymbol || !card.exSymbol) &&
-            (maxCost === undefined || card.cost <= maxCost) &&
-            card.cardType === 'spirit') {
-          me.hand.push(card);
-          me.trash.splice(i, 1);
-          break;
+
+      // If a specific card was selected, move that one
+      if (targetTrashCardId) {
+        for (let i = 0; i < me.trash.length; i++) {
+          const card = me.trash[i]!;
+          if (card.id === targetTrashCardId) {
+            me.hand.push(card);
+            me.trash.splice(i, 1);
+            break;
+          }
+        }
+      } else {
+        // Otherwise, find the first matching card (fallback for auto-select)
+        for (let i = 0; i < me.trash.length; i++) {
+          const card = me.trash[i]!;
+          if ((!targetLineage || card.lineage?.includes(targetLineage)) &&
+              (!excludeId || card.id !== excludeId) &&
+              (!excludeEXSymbol || !card.exSymbol) &&
+              (maxCost === undefined || card.cost <= maxCost) &&
+              card.cardType === 'spirit') {
+            me.hand.push(card);
+            me.trash.splice(i, 1);
+            break;
+          }
         }
       }
       break;
@@ -684,6 +699,7 @@ export function triggerEffects(
   targetNexusIndex?: number,
   sourceLevel?: 1 | 2,
   sourceNexusIndex?: number, // index of the nexus whose effect is firing (for costExhaustSelf)
+  targetTrashCardId?: string, // For trash_to_hand: specific card ID from trash
   skipSymbolCheck?: boolean, // Skip requiresSymbol condition (e.g., for Soul Magic Red paid with normal cost)
   excludeActions?: string[], // Actions to skip (e.g., ['search_deck'] for manual handling)
   onlyActivated?: boolean, // Only fire 【起動】 effects (those with an activation cost); used by activate_flash
@@ -737,10 +753,10 @@ export function triggerEffects(
       }
       // Apply effect to all matching spirits
       for (const idx of matchingIndices) {
-        next = applyEffect(next, effect, sourcePlayer, targetNexusIndex, idx, targetIdx, effectValue, skipSymbolCheck);
+        next = applyEffect(next, effect, sourcePlayer, targetNexusIndex, idx, targetIdx, effectValue, skipSymbolCheck, targetTrashCardId);
       }
     } else {
-      next = applyEffect(next, effect, sourcePlayer, targetNexusIndex, spiritIndex, targetIdx, effectValue, skipSymbolCheck);
+      next = applyEffect(next, effect, sourcePlayer, targetNexusIndex, spiritIndex, targetIdx, effectValue, skipSymbolCheck, targetTrashCardId);
     }
   }
   return next;

@@ -1111,6 +1111,73 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
 
                 return (
                   <>
+                    {/* Trash card selection for trash_to_hand effects */}
+                    {effect.action === 'trash_to_hand' && state.pendingEffectAction.validTargets.spiritIndices.includes(-1) && (
+                      <>
+                        <div style={{
+                          gridColumn: '1 / -1',
+                          fontSize: '0.9rem',
+                          fontWeight: 600,
+                          color: '#555',
+                          marginBottom: '0.5rem'
+                        }}>
+                          トラッシュから選択：
+                        </div>
+                        {state.players[state.currentPlayer]?.trash.map((trashCard, trashIdx) => {
+                          // Filter cards based on effect conditions
+                          const targetLineage = effect.symbol;
+                          const excludeId = effect.excludeId;
+                          const excludeEXSymbol = effect.condition?.excludeEXSymbol ?? false;
+                          const maxCost = effect.condition?.maxCost;
+
+                          if ((!targetLineage || trashCard.lineage?.includes(targetLineage)) &&
+                              (!excludeId || trashCard.id !== excludeId) &&
+                              (!excludeEXSymbol || !trashCard.exSymbol) &&
+                              (maxCost === undefined || trashCard.cost <= maxCost) &&
+                              trashCard.cardType === 'spirit') {
+                            return (
+                              <button
+                                key={`trash-${trashCard.id}`}
+                                onClick={() => {
+                                  console.log('[ACTION] Selecting trash card:', {cardId: trashCard.id, cardName: trashCard.name});
+                                  const selectAction = legalActions.find(a =>
+                                    a.action?.type === 'select_effect_target' &&
+                                    (a.action as any)?.trashCardId === trashCard.id
+                                  );
+                                  console.log('[ACTION] Found selectAction:', {found: !!selectAction, actionIndex: selectAction?.index});
+                                  if (selectAction) {
+                                    console.log('[ACTION] Executing trash card selection');
+                                    executeAction(selectAction.index);
+                                  } else {
+                                    console.log('[ERROR] No matching trash card selection action found');
+                                    console.log('[DEBUG] Available actions:', legalActions.filter(a => a.action?.type === 'select_effect_target').map(a => ({type: a.action?.type, trashCardId: (a.action as any)?.trashCardId})));
+                                  }
+                                }}
+                                disabled={isBusy}
+                                style={{
+                                  padding: '0.6rem',
+                                  backgroundColor: '#8B7355',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontWeight: 600,
+                                  fontSize: '0.85rem',
+                                }}
+                              >
+                                {trashCard.name || '?'}
+                                <br />
+                                <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                                  Cost{trashCard.cost}
+                                </span>
+                              </button>
+                            );
+                          }
+                          return null;
+                        })}
+                      </>
+                    )}
+
                     {/* Spirits */}
                     {state.pendingEffectAction.validTargets.spiritIndices.map((spiritIdx) => {
                       if (spiritIdx < 0) return null;
