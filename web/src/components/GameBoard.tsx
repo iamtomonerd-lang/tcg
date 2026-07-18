@@ -1081,9 +1081,9 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
               🎯 対象を選択
             </div>
             <div style={{ fontSize: '0.95rem', color: '#333', marginBottom: '1rem', lineHeight: '1.6' }}>
-              「{state.pendingEffectAction.sourceCard.name}」の効果のための対象を選択してください：
+              「{state.pendingEffectAction?.sourceCard?.name || '?'}」の効果のための対象を選択してください：
               <br />
-              <strong>{state.pendingEffectAction.effect.description}</strong>
+              <strong>{state.pendingEffectAction?.effect?.description || '（説明なし）'}</strong>
             </div>
             <div style={{
               display: 'grid',
@@ -1112,7 +1112,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                 return (
                   <>
                     {/* Trash card selection for trash_to_hand effects */}
-                    {effect.action === 'trash_to_hand' && state.pendingEffectAction.validTargets.spiritIndices.includes(-1) && (
+                    {effect?.action === 'trash_to_hand' && state.pendingEffectAction?.validTargets?.spiritIndices?.includes(-1) && (
                       <>
                         <div style={{
                           gridColumn: '1 / -1',
@@ -1123,8 +1123,9 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                         }}>
                           トラッシュから選択：
                         </div>
-                        {state.players[state.currentPlayer]?.trash.map((trashCard, trashIdx) => {
+                        {state.players[state.currentPlayer]?.trash?.map((trashCard, trashIdx) => {
                           // Filter cards based on effect conditions
+                          if (!effect) return null;
                           const targetLineage = effect.symbol;
                           const excludeId = effect.excludeId;
                           const excludeEXSymbol = effect.condition?.excludeEXSymbol ?? false;
@@ -1179,9 +1180,9 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                     )}
 
                     {/* Spirits */}
-                    {state.pendingEffectAction.validTargets.spiritIndices.map((spiritIdx) => {
+                    {state.pendingEffectAction?.validTargets?.spiritIndices?.map((spiritIdx) => {
                       if (spiritIdx < 0) return null;
-                      const spirit = targetPlayer?.spirits[spiritIdx];
+                      const spirit = targetPlayer?.spirits?.[spiritIdx];
                       if (!spirit) return null;
 
                       return (
@@ -1224,8 +1225,8 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                     })}
 
                     {/* Nexuses */}
-                    {state.pendingEffectAction.validTargets.nexusIndices.map((nexusIdx) => {
-                      const nexus = targetPlayer?.nexuses[nexusIdx];
+                    {state.pendingEffectAction?.validTargets?.nexusIndices?.map((nexusIdx) => {
+                      const nexus = targetPlayer?.nexuses?.[nexusIdx];
                       if (!nexus) return null;
 
                       return (
