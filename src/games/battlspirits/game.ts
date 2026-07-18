@@ -1765,12 +1765,40 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!card || card.cardType !== 'spirit') return next;
         if (!action.paymentPlan) return next; // paymentPlan is required
 
+        // Stage ③ diagnostic: Log action at applyAction entry
+        if (action.paymentPlan && action.paymentPlan.inheritanceCount > 0) {
+          dbg(DEBUG_VERBOSE, '[STAGE③] summon entry:', {
+            type: action.type,
+            handIndex: action.handIndex,
+            cardName: card.name,
+            paymentType: action.paymentPlan.paymentType,
+            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
+            finalCost: action.paymentPlan.finalCost,
+            trashLength: me.trash.length,
+          });
+        }
+
         // Remove card from hand
         me.hand.splice(action.handIndex, 1);
 
-        // Apply inheritance (remove EX cards from trash)
+        // Stage ④ diagnostic: Log inheritance removal
         if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
+          const trashBefore = me.trash.map(c => c.name).join(', ');
+          const toRemove = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id)).map(c => c.name).join(', ');
+
+          // Apply inheritance (remove EX cards from trash)
           me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
+
+          dbg(DEBUG_VERBOSE, '[STAGE④] Inheritance removal (summon):', {
+            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
+            trashBefore: trashBefore,
+            removed: toRemove,
+            trashAfter: me.trash.map(c => c.name).join(', '),
+            trashLengthBefore: (trashBefore ? trashBefore.split(',').length : 0),
+            trashLengthAfter: me.trash.length,
+          });
         }
 
         // Pay cost using game's payCost method
@@ -1832,6 +1860,20 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         updateSpiritLevel(spirit);
         const newSpiritIndex = me.spirits.length;
         me.spirits.push(spirit);
+
+        // Stage ⑤ diagnostic: Log post-summon state
+        if (action.paymentPlan.inheritanceCount > 0) {
+          dbg(DEBUG_VERBOSE, '[STAGE⑤] Post-summon state:', {
+            newSpiritIndex,
+            spiritName: card.name,
+            trashAfterRemoval: me.trash.map(c => c.name).join(', '),
+            trashLength: me.trash.length,
+            coresOnSpirit: placedRegular,
+            soulCoresOnSpirit: placedSoul,
+            playerCores: me.cores,
+            playerSoulCores: me.soulCores,
+          });
+        }
 
         // A spirit that could not receive all required maintenance cores needs confirmation in main phase
         const totalCoresPlaced = placedRegular + placedSoul;
@@ -2404,12 +2446,40 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!card || card.cardType !== 'nexus') return next;
         if (!action.paymentPlan) return next; // paymentPlan is required
 
+        // Stage ③ diagnostic: Log action at applyAction entry
+        if (action.paymentPlan && action.paymentPlan.inheritanceCount > 0) {
+          dbg(DEBUG_VERBOSE, '[STAGE③] place_nexus entry:', {
+            type: action.type,
+            handIndex: action.handIndex,
+            cardName: card.name,
+            paymentType: action.paymentPlan.paymentType,
+            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
+            finalCost: action.paymentPlan.finalCost,
+            trashLength: me.trash.length,
+          });
+        }
+
         // Remove card from hand
         me.hand.splice(action.handIndex, 1);
 
-        // Apply inheritance (remove EX cards from trash)
+        // Stage ④ diagnostic: Log inheritance removal
         if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
+          const trashBefore = me.trash.map(c => c.name).join(', ');
+          const toRemove = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id)).map(c => c.name).join(', ');
+
+          // Apply inheritance (remove EX cards from trash)
           me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
+
+          dbg(DEBUG_VERBOSE, '[STAGE④] Inheritance removal (place_nexus):', {
+            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
+            trashBefore: trashBefore,
+            removed: toRemove,
+            trashAfter: me.trash.map(c => c.name).join(', '),
+            trashLengthBefore: (trashBefore ? trashBefore.split(',').length : 0),
+            trashLengthAfter: me.trash.length,
+          });
         }
 
         // Pay cost using game's payCost method
@@ -2480,7 +2550,22 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           coreCount: nexusRegular,
           soulCoreCount: nexusSoul,
         };
+        const nexusIndex = me.nexuses.length;
         me.nexuses.push(nexus);
+
+        // Stage ⑤ diagnostic: Log post-place_nexus state
+        if (action.paymentPlan.inheritanceCount > 0) {
+          dbg(DEBUG_VERBOSE, '[STAGE⑤] Post-place_nexus state:', {
+            nexusIndex,
+            nexusName: card.name,
+            trashAfterRemoval: me.trash.map(c => c.name).join(', '),
+            trashLength: me.trash.length,
+            coresOnNexus: nexusRegular,
+            soulCoresOnNexus: nexusSoul,
+            playerCores: me.cores,
+            playerSoulCores: me.soulCores,
+          });
+        }
 
         // Trigger deployment effects
         next = triggerEffects(next, 'summon', card, next.currentPlayer);
@@ -2491,12 +2576,40 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!card || card.cardType !== 'magic') return next;
         if (!action.paymentPlan) return next; // paymentPlan is required
 
+        // Stage ③ diagnostic: Log action at applyAction entry
+        if (action.paymentPlan && action.paymentPlan.inheritanceCount > 0) {
+          dbg(DEBUG_VERBOSE, '[STAGE③] use_magic entry:', {
+            type: action.type,
+            handIndex: action.handIndex,
+            cardName: card.name,
+            paymentType: action.paymentPlan.paymentType,
+            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
+            finalCost: action.paymentPlan.finalCost,
+            trashLength: me.trash.length,
+          });
+        }
+
         // Remove card from hand
         me.hand.splice(action.handIndex, 1);
 
-        // Apply inheritance (remove EX cards from trash)
+        // Stage ④ diagnostic: Log inheritance removal
         if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
+          const trashBefore = me.trash.map(c => c.name).join(', ');
+          const toRemove = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id)).map(c => c.name).join(', ');
+
+          // Apply inheritance (remove EX cards from trash)
           me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
+
+          dbg(DEBUG_VERBOSE, '[STAGE④] Inheritance removal (use_magic):', {
+            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
+            trashBefore: trashBefore,
+            removed: toRemove,
+            trashAfter: me.trash.map(c => c.name).join(', '),
+            trashLengthBefore: (trashBefore ? trashBefore.split(',').length : 0),
+            trashLengthAfter: me.trash.length,
+          });
         }
 
         // Pay cost using game's payCost method
@@ -2529,6 +2642,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         me.trash.push(card);
+
+        // Stage ⑤ diagnostic: Log post-use_magic state
+        if (action.paymentPlan.inheritanceCount > 0) {
+          dbg(DEBUG_VERBOSE, '[STAGE⑤] Post-use_magic state:', {
+            cardName: card.name,
+            trashAfterRemoval: me.trash.map(c => c.name).join(', '),
+            trashLength: me.trash.length,
+            playerCores: me.cores,
+            playerSoulCores: me.soulCores,
+          });
+        }
 
         // For Soul Magic Red: skip symbol check when cast with the normal cost (not the soul-core cost)
         const hasSoulMagicRedEffect = isSoulMagicRedCard(card);

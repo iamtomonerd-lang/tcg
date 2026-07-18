@@ -373,6 +373,16 @@ app.post('/api/game/:sessionId/action', (req, res) => {
   } else {
     const actions = session.game.legalActions(session.state);
     action = actions[actionIndex];
+    // Stage ① diagnostic: Log action from legalActions
+    if (action) {
+      dbg(DEBUG_VERBOSE, '[STAGE①] Action from legalActions:', {
+        type: action.type,
+        handIndex: (action as any).handIndex,
+        paymentPlan: (action as any).paymentPlan,
+        useInheritance: (action as any).useInheritance,
+        inheritanceCount: (action as any).inheritanceCount,
+      });
+    }
     // Attach core payment information if provided
     if (action) {
       if (paidRegularCores !== undefined || paidSoulCores !== undefined) {
@@ -402,6 +412,16 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     p0Cores: stateBefore.players[0].cores,
     p1Cores: stateBefore.players[1].cores,
   });
+
+  // Stage ② diagnostic: Log action state before applyAction
+  dbg(DEBUG_VERBOSE, '[STAGE②] Pre-applyAction:', {
+    type: action.type,
+    handIndex: (action as any).handIndex,
+    paymentPlan: (action as any).paymentPlan,
+    useInheritance: (action as any).useInheritance,
+    inheritanceCount: (action as any).inheritanceCount,
+  });
+
   session.state = session.game.applyAction(session.state, action, session.rng);
   dbg(DEBUG_VERBOSE, '[SERVER] After applyAction:', {
     pendingEffectAction: !!session.state.pendingEffectAction,
