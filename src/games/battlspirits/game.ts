@@ -1826,6 +1826,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         ) {
           // Not yet selected: transition to pending state
           const candidates = action.paymentPlan.inheritanceCandidates ?? [];
+
+          // ② Debug: Log pending inheritance selection
+          console.log('[INHERITANCE_PENDING_DEBUG]', {
+            cardName: card.name,
+            inheritanceCount: action.paymentPlan.inheritanceCount,
+            candidates: candidates.map((c: any) => ({ id: c.id, name: c.name })),
+            candidateCount: candidates.length,
+            requiredCount: action.paymentPlan.inheritanceCount,
+            selectedCardIds: [],
+          });
+
           next.pendingInheritanceSelection = {
             cardHandIndex: action.handIndex,
             cardName: card.name,
@@ -2168,6 +2179,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             .slice(0, pending.inheritanceCount)
             .map(c => c.id);
         }
+
+        // ⑤ Debug: Log select_inheritance processing
+        console.log('[INHERITANCE_SELECT_DEBUG]', {
+          cardName: pending.cardName,
+          inheritanceCount: pending.inheritanceCount,
+          candidateCount: pending.inheritanceCandidates.length,
+          actionSelectedIds: action.selectedCardIds,
+          finalSelectedIds: selectedIds,
+          finalSelectedCount: selectedIds.length,
+        });
 
         // Validate selected card count
         if (selectedIds.length !== pending.inheritanceCount) {

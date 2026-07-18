@@ -204,6 +204,23 @@ export class CostResolver {
         // 候補カードを一度だけ取得
         const candidates = getInheritanceCandidates(player.trash, card);
 
+        // ① CostResolver plan generation debug
+        console.log('[INHERITANCE_PLAN_DEBUG]', {
+          cardName: card.name,
+          inheritanceCount: maxInheritanceUse,
+          maxInheritanceCount: maxInheritanceUse,
+          availableEX,
+          reductionRemaining,
+          fieldReduction,
+          card_reductionCost: card.reductionCost,
+          candidates: candidates.map(c => ({ id: c.id, name: c.name })),
+          candidateCount: candidates.length,
+          generatedPlans: Array.from({ length: maxInheritanceUse }, (_, i) => ({
+            exUsed: i + 1,
+            inheritanceCount: i + 1,
+          })),
+        });
+
         // 各 EX 使用数でプランを生成
         for (let exUsed = 1; exUsed <= maxInheritanceUse; exUsed++) {
           const inheritanceCost = Math.max(0, normalCost - exUsed);

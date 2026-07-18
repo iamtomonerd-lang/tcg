@@ -1577,6 +1577,17 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         const selected = selectedInheritanceIds.size;
         const canConfirm = selected === needed;
 
+        // ③ Debug: Log UI state
+        console.log('[INHERITANCE_UI_DEBUG]', {
+          cardName: pending.cardName,
+          candidateCount: candidates.length,
+          candidates: candidates.map(c => ({ id: c.id, name: c.name })),
+          selectedIds: Array.from(selectedInheritanceIds),
+          selectedCount: selected,
+          maxSelectable: needed,
+          canConfirm,
+        });
+
         return (
           <div className="game-over">
             <div className="game-over-content inheritance-selection-content">

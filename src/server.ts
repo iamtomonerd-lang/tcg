@@ -406,6 +406,13 @@ app.post('/api/game/:sessionId/action', (req, res) => {
       // Attach inheritance card selection if provided
       if (selectedInheritanceIds !== undefined && action.type === 'select_inheritance') {
         action.selectedCardIds = selectedInheritanceIds || [];
+
+        // ④ Debug: Log inheritance request
+        console.log('[INHERITANCE_REQUEST_DEBUG]', {
+          actionType: action.type,
+          selectedCardIds: selectedInheritanceIds,
+          selectedCount: (selectedInheritanceIds || []).length,
+        });
       }
     }
   }
