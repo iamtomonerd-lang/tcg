@@ -1804,9 +1804,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         // ③ removeInheritance開始
         if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
-          console.log('[CP③] removeInheritance開始', { toRemove: action.paymentPlan.inheritanceCardIds });
+          const trashBefore = me.trash.map(c => c.name);
+          console.log('[CP③] removeInheritance開始', {
+            trash_before: trashBefore,
+            remove_ids: action.paymentPlan.inheritanceCardIds,
+          });
           // Apply inheritance (remove EX cards from trash)
           me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
+          const trashAfter = me.trash.map(c => c.name);
+          console.log('[CP③] removeInheritance完了', {
+            trash_after: trashAfter,
+          });
         }
 
         // Pay cost using game's payCost method
@@ -1877,7 +1885,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         // ⑤ summon完了
         if ((action as any).paymentPlan?.inheritanceCount > 0) {
-          console.log('[CP⑤] summon完了', { newSpiritIndex, card: card.name });
+          console.log('[CP⑤] summon完了', {
+            field_spirits: me.spirits.map((s, i) => `[${i}]${s.def.name}`),
+            trash: me.trash.map(c => c.name),
+            reserve_cores: me.cores,
+            hand: me.hand.map(c => c.name),
+          });
         }
 
         // A spirit that could not receive all required maintenance cores needs confirmation in main phase
