@@ -285,12 +285,14 @@ app.get('/api/game/:sessionId/actions', (req, res) => {
   const actions = session.game.legalActions(session.state);
 
   // Log inheritance-related actions
-  const inheritActions = actions.filter((a) => a.type === 'summon' && a.useInheritance === true);
+  const inheritActions = actions.filter((a) => (a.type === 'summon' || a.type === 'place_nexus' || a.type === 'use_magic') && a.paymentPlan?.paymentType === 'inheritance');
   if (inheritActions.length > 0) {
     console.log(`[ACTIONS_RESPONSE] Found ${inheritActions.length} inheritance actions`);
     inheritActions.forEach((a, idx) => {
-      const card = session.state.players[session.state.currentPlayer]?.hand[a.handIndex];
-      console.log(`  [${idx}] ${card?.name} (useInheritance: true)`);
+      if (a.type === 'summon' || a.type === 'place_nexus' || a.type === 'use_magic') {
+        const card = session.state.players[session.state.currentPlayer]?.hand[a.handIndex];
+        console.log(`  [${idx}] ${card?.name} (paymentType: inheritance, inheritanceCount: ${a.paymentPlan?.inheritanceCount})`);
+      }
     });
   }
 

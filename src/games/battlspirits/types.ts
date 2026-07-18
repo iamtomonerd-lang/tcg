@@ -243,7 +243,7 @@ export interface GameState {
 export type Action =
   | { type: 'dice_roll'; roll: 1 | 2 | 3 | 4 | 5 | 6 } // Player rolls 1-6 dice
   | { type: 'choose_order'; goFirst: boolean } // Winner chooses to go first or second
-  | { type: 'summon'; handIndex: number; targetNexusIndex?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean }
+  | { type: 'summon'; handIndex: number; targetNexusIndex?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean; paymentPlan?: any }
   | { type: 'add_core'; spiritIndex?: number; nexusIndex?: number; coreType?: 'regular' | 'soul' } // move 1 core from reserve onto a spirit or nexus (level-up)
   | {
       type: 'move_core'; // freely move 1 core between reserve/spirit/nexus (main steps only, via drag & drop)
@@ -253,13 +253,13 @@ export type Action =
       toIndex?: number;
       coreType: 'regular' | 'soul';
     }
-  | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean }
-  | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean }
+  | { type: 'place_nexus'; handIndex: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean; paymentPlan?: any }
+  | { type: 'use_magic'; handIndex: number; targetNexusIndex?: number; targetSpiritIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean; paymentPlan?: any }
   | { type: 'attack'; spiritIndex: number; defendingSpiritIndex?: number; discardCardIndex?: number; effectTargetIndex?: number } // discardCardIndex for effects requiring card selection; effectTargetIndex for effects requiring an own-spirit target (e.g. place_core)
   | { type: 'block'; spiritIndex: number } // ブロック：相手の攻撃に対してスピリットで迎撃
   | { type: 'take_damage' } // ダメージ受け入れ：防御せずにダメージを受ける
   | { type: 'pass' } // end current action phase
-  | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; targetNexusIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean } // activate a flash magic card
+  | { type: 'flash'; handIndex: number; targetCard?: string; targetSpiritIndex?: number; targetNexusIndex?: number; effectValue?: number; coreType?: 'regular' | 'soul'; paidRegularCores?: number; paidSoulCores?: number; useInheritance?: boolean; paymentPlan?: any } // activate a flash magic card
   | { type: 'activate_flash'; sourceType: 'spirit' | 'nexus'; sourceIndex: number; discardCardIndex?: number; targetSpiritIndex?: number } // 【起動：フラッシュ】: pay activation cost (discard/exhaust) ▶ resolve effect
   | { type: 'skip_flash' } // pass on flash opportunity
   | { type: 'select_draw_arrange'; selectedCardIndices?: number[]; arrangedCardIndices?: number[]; cardIndices?: number[] } // arrange and select cards for offering draw

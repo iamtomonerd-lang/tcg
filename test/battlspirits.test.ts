@@ -508,7 +508,7 @@ describe('BP boost durations', () => {
 
     // Flash actions are generated per own-spirit target
     const flashActions = game.legalActions(state).filter((a) => a.type === 'flash');
-    expect(flashActions).toContainEqual({ type: 'flash', handIndex: 0, targetSpiritIndex: 0 });
+    expect(flashActions.some((a) => a.type === 'flash' && a.handIndex === 0 && a.targetSpiritIndex === 0)).toBe(true);
 
     state = game.applyAction(state, flashActions[0]!, new Mulberry32(1));
     expect(state.players[1].spirits[0]!.bpBoost).toBe(3000);
@@ -787,10 +787,10 @@ describe('Attack-time search_deck effects', () => {
     };
 
     const actions = game.legalActions(state);
-    const soulFlash = actions.find(a => a.type === 'flash' && a.coreType === 'soul');
+    const soulFlash = actions.find(a => a.type === 'flash' && a.paymentPlan?.paymentType === 'soulMagic');
     expect(soulFlash).toBeDefined(); // soul-core payment variant is offered
     // Normal payment is NOT affordable, so no normal variant appears
-    expect(actions.some(a => a.type === 'flash' && a.coreType !== 'soul')).toBe(false);
+    expect(actions.some(a => a.type === 'flash' && a.paymentPlan?.paymentType !== 'soulMagic')).toBe(false);
 
     state = game.applyAction(state, soulFlash!, new Mulberry32(1));
 
@@ -822,7 +822,7 @@ describe('Attack-time search_deck effects', () => {
 
     const actions = game.legalActions(state);
     // Soul-core payment variant offered in main phase, targeting the BP8000 spirit (<= 10000)
-    const soulUse = actions.find(a => a.type === 'use_magic' && a.coreType === 'soul' && a.targetSpiritIndex === 0);
+    const soulUse = actions.find(a => a.type === 'use_magic' && a.paymentPlan?.paymentType === 'soulMagic' && a.targetSpiritIndex === 0);
     expect(soulUse).toBeDefined();
 
     // Apply: the BP8000 spirit is destroyed (damageThisTurn survives applyAction's cloneState)
@@ -923,20 +923,21 @@ describe('継召 (inheritance) cost reduction', () => {
 
   it('EXカード1枚(色一致)なら軽減は1のみ、cost 6→5、EXカード1枚除外', () => {
     const state = summonState([gunGata]);
-    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.useInheritance === true);
+    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance');
     expect(inhSummon).toBeDefined();
     expect((game as any).actionCost(state, inhSummon)).toBe(5); // 6 - 1 EX symbol
 
-    const after = game.applyAction(state, { ...inhSummon!, paidRegularCores: 5, paidSoulCores: 0 } as any, new Mulberry32(1));
+    const after = game.applyAction(state, inhSummon!, new Mulberry32(1));
     expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(0); // the 1 EX card is removed from game
   });
 
   it('EXカード3枚(色一致)なら軽減枠3まで使い切る、cost 6→3、EXカード3枚除外', () => {
     const state = summonState([gunGata, { ...gunGata, id: 'g2' }, { ...gunGata, id: 'g3' }]);
-    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.useInheritance === true);
+    const allInheritanceActions = game.legalActions(state).filter((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance') as any[];
+    const inhSummon = allInheritanceActions.reduce((a, b) => (b.paymentPlan?.inheritanceCount ?? 0) > (a.paymentPlan?.inheritanceCount ?? 0) ? b : a);
     expect((game as any).actionCost(state, inhSummon)).toBe(3); // 6 - 3
 
-    const after = game.applyAction(state, { ...inhSummon!, paidRegularCores: 3, paidSoulCores: 0 } as any, new Mulberry32(1));
+    const after = game.applyAction(state, inhSummon, new Mulberry32(1));
     expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(0); // all 3 removed
   });
 
@@ -944,22 +945,23 @@ describe('継召 (inheritance) cost reduction', () => {
     const blueEX = { ...gunGata, id: 'blue_ex', symbolColors: ['blue'] };
     const state = summonState([blueEX]);
     const actions = game.legalActions(state);
-    // No 継召あり variant is offered because it grants no reduction
-    expect(actions.some((a: any) => a.type === 'summon' && a.useInheritance === true)).toBe(false);
+    // No inheritance variant is offered because it grants no reduction
+    expect(actions.some((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance')).toBe(false);
     const plainSummon = actions.find((a: any) => a.type === 'summon');
     expect((game as any).actionCost(state, plainSummon)).toBe(6); // full cost, no reduction
 
-    const after = game.applyAction(state, { ...plainSummon!, paidRegularCores: 6, paidSoulCores: 0 } as any, new Mulberry32(1));
+    const after = game.applyAction(state, plainSummon!, new Mulberry32(1));
     expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(1); // blue EX untouched
   });
 
   it('除外されるEXカード枚数は軽減量と一致する（踏み倒し防止）', () => {
     // 2 red EX cards, reductionCost 3 → inheritance reduces by 2 (limited by card count), removes exactly 2
     const state = summonState([gunGata, { ...gunGata, id: 'g2' }]);
-    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.useInheritance === true);
+    const allInheritanceActions = game.legalActions(state).filter((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance') as any[];
+    const inhSummon = allInheritanceActions.reduce((a, b) => (b.paymentPlan?.inheritanceCount ?? 0) > (a.paymentPlan?.inheritanceCount ?? 0) ? b : a);
     expect((game as any).actionCost(state, inhSummon)).toBe(4); // 6 - 2
 
-    const after = game.applyAction(state, { ...inhSummon!, paidRegularCores: 4, paidSoulCores: 0 } as any, new Mulberry32(1));
+    const after = game.applyAction(state, inhSummon, new Mulberry32(1));
     expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(0); // exactly 2 removed
   });
 
@@ -969,10 +971,11 @@ describe('継召 (inheritance) cost reduction', () => {
     const state = summonState([gunGata, { ...gunGata, id: 'g2' }, { ...gunGata, id: 'g3' }]);
     state.players[0].spirits = [redFieldSpirit];
 
-    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.useInheritance === true);
+    const allInheritanceActions = game.legalActions(state).filter((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance') as any[];
+    const inhSummon = allInheritanceActions.reduce((a, b) => (b.paymentPlan?.inheritanceCount ?? 0) > (a.paymentPlan?.inheritanceCount ?? 0) ? b : a);
     expect((game as any).actionCost(state, inhSummon)).toBe(3); // 6 - 1 (field) - 2 (EX)
 
-    const after = game.applyAction(state, { ...inhSummon!, paidRegularCores: 3, paidSoulCores: 0 } as any, new Mulberry32(1));
+    const after = game.applyAction(state, inhSummon, new Mulberry32(1));
     expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(1); // only 2 of 3 EX cards removed
   });
 
@@ -980,11 +983,11 @@ describe('継召 (inheritance) cost reduction', () => {
     const state = summonState([gunGata]);
     const actions = game.legalActions(state);
     const summons = actions.filter((a: any) => a.type === 'summon');
-    expect(summons.some((a: any) => a.useInheritance === true)).toBe(true);
-    expect(summons.some((a: any) => a.useInheritance === false)).toBe(true);
+    expect(summons.some((a: any) => a.paymentPlan?.paymentType === 'inheritance')).toBe(true);
+    expect(summons.some((a: any) => a.paymentPlan?.paymentType === 'normal')).toBe(true);
     // The two variants have different costs so the UI can present a real choice
-    const inhCost = (game as any).actionCost(state, summons.find((a: any) => a.useInheritance === true));
-    const noInhCost = (game as any).actionCost(state, summons.find((a: any) => a.useInheritance === false));
+    const inhCost = (game as any).actionCost(state, summons.find((a: any) => a.paymentPlan?.paymentType === 'inheritance'));
+    const noInhCost = (game as any).actionCost(state, summons.find((a: any) => a.paymentPlan?.paymentType === 'normal'));
     expect(inhCost).toBe(5);
     expect(noInhCost).toBe(6);
   });
