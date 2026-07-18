@@ -850,14 +850,27 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     if (state.pendingInheritanceSelection) {
       const pending = state.pendingInheritanceSelection;
 
-      // Return single action; UI/AI will fill in selectedCardIds
-      // This prevents combination explosion while keeping action decision in game loop
-      return [
-        {
+      // Generate actions for each inheritance count option (0 to maxInheritanceCount)
+      // This allows AI to choose how many EX cards to use
+      const actions: Action[] = [];
+
+      // Option 0: Don't use inheritance
+      actions.push({
+        type: 'select_inheritance',
+        inheritanceCount: 0,
+        selectedCardIds: [],
+      });
+
+      // Options 1 to maxInheritanceCount: Use inheritance
+      for (let count = 1; count <= pending.maxInheritanceCount; count++) {
+        actions.push({
           type: 'select_inheritance',
-          selectedCardIds: [], // Placeholder; UI/AI will populate
-        },
-      ];
+          inheritanceCount: count,
+          selectedCardIds: [], // Default selection will use first N candidates
+        });
+      }
+
+      return actions;
     }
 
     // Dice roll phase: both players roll dice
