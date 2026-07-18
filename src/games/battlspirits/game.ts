@@ -849,22 +849,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     // Inheritance selection: player must select EX cards from trash
     if (state.pendingInheritanceSelection) {
       const pending = state.pendingInheritanceSelection;
-      const actions: Action[] = [];
 
-      // Generate all possible combinations of selecting inheritanceCount cards from candidates
-      const combinations = this.generateCardCombinations(
-        pending.inheritanceCandidates.map(c => c.id),
-        pending.inheritanceCount
-      );
-
-      for (const combo of combinations) {
-        actions.push({
+      // Return single action; UI/AI will fill in selectedCardIds
+      // This prevents combination explosion while keeping action decision in game loop
+      return [
+        {
           type: 'select_inheritance',
-          selectedCardIds: combo,
-        });
-      }
-
-      return actions;
+          selectedCardIds: [], // Placeholder; UI/AI will populate
+        },
+      ];
     }
 
     // Dice roll phase: both players roll dice
@@ -2156,18 +2149,27 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         const pending = next.pendingInheritanceSelection;
 
+        // If selectedCardIds is empty, use default selection (first N candidates)
+        // This happens when AI/headless mode makes the action without explicit selection
+        let selectedIds = action.selectedCardIds;
+        if (selectedIds.length === 0) {
+          selectedIds = pending.inheritanceCandidates
+            .slice(0, pending.inheritanceCount)
+            .map(c => c.id);
+        }
+
         // Validate selected card count
-        if (action.selectedCardIds.length !== pending.inheritanceCount) {
+        if (selectedIds.length !== pending.inheritanceCount) {
           console.error('[ERROR] Invalid inheritance card selection count', {
             expected: pending.inheritanceCount,
-            received: action.selectedCardIds.length,
+            received: selectedIds.length,
           });
           return next;
         }
 
         // Validate that all selected IDs are in candidates
         const candidateIds = new Set(pending.inheritanceCandidates.map(c => c.id));
-        for (const id of action.selectedCardIds) {
+        for (const id of selectedIds) {
           if (!candidateIds.has(id)) {
             console.error('[ERROR] Selected card not in candidates:', id);
             return next;
@@ -2175,7 +2177,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Update the pending state with selected IDs
-        pending.selectedCardIds = action.selectedCardIds;
+        pending.selectedCardIds = selectedIds;
 
         // Now that selection is complete, re-apply summon with the confirmed inheritanceCardIds
         // Generate a new summon action with the selected card IDs
@@ -2199,7 +2201,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Update the plan with selected card IDs
-        targetPlan.inheritanceCardIds = action.selectedCardIds;
+        targetPlan.inheritanceCardIds = selectedIds;
 
         // Clear pending state
         next.pendingInheritanceSelection = null;
