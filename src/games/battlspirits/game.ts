@@ -2236,32 +2236,20 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           return next;
         }
 
-        // Find the inheritance plan to update it with selected IDs
-        // (Plans are generated fresh each time)
-        const plans = CostResolver.getPaymentPlans(next, summoning, summonCard);
-        let targetPlan = plans.find(p => p.paymentType === 'inheritance' && p.maxInheritanceCount > 0);
+        // Delegate cost finalization to CostResolver
+        // (Encapsulates all cost-calculation rules in one place)
+        const finalPlan = CostResolver.finalizePaymentPlanFromSelection(
+          next,
+          summoning,
+          summonCard,
+          inheritanceCount,
+          selectedIds
+        );
 
-        if (!targetPlan) {
-          console.error('[ERROR] Payment plan not found after selection');
+        if (!finalPlan) {
+          console.error('[ERROR] Failed to finalize payment plan from selection');
           return next;
         }
-
-        // Phase 3: Recalculate cost based on player's inheritance count choice
-        // inheritanceCount determines how much the cost is reduced
-        const fieldReduction = targetPlan.reductions.field;
-        const inheritanceReduction = inheritanceCount; // Player chose to use N EX cards
-        const finalCost = Math.max(0, summonCard.cost - fieldReduction - inheritanceReduction);
-
-        // Create a modified plan with the selected count and cards
-        const finalPlan: PaymentPlan = {
-          ...targetPlan,
-          finalCost,
-          inheritanceCardIds: selectedIds, // Confirmed selections
-          reductions: {
-            ...targetPlan.reductions,
-            inheritance: inheritanceReduction,
-          },
-        };
 
         // Clear pending state
         next.pendingInheritanceSelection = null;

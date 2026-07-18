@@ -357,6 +357,63 @@ export class CostResolver {
   }
 
   /**
+   * プレイヤー選択から最終PaymentPlanを生成（Phase 4: UI統合用）
+   * 継召カード選択後、確定したコストプランを返す
+   */
+  static finalizePaymentPlanFromSelection(
+    state: GameState,
+    player: PlayerState,
+    card: CardDef,
+    inheritanceCount: number,
+    inheritanceCardIds: string[]
+  ): PaymentPlan | null {
+    // 基本プランを取得
+    const basePlan = this.getPaymentPlans(state, player, card).find(
+      p => p.paymentType === 'inheritance' && p.maxInheritanceCount > 0
+    );
+
+    if (!basePlan) {
+      console.error('[ERROR] No inheritance plan available for finalization');
+      return null;
+    }
+
+    // プレイヤーの選択が有効か確認
+    if (inheritanceCount < 0 || inheritanceCount > basePlan.maxInheritanceCount) {
+      console.error('[ERROR] Invalid inheritance count in finalization:', {
+        chosen: inheritanceCount,
+        max: basePlan.maxInheritanceCount,
+      });
+      return null;
+    }
+
+    if (inheritanceCardIds.length !== inheritanceCount) {
+      console.error('[ERROR] Selected card count mismatch:', {
+        expected: inheritanceCount,
+        received: inheritanceCardIds.length,
+      });
+      return null;
+    }
+
+    // コスト再計算
+    const fieldReduction = basePlan.reductions.field;
+    const inheritanceReduction = inheritanceCount;
+    const finalCost = Math.max(0, card.cost - fieldReduction - inheritanceReduction);
+
+    // 最終プランを生成
+    const finalPlan: PaymentPlan = {
+      ...basePlan,
+      finalCost,
+      inheritanceCardIds,
+      reductions: {
+        ...basePlan.reductions,
+        inheritance: inheritanceReduction,
+      },
+    };
+
+    return finalPlan;
+  }
+
+  /**
    * 支払い方法を人間向け文字列で説明
    */
   static explainPayment(card: CardDef, plan: PaymentPlan): string {
