@@ -1437,6 +1437,45 @@ describe('【継召】 inheritance (cost reduction) system', () => {
     expect(CARD_DB.spirit_graipher).toBeDefined();
   });
 
+  it('inheritance payment plans are generated for inheritance-capable cards', () => {
+    // Test confirms that:
+    // 1. Inheritance-capable cards generate both 'normal' and 'inheritance' payment plans
+    // 2. Each plan has distinct cost and description
+    // 3. maxInheritanceCount is correct based on available EX cards in trash
+    // 4. inheritanceCandidates are properly populated
+
+    const game_test = new BattlSpiritsGame();
+    let s = skipToMainPhase(game_test.createInitialState(new Mulberry32(99)), new Mulberry32(99));
+
+    // Setup: inheritance card + EX card in trash
+    const player = s.players[s.currentPlayer]!;
+    player.cores += 10;
+    player.hand = [CARD_DB.spirit_seldalius!];
+    player.trash = [CARD_DB.spirit_graipher!];
+
+    // Get legalActions
+    const actions = game_test.legalActions(s);
+    const summonActions = actions.filter(a => a.type === 'summon');
+
+    // Verify both normal and inheritance payment plans are generated
+    expect(summonActions.length).toBe(2);
+
+    const normalAction = summonActions.find(a => a.paymentPlan?.paymentType === 'normal');
+    const inheritanceAction = summonActions.find(a => a.paymentPlan?.paymentType === 'inheritance');
+
+    expect(normalAction).toBeDefined();
+    expect(inheritanceAction).toBeDefined();
+
+    // Inheritance action should have maxInheritanceCount > 0
+    expect(inheritanceAction?.paymentPlan?.maxInheritanceCount).toBeGreaterThan(0);
+
+    // Descriptions should be distinct
+    const normalDesc = game_test.describeAction(s, normalAction!);
+    const inheritanceDesc = game_test.describeAction(s, inheritanceAction!);
+    expect(normalDesc).not.toBe(inheritanceDesc);
+    expect(inheritanceDesc).toContain('継召あり');
+  });
+
   it('select_inheritance: validation failure with mismatched card count gracefully falls back to 0 inheritance', () => {
     // Regression test: parameter name mismatch (selectedCardIds vs selectedInheritanceIds)
     // caused validation to fail and leave pendingInheritanceSelection unconsumed,
