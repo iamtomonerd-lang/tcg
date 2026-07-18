@@ -846,6 +846,27 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   legalActions(state: GameState): Action[] {
     if (state.result) return [];
 
+    // Inheritance selection: player must select EX cards from trash
+    if (state.pendingInheritanceSelection) {
+      const pending = state.pendingInheritanceSelection;
+      const actions: Action[] = [];
+
+      // Generate all possible combinations of selecting inheritanceCount cards from candidates
+      const combinations = this.generateCardCombinations(
+        pending.inheritanceCandidates.map(c => c.id),
+        pending.inheritanceCount
+      );
+
+      for (const combo of combinations) {
+        actions.push({
+          type: 'select_inheritance',
+          selectedCardIds: combo,
+        });
+      }
+
+      return actions;
+    }
+
     // Dice roll phase: both players roll dice
     if (state.pendingDiceRoll && state.pendingDiceRoll.winner === undefined) {
       // Players roll in sequence: P0 first, then P1, then determine winner
@@ -1794,6 +1815,23 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!card || card.cardType !== 'spirit') return next;
         if (!action.paymentPlan) return next; // paymentPlan is required
 
+        // Check if inheritance selection is needed
+        if (
+          action.paymentPlan.inheritanceCount > 0 &&
+          action.paymentPlan.inheritanceCardIds.length === 0
+        ) {
+          // Not yet selected: transition to pending state
+          const candidates = action.paymentPlan.inheritanceCandidates ?? [];
+          next.pendingInheritanceSelection = {
+            cardHandIndex: action.handIndex,
+            cardName: card.name,
+            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCandidates: candidates,
+            selectedCardIds: [],
+          };
+          return next;
+        }
+
         // ② applyPaymentPlan開始（継承処理開始）
         if (action.paymentPlan.inheritanceCount > 0) {
           console.log('[CP②] applyPaymentPlan開始', { inheritanceCount: action.paymentPlan.inheritanceCount });
@@ -2109,6 +2147,73 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
         // If user cancelled (by adding core), nexus was already placed and core added
         break;
+      }
+      case 'select_inheritance': {
+        if (!next.pendingInheritanceSelection) {
+          console.error('[ERROR] No pendingInheritanceSelection to process');
+          return next;
+        }
+
+        const pending = next.pendingInheritanceSelection;
+
+        // Validate selected card count
+        if (action.selectedCardIds.length !== pending.inheritanceCount) {
+          console.error('[ERROR] Invalid inheritance card selection count', {
+            expected: pending.inheritanceCount,
+            received: action.selectedCardIds.length,
+          });
+          return next;
+        }
+
+        // Validate that all selected IDs are in candidates
+        const candidateIds = new Set(pending.inheritanceCandidates.map(c => c.id));
+        for (const id of action.selectedCardIds) {
+          if (!candidateIds.has(id)) {
+            console.error('[ERROR] Selected card not in candidates:', id);
+            return next;
+          }
+        }
+
+        // Update the pending state with selected IDs
+        pending.selectedCardIds = action.selectedCardIds;
+
+        // Now that selection is complete, re-apply summon with the confirmed inheritanceCardIds
+        // Generate a new summon action with the selected card IDs
+        const summoning = next.players[next.currentPlayer]!;
+        const summonCard = summoning.hand[pending.cardHandIndex];
+        if (!summonCard) {
+          console.error('[ERROR] Summon card not found at hand index');
+          return next;
+        }
+
+        // Find the payment plan again to update it with selected IDs
+        // (We need to re-fetch plans since they're generated fresh)
+        const plans = CostResolver.getPaymentPlans(next, summoning, summonCard);
+        let targetPlan = plans.find(
+          p => p.inheritanceCount === pending.inheritanceCount && p.paymentType === 'inheritance'
+        );
+
+        if (!targetPlan) {
+          console.error('[ERROR] Payment plan not found after selection');
+          return next;
+        }
+
+        // Update the plan with selected card IDs
+        targetPlan.inheritanceCardIds = action.selectedCardIds;
+
+        // Clear pending state
+        next.pendingInheritanceSelection = null;
+
+        // Now proceed with summon using the updated plan
+        const summonAction: any = {
+          type: 'summon',
+          handIndex: pending.cardHandIndex,
+          paymentPlan: targetPlan,
+        };
+
+        // Recursively call applyAction to complete the summon
+        // Note: rng can be undefined for deterministic actions like summon
+        return this.applyAction(next, summonAction, undefined as any);
       }
       case 'select_effect_target': {
         dbg(DEBUG_VERBOSE, '[GAME] Processing select_effect_target:', {
@@ -3336,8 +3441,31 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'confirm_spirit_depletion': return `CSD${action.proceed ? '1' : '0'}`;
       case 'confirm_nexus_depletion': return `CND${action.proceed ? '1' : '0'}`;
       case 'select_draw_arrange': return 'SDA';
+      case 'select_inheritance': {
+        return `SI${action.selectedCardIds.join('-')}`;
+      }
       default: return '?';
     }
+  }
+
+  /**
+   * Generate all combinations of selecting k items from an array
+   * Used to generate all possible inheritance selections
+   */
+  private generateCardCombinations(cardIds: string[], k: number): string[][] {
+    if (k === 0) return [[]];
+    if (k > cardIds.length) return [];
+    if (k === 1) return cardIds.map(id => [id]);
+
+    const result: string[][] = [];
+    for (let i = 0; i <= cardIds.length - k; i++) {
+      const head = cardIds[i]!;
+      const tail = cardIds.slice(i + 1);
+      for (const combination of this.generateCardCombinations(tail, k - 1)) {
+        result.push([head, ...combination]);
+      }
+    }
+    return result;
   }
 
   describeAction(state: GameState, action: Action): string {
@@ -3513,6 +3641,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
         return `${pending.sourceCard.name}の効果: ${targetName}を対象に選択`;
       }
+      case 'select_inheritance': {
+        if (!state.pendingInheritanceSelection) return '?';
+        const selectedNames = state.pendingInheritanceSelection.inheritanceCandidates
+          .filter(c => action.selectedCardIds.includes(c.id))
+          .map(c => c.name);
+        return `${state.pendingInheritanceSelection.cardName}: EXカード${selectedNames.length}枚を除外（${selectedNames.join('、')}）`;
+      }
       default: return '?';
     }
   }
@@ -3568,6 +3703,15 @@ function cloneState(state: GameState): GameState {
           },
           trigger: state.pendingEffectAction.trigger,
           remainingEffects: state.pendingEffectAction.remainingEffects.slice(),
+        }
+      : null,
+    pendingInheritanceSelection: state.pendingInheritanceSelection
+      ? {
+          cardHandIndex: state.pendingInheritanceSelection.cardHandIndex,
+          cardName: state.pendingInheritanceSelection.cardName,
+          inheritanceCount: state.pendingInheritanceSelection.inheritanceCount,
+          inheritanceCandidates: state.pendingInheritanceSelection.inheritanceCandidates.slice(),
+          selectedCardIds: state.pendingInheritanceSelection.selectedCardIds.slice(),
         }
       : null,
   };

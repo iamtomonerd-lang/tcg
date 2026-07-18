@@ -1096,6 +1096,19 @@ function serializeState(state: GameState) {
           trigger: state.pendingEffectAction.trigger,
         }
       : null,
+    pendingInheritanceSelection: state.pendingInheritanceSelection
+      ? {
+          cardHandIndex: state.pendingInheritanceSelection.cardHandIndex,
+          cardName: state.pendingInheritanceSelection.cardName,
+          inheritanceCount: state.pendingInheritanceSelection.inheritanceCount,
+          inheritanceCandidates: state.pendingInheritanceSelection.inheritanceCandidates.map((c) => ({
+            id: c.id,
+            name: c.name,
+            symbolColors: c.symbolColors || [],
+          })),
+          selectedCardIds: state.pendingInheritanceSelection.selectedCardIds,
+        }
+      : null,
   };
 }
 
