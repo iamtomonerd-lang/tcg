@@ -349,8 +349,9 @@ app.post('/api/game/:sessionId/action', (req, res) => {
 
   // 【調査】POST /api/game/:id/action の Request Payload をそのまま表示
   console.log('[REQUEST_PAYLOAD] 完全な req.body:', JSON.stringify(req.body, null, 2));
+  console.log('[CLIENT ACTION] selectedCardIds:', req.body.selectedCardIds, '| selectedInheritanceIds:', req.body.selectedInheritanceIds);
 
-  const { actionIndex, cardIndices, selectedCardIndices, arrangedCardIndices, coreType, paidRegularCores, paidSoulCores, selectedInheritanceIds, moveCore } = req.body;
+  const { actionIndex, cardIndices, selectedCardIndices, arrangedCardIndices, coreType, paidRegularCores, paidSoulCores, selectedInheritanceIds, selectedCardIds, moveCore } = req.body;
   let action: any;
 
   if (moveCore !== undefined) {
@@ -404,14 +405,16 @@ app.post('/api/game/:sessionId/action', (req, res) => {
         action.coreType = coreType;
       }
       // Attach inheritance card selection if provided
-      if (selectedInheritanceIds !== undefined && action.type === 'select_inheritance') {
-        action.selectedCardIds = selectedInheritanceIds || [];
+      const inheritanceIds = selectedInheritanceIds || selectedCardIds; // Support both parameter names
+      if (inheritanceIds !== undefined && action.type === 'select_inheritance') {
+        action.selectedCardIds = inheritanceIds || [];
+        console.log('[ACTION] select_inheritance - selectedCardIds:', inheritanceIds);
 
         // ④ Debug: Log inheritance request
         console.log('[INHERITANCE_REQUEST_DEBUG]', {
           actionType: action.type,
-          selectedCardIds: selectedInheritanceIds,
-          selectedCount: (selectedInheritanceIds || []).length,
+          selectedCardIds: inheritanceIds,
+          selectedCount: (inheritanceIds || []).length,
         });
       }
     }

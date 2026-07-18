@@ -2196,22 +2196,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // ⑤ Debug: Log select_inheritance processing (Phase 3)
-        console.log('[INHERITANCE_SELECT_DEBUG]', {
-          cardName: pending.cardName,
-          maxInheritanceCount: pending.maxInheritanceCount,
-          playerChosenCount: inheritanceCount,
-          candidateCount: pending.inheritanceCandidates.length,
-          actionSelectedIds: action.selectedCardIds,
-          finalSelectedIds: selectedIds,
-          finalSelectedCount: selectedIds.length,
-        });
+        console.log('[ACTION] select_inheritance handler - chosen:', inheritanceCount, 'cards:', action.selectedCardIds?.length ?? 0);
 
         // Validate selected card count matches player's choice
         if (selectedIds.length !== inheritanceCount) {
-          console.error('[ERROR] Invalid inheritance card selection count', {
-            expected: inheritanceCount,
-            received: selectedIds.length,
-          });
+          console.error('[ACTION] VALIDATION_FAILED: expected', inheritanceCount, 'cards, got', selectedIds.length);
           return next;
         }
 

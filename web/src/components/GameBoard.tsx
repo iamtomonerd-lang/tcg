@@ -93,16 +93,10 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       const actions = data.actions ?? [];
       setLegalActions(actions);
 
-      // Stage ⓪ diagnostic: Log actions received from API
-      if (actions.length > 0) {
-        const actionSummary = actions.map((a: any) => ({
-          type: a.type,
-          paymentPlan: a.paymentPlan,
-          paymentType: a.paymentPlan?.paymentType,
-          inheritanceCount: a.paymentPlan?.inheritanceCount,
-        }));
-        console.log('[STAGE⓪ API_ACTIONS] Total:', actions.length);
-        console.log('[STAGE⓪ API_ACTIONS]', actionSummary);
+      // Log actions received from API
+      const selectInheritanceActions = actions.filter((a: any) => a.type === 'select_inheritance');
+      if (selectInheritanceActions.length > 0) {
+        console.log('[CLIENT ACTION] Received select_inheritance actions:', selectInheritanceActions.length);
       }
     } catch (error) {
       console.error('Failed to fetch actions:', error);
@@ -283,6 +277,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
       }
       if (options?.selectedCardIds !== undefined) {
         body.selectedCardIds = options.selectedCardIds;
+        console.log('[CLIENT ACTION] Sending selectedCardIds:', options.selectedCardIds);
       }
       if (options?.selectedInheritanceIds !== undefined) {
         body.selectedInheritanceIds = options.selectedInheritanceIds;

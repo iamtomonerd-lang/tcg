@@ -215,11 +215,12 @@ export default function InheritanceSelectionModal({
 
   // Reset state when pendingInheritanceSelection changes
   useEffect(() => {
+    console.log('[CLIENT ACTION] InheritanceSelectionModal rendered:', cardName);
     setPhase('count');
     setSelectedCount(0);
     setSelectedCardIds(new Set());
     setExpandedCard(null);
-  }, [pendingInheritanceSelection]);
+  }, [pendingInheritanceSelection, cardName]);
 
   return (
     <div className="inheritance-modal-overlay">
