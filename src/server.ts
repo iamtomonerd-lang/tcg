@@ -1228,6 +1228,7 @@ function serializeState(state: GameState) {
       : null,
     pendingInheritanceSelection: state.pendingInheritanceSelection
       ? {
+          player: state.pendingInheritanceSelection.player,
           cardHandIndex: state.pendingInheritanceSelection.cardHandIndex,
           cardName: state.pendingInheritanceSelection.cardName,
           maxInheritanceCount: state.pendingInheritanceSelection.maxInheritanceCount,
