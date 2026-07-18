@@ -2195,26 +2195,34 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             .map(c => c.id);
         }
 
-        // ⑤ Debug: Log select_inheritance processing (Phase 3)
-        console.log('[ACTION] select_inheritance handler - chosen:', inheritanceCount, 'cards:', action.selectedCardIds?.length ?? 0);
 
         // Validate selected card count matches player's choice
+        let validationFailed = false;
         if (selectedIds.length !== inheritanceCount) {
-          console.error('[ACTION] VALIDATION_FAILED: expected', inheritanceCount, 'cards, got', selectedIds.length);
-          return next;
-        }
-
-        // Validate that all selected IDs are in candidates
-        const candidateIds = new Set(pending.inheritanceCandidates.map(c => c.id));
-        for (const id of selectedIds) {
-          if (!candidateIds.has(id)) {
-            console.error('[ERROR] Selected card not in candidates:', id);
-            return next;
+          console.error('[ACTION] VALIDATION_FAILED: expected', inheritanceCount, 'cards, got', selectedIds.length, '→ Proceeding with 0 inheritance');
+          validationFailed = true;
+        } else {
+          // Validate that all selected IDs are in candidates only if count matched
+          const candidateIds = new Set(pending.inheritanceCandidates.map(c => c.id));
+          for (const id of selectedIds) {
+            if (!candidateIds.has(id)) {
+              console.error('[ERROR] Selected card not in candidates:', id, '→ Proceeding with 0 inheritance');
+              validationFailed = true;
+              break;
+            }
           }
         }
 
+        // On validation failure, reset to inheritance count 0
+        let finalInheritanceCount = inheritanceCount;
+        if (validationFailed) {
+          selectedIds = [];
+          finalInheritanceCount = 0; // Fallback to no inheritance
+          // Do NOT return early; proceed below with empty selection as fallback
+        }
+
         // Update the pending state with selection
-        pending.selectedInheritanceCount = inheritanceCount;
+        pending.selectedInheritanceCount = finalInheritanceCount;
         pending.selectedCardIds = selectedIds;
 
         // Now that selection is complete, re-apply summon with the confirmed inheritanceCardIds
@@ -2231,7 +2239,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           next,
           summoning,
           summonCard,
-          inheritanceCount,
+          finalInheritanceCount,
           selectedIds
         );
 
