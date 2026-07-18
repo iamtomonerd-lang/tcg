@@ -1785,75 +1785,28 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
     switch (action.type) {
       case 'summon': {
+        // ① applyAction開始
+        if ((action as any).paymentPlan?.inheritanceCount > 0) {
+          console.log('[CP①] applyAction開始', { card: me.hand[action.handIndex]?.name });
+        }
+
         const card = me.hand[action.handIndex];
         if (!card || card.cardType !== 'spirit') return next;
         if (!action.paymentPlan) return next; // paymentPlan is required
 
-        // ③ inheritanceCardIds チェック
-        if (action.paymentPlan && action.paymentPlan.inheritanceCount > 0) {
-          console.log('[INHERITANCE③] inheritanceCardIds in action (summon):', {
-            handIndex: action.handIndex,
-            cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
-            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
-            inheritanceCardIds_exists: !!action.paymentPlan.inheritanceCardIds,
-            inheritanceCardIds_length: action.paymentPlan.inheritanceCardIds?.length,
-          });
-        }
-
-        // Stage ③ diagnostic: Log action at applyAction entry
-        if (action.paymentPlan && action.paymentPlan.inheritanceCount > 0) {
-          dbg(DEBUG_VERBOSE, '[STAGE③] summon entry:', {
-            type: action.type,
-            handIndex: action.handIndex,
-            cardName: card.name,
-            paymentType: action.paymentPlan.paymentType,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
-            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
-            finalCost: action.paymentPlan.finalCost,
-            trashLength: me.trash.length,
-          });
+        // ② applyPaymentPlan開始（継承処理開始）
+        if (action.paymentPlan.inheritanceCount > 0) {
+          console.log('[CP②] applyPaymentPlan開始', { inheritanceCount: action.paymentPlan.inheritanceCount });
         }
 
         // Remove card from hand
         me.hand.splice(action.handIndex, 1);
 
-        // ④ removeInheritance 処理開始
+        // ③ removeInheritance開始
         if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
-          console.log('[INHERITANCE④] applyPaymentPlan equivalent - about to remove inheritance cards:', {
-            cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
-            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
-            trashBefore: me.trash.map(c => `${c.name}(${c.id})`),
-          });
-        }
-
-        // ⑤ removeInheritance 実行
-        if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
-          const trashBefore = me.trash.map(c => c.name).join(', ');
-          const toRemove = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id)).map(c => c.name).join(', ');
-
+          console.log('[CP③] removeInheritance開始', { toRemove: action.paymentPlan.inheritanceCardIds });
           // Apply inheritance (remove EX cards from trash)
           me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
-
-          console.log('[INHERITANCE⑤] removeInheritance executed:', {
-            cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
-            removedCards: toRemove,
-            trashLengthBefore: (trashBefore ? trashBefore.split(',').length : 0),
-            trashLengthAfter: me.trash.length,
-            trashAfter: me.trash.map(c => c.name).join(', '),
-          });
-
-          dbg(DEBUG_VERBOSE, '[STAGE④] Inheritance removal (summon):', {
-            inheritanceCount: action.paymentPlan.inheritanceCount,
-            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
-            trashBefore: trashBefore,
-            removed: toRemove,
-            trashAfter: me.trash.map(c => c.name).join(', '),
-            trashLengthBefore: (trashBefore ? trashBefore.split(',').length : 0),
-            trashLengthAfter: me.trash.length,
-          });
         }
 
         // Pay cost using game's payCost method
@@ -1878,6 +1831,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             }
           }
         }
+
+        // ④ payCost終了
+        if ((action as any).paymentPlan?.inheritanceCount > 0) {
+          console.log('[CP④] payCost終了', { finalCost: action.paymentPlan.finalCost });
+        }
+
         // Paying from field spirits may drain one to 0 cores: in main phase ask
         // for confirmation (消滅前の処理) instead of silently removing it. The
         // confirmation dialog appears after the summon completes; the drained
@@ -1916,29 +1875,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const newSpiritIndex = me.spirits.length;
         me.spirits.push(spirit);
 
-        // Stage ⑤ diagnostic: Log post-summon state
-        if (action.paymentPlan.inheritanceCount > 0) {
-          dbg(DEBUG_VERBOSE, '[STAGE⑤] Post-summon state:', {
-            newSpiritIndex,
-            spiritName: card.name,
-            trashAfterRemoval: me.trash.map(c => c.name).join(', '),
-            trashLength: me.trash.length,
-            coresOnSpirit: placedRegular,
-            soulCoresOnSpirit: placedSoul,
-            playerCores: me.cores,
-            playerSoulCores: me.soulCores,
-          });
-        }
-
-        // ⑥ summon 完了
-        if (action.paymentPlan.inheritanceCount > 0) {
-          console.log('[INHERITANCE⑥] summon completed:', {
-            cardName: card.name,
-            newSpiritIndex,
-            inheritanceUsed: action.paymentPlan.inheritanceCount,
-            spiritOnFieldName: me.spirits[newSpiritIndex]?.def?.name,
-            trashFinal: me.trash.map(c => c.name).join(', '),
-          });
+        // ⑤ summon完了
+        if ((action as any).paymentPlan?.inheritanceCount > 0) {
+          console.log('[CP⑤] summon完了', { newSpiritIndex, card: card.name });
         }
 
         // A spirit that could not receive all required maintenance cores needs confirmation in main phase
