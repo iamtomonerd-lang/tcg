@@ -347,6 +347,9 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     }
   }
 
+  // 【調査】POST /api/game/:id/action の Request Payload をそのまま表示
+  console.log('[REQUEST_PAYLOAD] 完全な req.body:', JSON.stringify(req.body, null, 2));
+
   const { actionIndex, cardIndices, selectedCardIndices, arrangedCardIndices, coreType, paidRegularCores, paidSoulCores, moveCore } = req.body;
   let action: any;
 
