@@ -497,23 +497,36 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
     isTerminal: session.game.isTerminal(session.state),
   });
 
+  console.log('[AI_DEBUG_1] After AI_TURN_START log');
+
   if (session.game.isTerminal(session.state)) {
+    console.log('[AI_DEBUG_2] Game is terminal, returning');
     return res.status(400).json({ error: 'Game is already terminal' });
   }
+
+  console.log('[AI_DEBUG_3] After terminal check');
 
   // During mulligan, use pendingMulligan.player instead of currentPlayer
   const decidingPlayer = session.state.pendingMulligan
     ? session.state.pendingMulligan.player
     : session.game.currentPlayer(session.state);
 
+  console.log('[AI_DEBUG_4] Decided player:', decidingPlayer);
+
   const agent = decidingPlayer === 0 ? session.p0Agent : session.p1Agent;
 
+  console.log('[AI_DEBUG_5] Got agent:', !!agent);
+
   if (!agent) {
+    console.log('[AI_DEBUG_6] No agent for player', decidingPlayer);
     return res.status(400).json({ error: 'Current player is human; use /action instead' });
   }
 
+  console.log('[AI_DEBUG_7] Agent exists');
+
   // CRITICAL: If pendingInheritanceSelection exists, only human player can proceed
   // AI must not execute select_inheritance automatically
+  console.log('[AI_DEBUG_8] About to check pendingInheritanceSelection');
   if (session.state.pendingInheritanceSelection) {
     console.log('[AI_GUARD_TRIGGERED]', {
       reason: 'Waiting for player inheritance selection',
@@ -525,9 +538,13 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
     return res.status(400).json({ error: 'Waiting for player inheritance selection; use /action instead' });
   }
 
+  console.log('[AI_DEBUG_9] No pending inheritance selection');
+
   // Get best action from AI (describe BEFORE applying — indices refer to the pre-action state)
+  console.log('[AI_DEBUG] About to call legalActions()...');
   try {
     const legalActionsDebug = session.game.legalActions(session.state);
+    console.log('[AI_DEBUG] legalActions() returned:', legalActionsDebug.length, 'actions');
     const actionTypes = legalActionsDebug.map((a: any) => a.type);
     console.log('[AI_LOOP_DEBUG]', {
       decidingPlayer,

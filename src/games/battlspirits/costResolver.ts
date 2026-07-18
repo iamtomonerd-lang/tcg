@@ -470,6 +470,7 @@ export class CostResolver {
       ...basePlan,
       finalCost,
       inheritanceCardIds: validSelectedIds, // 検証済みのIDのみ
+      inheritanceCandidates: undefined, // 【重要】選択完了を示すため、候補リストを削除
       reductions: {
         ...basePlan.reductions,
         inheritance: inheritanceReduction,

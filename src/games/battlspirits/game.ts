@@ -1820,12 +1820,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!action.paymentPlan) return next; // paymentPlan is required
 
         // Check if inheritance selection is needed (Phase 3 refactoring)
+        // Selection is pending if inheritanceCandidates exists (not removed by finalizePaymentPlanFromSelection)
         if (
           action.paymentPlan.maxInheritanceCount > 0 &&
-          action.paymentPlan.inheritanceCardIds.length === 0
+          action.paymentPlan.inheritanceCandidates &&
+          action.paymentPlan.inheritanceCandidates.length > 0
         ) {
           // Not yet selected: transition to pending state with two-phase flow
-          const candidates = action.paymentPlan.inheritanceCandidates ?? [];
+          const candidates = action.paymentPlan.inheritanceCandidates;
 
           // ② Debug: Log pending inheritance selection
           console.log('[INHERITANCE_PENDING_DEBUG]', {
