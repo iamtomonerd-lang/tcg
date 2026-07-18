@@ -1111,7 +1111,8 @@ function serializeState(state: GameState) {
       ? {
           cardHandIndex: state.pendingInheritanceSelection.cardHandIndex,
           cardName: state.pendingInheritanceSelection.cardName,
-          inheritanceCount: state.pendingInheritanceSelection.inheritanceCount,
+          maxInheritanceCount: state.pendingInheritanceSelection.maxInheritanceCount,
+          selectedInheritanceCount: state.pendingInheritanceSelection.selectedInheritanceCount,
           inheritanceCandidates: state.pendingInheritanceSelection.inheritanceCandidates.map((c) => ({
             id: c.id,
             name: c.name,

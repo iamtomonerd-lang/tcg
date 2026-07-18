@@ -1152,12 +1152,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             actions.push(action);
 
             // ③ Inheritance plan in action check
-            if (plan.inheritanceCount > 0) {
+            if (plan.maxInheritanceCount > 0) {
               console.log('[INHERITANCE③] Action with inheritance generated (summon):', {
                 cardName: card.name,
                 handIndex: i,
                 actionIndex: actions.length - 1,
-                inheritanceCount: plan.inheritanceCount,
+                maxInheritanceCount: plan.maxInheritanceCount,
                 inheritanceCardIds: plan.inheritanceCardIds,
               });
             }
@@ -1170,12 +1170,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             actions.push(action);
 
             // ③ Inheritance plan in action check
-            if (plan.inheritanceCount > 0) {
+            if (plan.maxInheritanceCount > 0) {
               console.log('[INHERITANCE③] Action with inheritance generated (place_nexus):', {
                 cardName: card.name,
                 handIndex: i,
                 actionIndex: actions.length - 1,
-                inheritanceCount: plan.inheritanceCount,
+                maxInheritanceCount: plan.maxInheritanceCount,
                 inheritanceCardIds: plan.inheritanceCardIds,
               });
             }
@@ -1511,7 +1511,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       me.hand.splice(action.handIndex, 1);
 
       // Apply inheritance (remove EX cards from trash)
-      if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
+      if (action.paymentPlan.inheritanceCardIds.length > 0) {
         me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
       }
 
@@ -1811,7 +1811,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     switch (action.type) {
       case 'summon': {
         // ① applyAction開始
-        if ((action as any).paymentPlan?.inheritanceCount > 0) {
+        if ((action as any).paymentPlan?.maxInheritanceCount > 0) {
           console.log('[CP①] applyAction開始', { card: me.hand[action.handIndex]?.name });
         }
 
@@ -1819,28 +1819,29 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!card || card.cardType !== 'spirit') return next;
         if (!action.paymentPlan) return next; // paymentPlan is required
 
-        // Check if inheritance selection is needed
+        // Check if inheritance selection is needed (Phase 3 refactoring)
         if (
-          action.paymentPlan.inheritanceCount > 0 &&
+          action.paymentPlan.maxInheritanceCount > 0 &&
           action.paymentPlan.inheritanceCardIds.length === 0
         ) {
-          // Not yet selected: transition to pending state
+          // Not yet selected: transition to pending state with two-phase flow
           const candidates = action.paymentPlan.inheritanceCandidates ?? [];
 
           // ② Debug: Log pending inheritance selection
           console.log('[INHERITANCE_PENDING_DEBUG]', {
             cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            maxInheritanceCount: action.paymentPlan.maxInheritanceCount,
             candidates: candidates.map((c: any) => ({ id: c.id, name: c.name })),
             candidateCount: candidates.length,
-            requiredCount: action.paymentPlan.inheritanceCount,
+            maxInheritanceCapability: action.paymentPlan.maxInheritanceCount,
             selectedCardIds: [],
           });
 
           next.pendingInheritanceSelection = {
             cardHandIndex: action.handIndex,
             cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            maxInheritanceCount: action.paymentPlan.maxInheritanceCount,
+            selectedInheritanceCount: 0,
             inheritanceCandidates: candidates,
             selectedCardIds: [],
           };
@@ -1848,15 +1849,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // ② applyPaymentPlan開始（継承処理開始）
-        if (action.paymentPlan.inheritanceCount > 0) {
-          console.log('[CP②] applyPaymentPlan開始', { inheritanceCount: action.paymentPlan.inheritanceCount });
+        if (action.paymentPlan.maxInheritanceCount > 0) {
+          console.log('[CP②] applyPaymentPlan開始', { maxInheritanceCount: action.paymentPlan.maxInheritanceCount });
         }
 
         // Remove card from hand
         me.hand.splice(action.handIndex, 1);
 
         // ③ removeInheritance開始
-        if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
+        if (action.paymentPlan.inheritanceCardIds.length > 0) {
           const trashBefore = me.trash.map(c => c.name);
           console.log('[CP③] removeInheritance開始', {
             trash_before: trashBefore,
@@ -1894,7 +1895,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // ④ payCost終了
-        if ((action as any).paymentPlan?.inheritanceCount > 0) {
+        if ((action as any).paymentPlan?.maxInheritanceCount > 0) {
           console.log('[CP④] payCost終了', { finalCost: action.paymentPlan.finalCost });
         }
 
@@ -1937,7 +1938,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.spirits.push(spirit);
 
         // ⑤ summon完了
-        if ((action as any).paymentPlan?.inheritanceCount > 0) {
+        if ((action as any).paymentPlan?.maxInheritanceCount > 0) {
           console.log('[CP⑤] summon完了', {
             field_spirits: me.spirits.map((s, i) => `[${i}]${s.def.name}`),
             trash: me.trash.map(c => c.name),
@@ -2171,29 +2172,44 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         const pending = next.pendingInheritanceSelection;
 
+        // Phase 3: Two-phase selection flow
+        // action.inheritanceCount = player's choice of how many to use (1 to maxInheritanceCount)
+        // action.selectedCardIds = which cards to use
+        const inheritanceCount = action.inheritanceCount ?? 0;
+
+        // Validate player's count choice against capability
+        if (inheritanceCount < 0 || inheritanceCount > pending.maxInheritanceCount) {
+          console.error('[ERROR] Invalid inheritance count choice', {
+            chosen: inheritanceCount,
+            max: pending.maxInheritanceCount,
+          });
+          return next;
+        }
+
         // If selectedCardIds is empty or undefined, use default selection (first N candidates)
         // This happens when AI/headless mode makes the action without explicit selection
         let selectedIds = action.selectedCardIds || [];
-        if (selectedIds.length === 0) {
+        if (selectedIds.length === 0 && inheritanceCount > 0) {
           selectedIds = pending.inheritanceCandidates
-            .slice(0, pending.inheritanceCount)
+            .slice(0, inheritanceCount)
             .map(c => c.id);
         }
 
-        // ⑤ Debug: Log select_inheritance processing
+        // ⑤ Debug: Log select_inheritance processing (Phase 3)
         console.log('[INHERITANCE_SELECT_DEBUG]', {
           cardName: pending.cardName,
-          inheritanceCount: pending.inheritanceCount,
+          maxInheritanceCount: pending.maxInheritanceCount,
+          playerChosenCount: inheritanceCount,
           candidateCount: pending.inheritanceCandidates.length,
           actionSelectedIds: action.selectedCardIds,
           finalSelectedIds: selectedIds,
           finalSelectedCount: selectedIds.length,
         });
 
-        // Validate selected card count
-        if (selectedIds.length !== pending.inheritanceCount) {
+        // Validate selected card count matches player's choice
+        if (selectedIds.length !== inheritanceCount) {
           console.error('[ERROR] Invalid inheritance card selection count', {
-            expected: pending.inheritanceCount,
+            expected: inheritanceCount,
             received: selectedIds.length,
           });
           return next;
@@ -2208,11 +2224,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
         }
 
-        // Update the pending state with selected IDs
+        // Update the pending state with selection
+        pending.selectedInheritanceCount = inheritanceCount;
         pending.selectedCardIds = selectedIds;
 
         // Now that selection is complete, re-apply summon with the confirmed inheritanceCardIds
-        // Generate a new summon action with the selected card IDs
         const summoning = next.players[next.currentPlayer]!;
         const summonCard = summoning.hand[pending.cardHandIndex];
         if (!summonCard) {
@@ -2220,20 +2236,32 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           return next;
         }
 
-        // Find the payment plan again to update it with selected IDs
-        // (We need to re-fetch plans since they're generated fresh)
+        // Find the inheritance plan to update it with selected IDs
+        // (Plans are generated fresh each time)
         const plans = CostResolver.getPaymentPlans(next, summoning, summonCard);
-        let targetPlan = plans.find(
-          p => p.inheritanceCount === pending.inheritanceCount && p.paymentType === 'inheritance'
-        );
+        let targetPlan = plans.find(p => p.paymentType === 'inheritance' && p.maxInheritanceCount > 0);
 
         if (!targetPlan) {
           console.error('[ERROR] Payment plan not found after selection');
           return next;
         }
 
-        // Update the plan with selected card IDs
-        targetPlan.inheritanceCardIds = selectedIds;
+        // Phase 3: Recalculate cost based on player's inheritance count choice
+        // inheritanceCount determines how much the cost is reduced
+        const fieldReduction = targetPlan.reductions.field;
+        const inheritanceReduction = inheritanceCount; // Player chose to use N EX cards
+        const finalCost = Math.max(0, summonCard.cost - fieldReduction - inheritanceReduction);
+
+        // Create a modified plan with the selected count and cards
+        const finalPlan: PaymentPlan = {
+          ...targetPlan,
+          finalCost,
+          inheritanceCardIds: selectedIds, // Confirmed selections
+          reductions: {
+            ...targetPlan.reductions,
+            inheritance: inheritanceReduction,
+          },
+        };
 
         // Clear pending state
         next.pendingInheritanceSelection = null;
@@ -2242,7 +2270,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const summonAction: any = {
           type: 'summon',
           handIndex: pending.cardHandIndex,
-          paymentPlan: targetPlan,
+          paymentPlan: finalPlan,
         };
 
         // Recursively call applyAction to complete the summon
@@ -2604,24 +2632,24 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!action.paymentPlan) return next; // paymentPlan is required
 
         // ③ inheritanceCardIds チェック
-        if (action.paymentPlan && action.paymentPlan.inheritanceCount > 0) {
+        if (action.paymentPlan && action.paymentPlan.maxInheritanceCount > 0) {
           console.log('[INHERITANCE③] inheritanceCardIds in action (place_nexus):', {
             handIndex: action.handIndex,
             cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            maxInheritanceCount: action.paymentPlan.maxInheritanceCount,
             inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
             inheritanceCardIds_length: action.paymentPlan.inheritanceCardIds?.length,
           });
         }
 
         // Stage ③ diagnostic: Log action at applyAction entry
-        if (action.paymentPlan && action.paymentPlan.inheritanceCount > 0) {
+        if (action.paymentPlan && action.paymentPlan.maxInheritanceCount > 0) {
           dbg(DEBUG_VERBOSE, '[STAGE③] place_nexus entry:', {
             type: action.type,
             handIndex: action.handIndex,
             cardName: card.name,
             paymentType: action.paymentPlan.paymentType,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            maxInheritanceCount: action.paymentPlan.maxInheritanceCount,
             inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
             finalCost: action.paymentPlan.finalCost,
             trashLength: me.trash.length,
@@ -2632,16 +2660,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.hand.splice(action.handIndex, 1);
 
         // ④ removeInheritance 処理開始
-        if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
+        if (action.paymentPlan.inheritanceCardIds.length > 0) {
           console.log('[INHERITANCE④] applyPaymentPlan equivalent - about to remove inheritance cards (place_nexus):', {
             cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardsCount: action.paymentPlan.inheritanceCardIds.length,
             inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
           });
         }
 
         // ⑤ removeInheritance 実行
-        if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
+        if (action.paymentPlan.inheritanceCardIds.length > 0) {
           const trashBefore = me.trash.map(c => c.name).join(', ');
           const toRemove = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id)).map(c => c.name).join(', ');
 
@@ -2650,13 +2678,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
           console.log('[INHERITANCE⑤] removeInheritance executed (place_nexus):', {
             cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardsCount: action.paymentPlan.inheritanceCardIds.length,
             removedCards: toRemove,
             trashLengthAfter: me.trash.length,
           });
 
           dbg(DEBUG_VERBOSE, '[STAGE④] Inheritance removal (place_nexus):', {
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardsCount: action.paymentPlan.inheritanceCardIds.length,
             inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
             trashBefore: trashBefore,
             removed: toRemove,
@@ -2738,7 +2766,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.nexuses.push(nexus);
 
         // Stage ⑤ diagnostic: Log post-place_nexus state
-        if (action.paymentPlan.inheritanceCount > 0) {
+        if (action.paymentPlan.maxInheritanceCount > 0) {
           dbg(DEBUG_VERBOSE, '[STAGE⑤] Post-place_nexus state:', {
             nexusIndex,
             nexusName: card.name,
@@ -2752,11 +2780,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // ⑥ place_nexus 完了
-        if (action.paymentPlan.inheritanceCount > 0) {
+        if (action.paymentPlan.inheritanceCardIds.length > 0) {
           console.log('[INHERITANCE⑥] place_nexus completed:', {
             cardName: card.name,
             nexusIndex,
-            inheritanceUsed: action.paymentPlan.inheritanceCount,
+            inheritanceCardsUsed: action.paymentPlan.inheritanceCardIds.length,
             nexusOnFieldName: me.nexuses[nexusIndex]?.def?.name,
           });
         }
@@ -2771,24 +2799,24 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (!action.paymentPlan) return next; // paymentPlan is required
 
         // ③ inheritanceCardIds チェック
-        if (action.paymentPlan && action.paymentPlan.inheritanceCount > 0) {
+        if (action.paymentPlan && action.paymentPlan.maxInheritanceCount > 0) {
           console.log('[INHERITANCE③] inheritanceCardIds in action (use_magic):', {
             handIndex: action.handIndex,
             cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            maxInheritanceCount: action.paymentPlan.maxInheritanceCount,
             inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
             inheritanceCardIds_length: action.paymentPlan.inheritanceCardIds?.length,
           });
         }
 
         // Stage ③ diagnostic: Log action at applyAction entry
-        if (action.paymentPlan && action.paymentPlan.inheritanceCount > 0) {
+        if (action.paymentPlan && action.paymentPlan.maxInheritanceCount > 0) {
           dbg(DEBUG_VERBOSE, '[STAGE③] use_magic entry:', {
             type: action.type,
             handIndex: action.handIndex,
             cardName: card.name,
             paymentType: action.paymentPlan.paymentType,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            maxInheritanceCount: action.paymentPlan.maxInheritanceCount,
             inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
             finalCost: action.paymentPlan.finalCost,
             trashLength: me.trash.length,
@@ -2799,16 +2827,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.hand.splice(action.handIndex, 1);
 
         // ④ removeInheritance 処理開始
-        if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
+        if (action.paymentPlan.inheritanceCardIds.length > 0) {
           console.log('[INHERITANCE④] applyPaymentPlan equivalent - about to remove inheritance cards (use_magic):', {
             cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardsCount: action.paymentPlan.inheritanceCardIds.length,
             inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
           });
         }
 
         // ⑤ removeInheritance 実行
-        if (action.paymentPlan.inheritanceCount > 0 && action.paymentPlan.inheritanceCardIds.length > 0) {
+        if (action.paymentPlan.inheritanceCardIds.length > 0) {
           const trashBefore = me.trash.map(c => c.name).join(', ');
           const toRemove = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id)).map(c => c.name).join(', ');
 
@@ -2817,13 +2845,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
           console.log('[INHERITANCE⑤] removeInheritance executed (use_magic):', {
             cardName: card.name,
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardsCount: action.paymentPlan.inheritanceCardIds.length,
             removedCards: toRemove,
             trashLengthAfter: me.trash.length,
           });
 
           dbg(DEBUG_VERBOSE, '[STAGE④] Inheritance removal (use_magic):', {
-            inheritanceCount: action.paymentPlan.inheritanceCount,
+            inheritanceCardsCount: action.paymentPlan.inheritanceCardIds.length,
             inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
             trashBefore: trashBefore,
             removed: toRemove,
@@ -2865,7 +2893,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.trash.push(card);
 
         // Stage ⑤ diagnostic: Log post-use_magic state
-        if (action.paymentPlan.inheritanceCount > 0) {
+        if (action.paymentPlan.maxInheritanceCount > 0) {
           dbg(DEBUG_VERBOSE, '[STAGE⑤] Post-use_magic state:', {
             cardName: card.name,
             trashAfterRemoval: me.trash.map(c => c.name).join(', '),
@@ -2876,10 +2904,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // ⑥ use_magic 完了
-        if (action.paymentPlan.inheritanceCount > 0) {
+        if (action.paymentPlan.inheritanceCardIds.length > 0) {
           console.log('[INHERITANCE⑥] use_magic completed:', {
             cardName: card.name,
-            inheritanceUsed: action.paymentPlan.inheritanceCount,
+            inheritanceCardsUsed: action.paymentPlan.inheritanceCardIds.length,
             trashAfter: me.trash.map(c => c.name).join(', '),
           });
         }
@@ -3513,7 +3541,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Only show payment cost, not Lv1 placement cost. Reflect whether this
         // particular action uses 継召 so the choice dialog can distinguish variants.
         const useInh = action.paymentPlan
-          ? action.paymentPlan.inheritanceCount > 0
+          ? action.paymentPlan.inheritanceCardIds.length > 0 || action.paymentPlan.maxInheritanceCount > 0
           : action.useInheritance !== false;
         const cost = card ? this.effectiveCostWithFlag(me, card, useInh) : 0;
         const inhLabel = card?.inheritance && useInh ? '・継召あり' : card?.inheritance ? '・継召なし' : '';
@@ -3546,7 +3574,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'place_nexus': {
         const card = me.hand[action.handIndex];
         const useInh = action.paymentPlan
-          ? action.paymentPlan.inheritanceCount > 0
+          ? action.paymentPlan.inheritanceCardIds.length > 0 || action.paymentPlan.maxInheritanceCount > 0
           : action.useInheritance !== false;
         const cost = card ? this.effectiveCostWithFlag(me, card, useInh) : 0;
         const inhLabel = card?.inheritance && useInh ? '・継召あり' : card?.inheritance ? '・継召なし' : '';
@@ -3559,7 +3587,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           desc += `（ソウルコア払い）`;
         } else if (card?.inheritance) {
           const useInh = action.paymentPlan
-            ? action.paymentPlan.inheritanceCount > 0
+            ? action.paymentPlan.inheritanceCardIds.length > 0 || action.paymentPlan.maxInheritanceCount > 0
             : action.useInheritance !== false;
           desc += useInh ? `（継召あり）` : `（継召なし）`;
         }
@@ -3743,7 +3771,8 @@ function cloneState(state: GameState): GameState {
       ? {
           cardHandIndex: state.pendingInheritanceSelection.cardHandIndex,
           cardName: state.pendingInheritanceSelection.cardName,
-          inheritanceCount: state.pendingInheritanceSelection.inheritanceCount,
+          maxInheritanceCount: state.pendingInheritanceSelection.maxInheritanceCount,
+          selectedInheritanceCount: state.pendingInheritanceSelection.selectedInheritanceCount,
           inheritanceCandidates: state.pendingInheritanceSelection.inheritanceCandidates.slice(),
           selectedCardIds: state.pendingInheritanceSelection.selectedCardIds.slice(),
         }

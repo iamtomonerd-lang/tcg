@@ -931,10 +931,12 @@ describe('継召 (inheritance) cost reduction', () => {
     let after = game.applyAction(state, inhSummon!, new Mulberry32(1));
     expect(after.pendingInheritanceSelection).toBeDefined();
 
-    // Now select the EX card to remove
+    // Now select the EX card to remove - Phase 3: include inheritanceCount
+    const candidates = after.pendingInheritanceSelection?.inheritanceCandidates ?? [];
     const selectAction = {
       type: 'select_inheritance' as const,
-      selectedCardIds: (after.pendingInheritanceSelection?.inheritanceCandidates ?? []).map(c => c.id),
+      inheritanceCount: 1, // Player chooses to use 1 EX card
+      selectedCardIds: candidates.slice(0, 1).map(c => c.id),
     };
     after = game.applyAction(after, selectAction, new Mulberry32(1));
     expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(0); // the 1 EX card is removed from game
@@ -942,16 +944,18 @@ describe('継召 (inheritance) cost reduction', () => {
 
   it('EXカード3枚(色一致)なら軽減枠3まで使い切る、cost 6→3、EXカード3枚除外', () => {
     const state = summonState([gunGata, { ...gunGata, id: 'g2' }, { ...gunGata, id: 'g3' }]);
-    const allInheritanceActions = game.legalActions(state).filter((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance') as any[];
-    const inhSummon = allInheritanceActions.reduce((a, b) => (b.paymentPlan?.inheritanceCount ?? 0) > (a.paymentPlan?.inheritanceCount ?? 0) ? b : a);
+    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance') as any;
+    expect(inhSummon).toBeDefined();
     expect((game as any).actionCost(state, inhSummon)).toBe(3); // 6 - 3
 
     let after = game.applyAction(state, inhSummon, new Mulberry32(1));
     expect(after.pendingInheritanceSelection).toBeDefined();
 
+    const candidates = after.pendingInheritanceSelection?.inheritanceCandidates ?? [];
     const selectAction = {
       type: 'select_inheritance' as const,
-      selectedCardIds: (after.pendingInheritanceSelection?.inheritanceCandidates ?? []).slice(0, inhSummon.paymentPlan.inheritanceCount).map(c => c.id),
+      inheritanceCount: inhSummon.paymentPlan.maxInheritanceCount, // Use maximum possible (3)
+      selectedCardIds: candidates.slice(0, inhSummon.paymentPlan.maxInheritanceCount).map(c => c.id),
     };
     after = game.applyAction(after, selectAction, new Mulberry32(1));
     expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(0); // all 3 removed
@@ -973,16 +977,19 @@ describe('継召 (inheritance) cost reduction', () => {
   it('除外されるEXカード枚数は軽減量と一致する（踏み倒し防止）', () => {
     // 2 red EX cards, reductionCost 3 → inheritance reduces by 2 (limited by card count), removes exactly 2
     const state = summonState([gunGata, { ...gunGata, id: 'g2' }]);
-    const allInheritanceActions = game.legalActions(state).filter((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance') as any[];
-    const inhSummon = allInheritanceActions.reduce((a, b) => (b.paymentPlan?.inheritanceCount ?? 0) > (a.paymentPlan?.inheritanceCount ?? 0) ? b : a);
+    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance') as any;
+    expect(inhSummon).toBeDefined();
     expect((game as any).actionCost(state, inhSummon)).toBe(4); // 6 - 2
 
     let after = game.applyAction(state, inhSummon, new Mulberry32(1));
     expect(after.pendingInheritanceSelection).toBeDefined();
 
+    const candidates = after.pendingInheritanceSelection?.inheritanceCandidates ?? [];
+    const maxInheritance = inhSummon.paymentPlan.maxInheritanceCount;
     const selectAction = {
       type: 'select_inheritance' as const,
-      selectedCardIds: (after.pendingInheritanceSelection?.inheritanceCandidates ?? []).slice(0, inhSummon.paymentPlan.inheritanceCount).map(c => c.id),
+      inheritanceCount: maxInheritance, // Use maximum (2 in this case)
+      selectedCardIds: candidates.slice(0, maxInheritance).map(c => c.id),
     };
     after = game.applyAction(after, selectAction, new Mulberry32(1));
     expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(0); // exactly 2 removed
@@ -994,16 +1001,19 @@ describe('継召 (inheritance) cost reduction', () => {
     const state = summonState([gunGata, { ...gunGata, id: 'g2' }, { ...gunGata, id: 'g3' }]);
     state.players[0].spirits = [redFieldSpirit];
 
-    const allInheritanceActions = game.legalActions(state).filter((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance') as any[];
-    const inhSummon = allInheritanceActions.reduce((a, b) => (b.paymentPlan?.inheritanceCount ?? 0) > (a.paymentPlan?.inheritanceCount ?? 0) ? b : a);
+    const inhSummon = game.legalActions(state).find((a: any) => a.type === 'summon' && a.paymentPlan?.paymentType === 'inheritance') as any;
+    expect(inhSummon).toBeDefined();
     expect((game as any).actionCost(state, inhSummon)).toBe(3); // 6 - 1 (field) - 2 (EX)
 
     let after = game.applyAction(state, inhSummon, new Mulberry32(1));
     expect(after.pendingInheritanceSelection).toBeDefined();
 
+    const candidates = after.pendingInheritanceSelection?.inheritanceCandidates ?? [];
+    const maxInheritance = inhSummon.paymentPlan.maxInheritanceCount;
     const selectAction = {
       type: 'select_inheritance' as const,
-      selectedCardIds: (after.pendingInheritanceSelection?.inheritanceCandidates ?? []).slice(0, inhSummon.paymentPlan.inheritanceCount).map(c => c.id),
+      inheritanceCount: maxInheritance, // Use maximum (2 in this case)
+      selectedCardIds: candidates.slice(0, maxInheritance).map(c => c.id),
     };
     after = game.applyAction(after, selectAction, new Mulberry32(1));
     expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(1); // only 2 of 3 EX cards removed

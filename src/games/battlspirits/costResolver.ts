@@ -9,15 +9,15 @@ export type PaymentType = 'normal' | 'inheritance' | 'soulMagic' | 'free';
 
 export interface PaymentPlan {
   paymentType: PaymentType;
-  finalCost: number; // 実際に支払うコア数
-  inheritanceCount: number; // 除外する EX カード枚数
+  finalCost: number; // 実際に支払うコア数（最小枚数の場合）
+  maxInheritanceCount: number; // 最大継召可能枚数（0 = 継召不可）
   inheritanceCardIds: string[]; // 除外するカード ID（順序付き、未確定時は空配列）
   inheritanceCandidates?: Array<{ id: string; name: string; symbolColors: string[] }>; // 継召の候補カード
   useSoulCore: boolean; // ソウルコア支払いを使うか
 
   reductions: {
     field: number; // フィールドシンボル軽減
-    inheritance: number; // 継召軽減
+    inheritance: number; // 継召可能な最大軽減（maxInheritanceCount枚使用時）
     effect: number; // 効果による軽減
   };
 }
@@ -160,7 +160,7 @@ export class CostResolver {
       plans.push({
         paymentType: 'normal',
         finalCost: normalCost,
-        inheritanceCount: 0,
+        maxInheritanceCount: 0,
         inheritanceCardIds: [],
         useSoulCore: false,
         reductions: {
@@ -207,7 +207,6 @@ export class CostResolver {
         // ① CostResolver plan generation debug
         console.log('[INHERITANCE_PLAN_DEBUG]', {
           cardName: card.name,
-          inheritanceCount: maxInheritanceUse,
           maxInheritanceCount: maxInheritanceUse,
           availableEX,
           reductionRemaining,
@@ -215,32 +214,27 @@ export class CostResolver {
           card_reductionCost: card.reductionCost,
           candidates: candidates.map(c => ({ id: c.id, name: c.name })),
           candidateCount: candidates.length,
-          generatedPlans: Array.from({ length: maxInheritanceUse }, (_, i) => ({
-            exUsed: i + 1,
-            inheritanceCount: i + 1,
-          })),
+          canUseInheritance: maxInheritanceUse > 0,
         });
 
-        // 各 EX 使用数でプランを生成
-        for (let exUsed = 1; exUsed <= maxInheritanceUse; exUsed++) {
-          const inheritanceCost = Math.max(0, normalCost - exUsed);
-          const totalNeeded = inheritanceCost + (card.cardType === 'spirit' ? card.lv1.cost : card.lv1.cost);
+        // 単一プランで最大枚数のみ記録（枚数選択はUI/pendingInheritanceSelectionで決定）
+        const inheritanceCost = Math.max(0, normalCost - maxInheritanceUse);
+        const totalNeeded = inheritanceCost + (card.cardType === 'spirit' ? card.lv1.cost : card.lv1.cost);
 
-          if (totalNeeded <= totalCores) {
-            plans.push({
-              paymentType: 'inheritance',
-              finalCost: inheritanceCost,
-              inheritanceCount: exUsed,
-              inheritanceCardIds: [], // 未確定：空配列
-              inheritanceCandidates: candidates, // 候補のみ保持
-              useSoulCore: false,
-              reductions: {
-                field: fieldReduction,
-                inheritance: exUsed,
-                effect: 0,
-              },
-            });
-          }
+        if (totalNeeded <= totalCores) {
+          plans.push({
+            paymentType: 'inheritance',
+            finalCost: inheritanceCost,
+            maxInheritanceCount: maxInheritanceUse,
+            inheritanceCardIds: [], // 未確定：空配列
+            inheritanceCandidates: candidates, // 候補のみ保持
+            useSoulCore: false,
+            reductions: {
+              field: fieldReduction,
+              inheritance: maxInheritanceUse,
+              effect: 0,
+            },
+          });
         }
       }
     }
@@ -255,7 +249,7 @@ export class CostResolver {
       plans.push({
         paymentType: 'soulMagic',
         finalCost: 0,
-        inheritanceCount: 0,
+        maxInheritanceCount: 0,
         inheritanceCardIds: [],
         useSoulCore: true,
         reductions: {
@@ -267,14 +261,14 @@ export class CostResolver {
     }
 
     // ③ inheritance candidates が生成されたかログ
-    const inheritancePlans = plans.filter(p => p.inheritanceCount > 0);
+    const inheritancePlans = plans.filter(p => p.maxInheritanceCount > 0);
     if (inheritancePlans.length > 0) {
       console.log('[INHERITANCE③] inheritanceCandidates in PaymentPlans:', {
         cardName: card.name,
         inheritancePlansCount: inheritancePlans.length,
         plans: inheritancePlans.map(p => ({
           paymentType: p.paymentType,
-          inheritanceCount: p.inheritanceCount,
+          maxInheritanceCount: p.maxInheritanceCount,
           inheritanceCandidateCount: p.inheritanceCandidates?.length ?? 0,
         })),
       });
@@ -292,8 +286,8 @@ export class CostResolver {
     card: CardDef,
     plan: PaymentPlan
   ): void {
-    // 1. 継召カード除外
-    if (plan.inheritanceCount > 0 && plan.inheritanceCardIds.length > 0) {
+    // 1. 継召カード除外（選択されたカードがある場合のみ）
+    if (plan.inheritanceCardIds.length > 0) {
       player.trash = player.trash.filter((c) => !plan.inheritanceCardIds.includes(c.id));
     }
 
@@ -368,8 +362,8 @@ export class CostResolver {
   static explainPayment(card: CardDef, plan: PaymentPlan): string {
     const parts: string[] = [];
 
-    if (plan.inheritanceCount > 0) {
-      parts.push(`継召${plan.inheritanceCount}：EXカード${plan.inheritanceCount}枚を除外`);
+    if (plan.maxInheritanceCount > 0) {
+      parts.push(`継召対応（最大${plan.maxInheritanceCount}枚）`);
     }
 
     if (plan.reductions.field > 0) {

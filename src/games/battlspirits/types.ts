@@ -220,7 +220,8 @@ export interface PendingEffectAction {
 export interface PendingInheritanceSelection {
   cardHandIndex: number; // 手札のカード位置
   cardName: string; // UI表示用
-  inheritanceCount: number; // 何枚EXカードを選ぶか
+  maxInheritanceCount: number; // 最大継召可能枚数
+  selectedInheritanceCount: number; // プレイヤーが選択した使用枚数（0 = 未選択）
   inheritanceCandidates: {
     id: string;
     name: string;
@@ -281,7 +282,7 @@ export type Action =
   | { type: 'confirm_spirit_depletion'; proceed: boolean } // confirm if spirit should be depleted (true=deplete, false=cancel)
   | { type: 'confirm_nexus_depletion'; proceed: boolean } // confirm if nexus should be depleted (true=deplete, false=cancel)
   | { type: 'select_effect_target'; targetSpiritIndex?: number; targetNexusIndex?: number } // select target for effect requiring target selection
-  | { type: 'select_inheritance'; selectedCardIds: string[] }; // select EX cards from trash for inheritance cost reduction
+  | { type: 'select_inheritance'; selectedCardIds: string[]; inheritanceCount?: number }; // select inheritance count and EX cards from trash
 
 /**
  * プレイヤーの開始設定（Configuration Injection）
