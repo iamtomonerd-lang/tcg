@@ -1145,12 +1145,26 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           const canWithInheritance = costWithInheritance + card.lv1.cost <= totalCores;
           const canWithoutInheritance = costWithoutInheritance + card.lv1.cost <= totalCores;
 
+          console.log(`[INHERITANCE_DEBUG] ${card.name}:`);
+          console.log(`  costWithInheritance = ${costWithInheritance}`);
+          console.log(`  costWithoutInheritance = ${costWithoutInheritance}`);
+          console.log(`  card.lv1.cost = ${card.lv1.cost}`);
+          console.log(`  totalCores = ${totalCores}`);
+          console.log(`  canWithInheritance = ${canWithInheritance}`);
+          console.log(`  canWithoutInheritance = ${canWithoutInheritance}`);
+          console.log(`  costWithInheritance < costWithoutInheritance = ${costWithInheritance < costWithoutInheritance}`);
+
           if (canWithoutInheritance) {
+            console.log(`  → push useInheritance: false`);
             actions.push({ type: 'summon', handIndex: i, useInheritance: false });
           }
           if (canWithInheritance && costWithInheritance < costWithoutInheritance) {
             // Only add inheritance option if it actually saves cores
+            console.log(`  → push useInheritance: true`);
             actions.push({ type: 'summon', handIndex: i, useInheritance: true });
+          } else if (canWithInheritance) {
+            console.log(`  ✗ NOT pushing useInheritance: true (condition failed)`);
+            console.log(`    canWithInheritance=${canWithInheritance}, costWithInheritance<costWithoutInheritance=${costWithInheritance < costWithoutInheritance}`);
           }
         } else {
           // No inheritance possible, just add normal summon
