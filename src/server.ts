@@ -376,6 +376,13 @@ app.post('/api/game/:sessionId/action', (req, res) => {
   } else {
     const actions = session.game.legalActions(session.state);
     action = actions[actionIndex];
+
+    // 【調査】applyActionへ渡すActionオブジェクトをそのまま表示
+    if (action) {
+      console.log('[ACTION_OBJECT] legalActions[actionIndex] の完全なオブジェクト:');
+      console.log(JSON.stringify(action, null, 2));
+    }
+
     // Stage ① diagnostic: Log action from legalActions
     if (action) {
       dbg(DEBUG_VERBOSE, '[STAGE①] Action from legalActions:', {
