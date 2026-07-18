@@ -1124,6 +1124,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     for (let i = 0; i < me.hand.length; i++) {
       const card = me.hand[i]!;
 
+      // Debug: Log card definition when checking for inheritance
+      if (card.name === '飛剛アクライ' || card.id === 'spirit_hibutsu_akurai') {
+        console.log('[INHERITANCE_CARD_DEBUG]', {
+          cardId: card.id,
+          cardName: card.name,
+          rawCardDefinition: JSON.stringify(card),
+          inheritanceField: card.inheritance,
+          hasInheritanceResult: !!card.inheritance,
+        });
+      }
+
       if (card.cardType === 'spirit' || card.cardType === 'nexus') {
         // Get all possible payment plans
         const plans = CostResolver.getPaymentPlans(state, me, card);

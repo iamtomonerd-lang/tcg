@@ -138,6 +138,17 @@ export class CostResolver {
       hasInheritance: card.inheritance,
     });
 
+    // Debug log for 飛剛アクライ
+    if (card.name === '飛剛アクライ' || card.id === 'spirit_hibutsu_akurai') {
+      console.log('[INHERITANCE_CARD_DEBUG_RESOLVER]', {
+        cardId: card.id,
+        cardName: card.name,
+        cardObject: JSON.stringify(card),
+        inheritanceField: card.inheritance,
+        inheritanceBoolean: !!card.inheritance,
+      });
+    }
+
     const plans: PaymentPlan[] = [];
     const totalCores = getTotalAvailableCores(player);
 
@@ -167,6 +178,27 @@ export class CostResolver {
 
       // 継召で使える EX の上限
       const maxInheritanceUse = Math.min(availableEX, reductionRemaining);
+
+      // Debug log for inheritance investigation
+      if (card.name === 'セルタリウス' || card.name === 'Seltalius') {
+        const candidates = getInheritanceCandidates(player.trash, card);
+        console.log('[INHERITANCE_DEBUG]', {
+          cardName: card.name,
+          hasInheritance: card.inheritance,
+          trashCards: player.trash.map(c => ({
+            id: c.id,
+            name: c.name,
+            exSymbol: c.exSymbol,
+            symbolColors: c.symbolColors,
+          })),
+          inheritanceCandidates: candidates,
+          availableEX,
+          fieldReduction,
+          reductionRemaining,
+          maxInheritanceUse,
+          plansBeforeInheritance: plans.length,
+        });
+      }
 
       if (maxInheritanceUse > 0) {
         // 候補カードを一度だけ取得
