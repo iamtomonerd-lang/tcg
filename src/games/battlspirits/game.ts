@@ -2149,9 +2149,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         const pending = next.pendingInheritanceSelection;
 
-        // If selectedCardIds is empty, use default selection (first N candidates)
+        // If selectedCardIds is empty or undefined, use default selection (first N candidates)
         // This happens when AI/headless mode makes the action without explicit selection
-        let selectedIds = action.selectedCardIds;
+        let selectedIds = action.selectedCardIds || [];
         if (selectedIds.length === 0) {
           selectedIds = pending.inheritanceCandidates
             .slice(0, pending.inheritanceCount)
