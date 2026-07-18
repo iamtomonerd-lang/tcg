@@ -1838,6 +1838,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           });
 
           next.pendingInheritanceSelection = {
+            player: next.currentPlayer,
             cardHandIndex: action.handIndex,
             cardName: card.name,
             maxInheritanceCount: action.paymentPlan.maxInheritanceCount,
@@ -3754,6 +3755,7 @@ function cloneState(state: GameState): GameState {
       : null,
     pendingInheritanceSelection: state.pendingInheritanceSelection
       ? {
+          player: state.pendingInheritanceSelection.player,
           cardHandIndex: state.pendingInheritanceSelection.cardHandIndex,
           cardName: state.pendingInheritanceSelection.cardName,
           maxInheritanceCount: state.pendingInheritanceSelection.maxInheritanceCount,

@@ -218,6 +218,7 @@ export interface PendingEffectAction {
 }
 
 export interface PendingInheritanceSelection {
+  player: number; // which player must make the selection (0 or 1)
   cardHandIndex: number; // 手札のカード位置
   cardName: string; // UI表示用
   maxInheritanceCount: number; // 最大継召可能枚数

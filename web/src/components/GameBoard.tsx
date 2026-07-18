@@ -56,7 +56,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     (state?.pendingMulligan && playerTypes[state.pendingMulligan.player] === 'human')
     ||
     // Inheritance selection phase
-    (state?.pendingInheritanceSelection && playerTypes[currentPlayer] === 'human')
+    (state?.pendingInheritanceSelection && playerTypes[state.pendingInheritanceSelection.player] === 'human')
     ||
     // Draw/Arrange phase (after attack search_deck)
     (state?.pendingDraw && playerTypes[currentPlayer] === 'human')

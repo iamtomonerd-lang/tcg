@@ -1473,6 +1473,7 @@ describe('【継召】 inheritance (cost reduction) system', () => {
       battle: null,
       result: null,
       pendingInheritanceSelection: {
+        player: 0,
         cardName: 'Test Spirit',
         cardHandIndex: 0,
         maxInheritanceCount: 1,
@@ -1539,6 +1540,7 @@ describe('【継召】 inheritance (cost reduction) system', () => {
       battle: null,
       result: null,
       pendingInheritanceSelection: {
+        player: 0,
         cardName: 'Test Spirit',
         cardHandIndex: 0,
         maxInheritanceCount: 1,
