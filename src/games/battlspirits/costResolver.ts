@@ -359,6 +359,9 @@ export class CostResolver {
   /**
    * プレイヤー選択から最終PaymentPlanを生成（Phase 4: UI統合用）
    * 継召カード選択後、確定したコストプランを返す
+   *
+   * セキュリティ: サーバー側 GameState.player.trash を常に参照し、
+   * クライアント送信データの検証を厳密に行う
    */
   static finalizePaymentPlanFromSelection(
     state: GameState,
@@ -394,6 +397,67 @@ export class CostResolver {
       return null;
     }
 
+    // 【セキュリティ】選択されたカードIDの厳密な検証
+    // すべてのカードがサーバー側 player.trash に存在し、
+    // 継召条件（EX シンボル + 色一致）を満たしているか確認
+    const validSelectedIds: string[] = [];
+    const trashCardMap = new Map(player.trash.map(c => [c.id, c]));
+
+    for (const selectedId of inheritanceCardIds) {
+      const trashCard = trashCardMap.get(selectedId);
+
+      // ① trash に存在しないカードID
+      if (!trashCard) {
+        console.error('[SECURITY] Selected card not found in trash:', {
+          selectedId,
+          cardBeingSummoned: card.name,
+          playerTrashCount: player.trash.length,
+        });
+        return null;
+      }
+
+      // ② EX シンボルを持たないカード
+      if (!trashCard.exSymbol) {
+        console.error('[SECURITY] Selected card does not have EX symbol:', {
+          selectedId,
+          cardName: trashCard.name,
+          exSymbol: trashCard.exSymbol,
+        });
+        return null;
+      }
+
+      // ③ 色が一致しないカード（継召対応色ではない）
+      if (!card.symbolColors || !trashCard.symbolColors) {
+        console.error('[SECURITY] Missing symbol colors data:', {
+          selectedId,
+          cardSymbols: trashCard.symbolColors,
+          targetColors: card.symbolColors,
+        });
+        return null;
+      }
+
+      const hasMatchingColor = trashCard.symbolColors.some(
+        col => card.symbolColors?.includes(col)
+      );
+      if (!hasMatchingColor) {
+        console.error('[SECURITY] Selected card color does not match inheritance requirement:', {
+          selectedId,
+          cardName: trashCard.name,
+          cardColors: trashCard.symbolColors,
+          targetColors: card.symbolColors,
+        });
+        return null;
+      }
+
+      validSelectedIds.push(selectedId);
+    }
+
+    // すべての検証が成功したことを確認
+    if (validSelectedIds.length !== inheritanceCardIds.length) {
+      console.error('[SECURITY] Some selected cards failed validation');
+      return null;
+    }
+
     // コスト再計算
     const fieldReduction = basePlan.reductions.field;
     const inheritanceReduction = inheritanceCount;
@@ -403,7 +467,7 @@ export class CostResolver {
     const finalPlan: PaymentPlan = {
       ...basePlan,
       finalCost,
-      inheritanceCardIds,
+      inheritanceCardIds: validSelectedIds, // 検証済みのIDのみ
       reductions: {
         ...basePlan.reductions,
         inheritance: inheritanceReduction,
