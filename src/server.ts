@@ -1241,6 +1241,10 @@ function serializeState(state: GameState) {
             symbolColors: c.symbolColors || [],
           })),
           selectedCardIds: state.pendingInheritanceSelection.selectedCardIds,
+          actionType: state.pendingInheritanceSelection.actionType || 'summon',
+          targetSpiritIndex: state.pendingInheritanceSelection.targetSpiritIndex,
+          targetNexusIndex: state.pendingInheritanceSelection.targetNexusIndex,
+          effectValue: state.pendingInheritanceSelection.effectValue,
         }
       : null,
   };

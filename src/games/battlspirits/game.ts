@@ -1860,6 +1860,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             selectedInheritanceCount: 0,
             inheritanceCandidates: candidates,
             selectedCardIds: [],
+            actionType: 'summon',
           };
           return next;
         }
@@ -2267,16 +2268,32 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Clear pending state
         next.pendingInheritanceSelection = null;
 
-        // Now proceed with summon using the updated plan
-        const summonAction: any = {
-          type: 'summon',
-          handIndex: pending.cardHandIndex,
-          paymentPlan: finalPlan,
-        };
+        // Reconstruct the original action based on actionType
+        const actionType = (pending as any).actionType || 'summon'; // default to summon for backward compatibility
+        let finalAction: any;
 
-        // Recursively call applyAction to complete the summon
-        // Note: rng can be undefined for deterministic actions like summon
-        return this.applyAction(next, summonAction, undefined as any);
+        if (actionType === 'use_magic') {
+          // Reconstruct use_magic action with optional targeting fields
+          finalAction = {
+            type: 'use_magic',
+            handIndex: pending.cardHandIndex,
+            paymentPlan: finalPlan,
+            targetSpiritIndex: (pending as any).targetSpiritIndex,
+            targetNexusIndex: (pending as any).targetNexusIndex,
+            effectValue: (pending as any).effectValue,
+          };
+        } else {
+          // Reconstruct summon action (default)
+          finalAction = {
+            type: 'summon',
+            handIndex: pending.cardHandIndex,
+            paymentPlan: finalPlan,
+          };
+        }
+
+        // Recursively call applyAction to complete the action
+        // Note: rng can be undefined for deterministic actions
+        return this.applyAction(next, finalAction, undefined as any);
       }
       case 'select_effect_target': {
         dbg(DEBUG_VERBOSE, '[GAME] Processing select_effect_target:', {
@@ -2798,6 +2815,38 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const card = me.hand[action.handIndex];
         if (!card || card.cardType !== 'magic') return next;
         if (!action.paymentPlan) return next; // paymentPlan is required
+
+        // Check if inheritance selection is needed (for magic cards with inheritance)
+        if (
+          action.paymentPlan.maxInheritanceCount > 0 &&
+          action.paymentPlan.inheritanceCandidates &&
+          action.paymentPlan.inheritanceCandidates.length > 0
+        ) {
+          // Not yet selected: transition to pending state
+          const candidates = action.paymentPlan.inheritanceCandidates;
+
+          console.log('[INHERITANCE_PENDING_DEBUG] use_magic', {
+            cardName: card.name,
+            maxInheritanceCount: action.paymentPlan.maxInheritanceCount,
+            candidates: candidates.map((c: any) => ({ id: c.id, name: c.name })),
+            candidateCount: candidates.length,
+          });
+
+          next.pendingInheritanceSelection = {
+            player: next.currentPlayer,
+            cardHandIndex: action.handIndex,
+            cardName: card.name,
+            maxInheritanceCount: action.paymentPlan.maxInheritanceCount,
+            selectedInheritanceCount: 0,
+            inheritanceCandidates: candidates,
+            selectedCardIds: [],
+            actionType: 'use_magic',
+            targetSpiritIndex: (action as any).targetSpiritIndex,
+            targetNexusIndex: (action as any).targetNexusIndex,
+            effectValue: (action as any).effectValue,
+          };
+          return next;
+        }
 
         // ③ inheritanceCardIds チェック
         if (action.paymentPlan && action.paymentPlan.maxInheritanceCount > 0) {

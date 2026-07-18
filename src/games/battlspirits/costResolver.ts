@@ -174,7 +174,7 @@ export class CostResolver {
     }
 
     // 2. 継召を使う場合（対応色の EX シンボルがある場合のみ）
-    if (card.inheritance && card.cardType !== 'magic') {
+    if (card.inheritance) {
       const availableEX = countInheritableEX(player.trash, card);
       const reductionRemaining = Math.max(0, card.reductionCost - fieldReduction);
 

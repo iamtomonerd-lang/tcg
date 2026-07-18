@@ -231,6 +231,10 @@ export interface PendingInheritanceSelection {
     symbolColors: string[];
   }[]; // トラッシュの対応EXカード候補
   selectedCardIds: string[]; // プレイヤーが選択したカードID（空配列 = 未選択）
+  actionType?: 'summon' | 'use_magic'; // 元のアクション型（継承選択後に何を実行するか）
+  targetSpiritIndex?: number; // use_magic用：対象スピリット
+  targetNexusIndex?: number; // use_magic用：対象ネクサス
+  effectValue?: number; // use_magic用：可変効果値
 }
 
 export interface EffectResult {
