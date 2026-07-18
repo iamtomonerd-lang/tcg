@@ -1308,17 +1308,37 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                           <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1e7e4d', marginBottom: '0.3rem', textTransform: 'uppercase' }}>
                             💚 支払うコア（カード召喚用）
                           </div>
-                          {costActions.map((action) => (
-                            <button
-                              key={action.index}
-                              className="action-button"
-                              onClick={() => executeAction(action.index)}
-                              disabled={isBusy}
-                              style={{ marginBottom: '0.3rem', backgroundColor: '#1e7e4d', borderColor: '#0d5c3a' }}
-                            >
-                              {action.description}
-                            </button>
-                          ))}
+                          {costActions.map((action) => {
+                            // Stage ⓪-B diagnostic: Log button creation
+                            console.log('[BUTTON_CREATE]', {
+                              index: action.index,
+                              label: action.description,
+                              type: (action as any).type,
+                              paymentType: (action as any).paymentPlan?.paymentType,
+                              inheritanceCount: (action as any).paymentPlan?.inheritanceCount,
+                            });
+                            return (
+                              <button
+                                key={action.index}
+                                className="action-button"
+                                onClick={() => {
+                                  // Stage ⓪-B diagnostic: Log button click
+                                  console.log('[BUTTON_CLICK]', {
+                                    index: action.index,
+                                    label: action.description,
+                                    type: (action as any).type,
+                                    paymentType: (action as any).paymentPlan?.paymentType,
+                                    inheritanceCount: (action as any).paymentPlan?.inheritanceCount,
+                                  });
+                                  executeAction(action.index);
+                                }}
+                                disabled={isBusy}
+                                style={{ marginBottom: '0.3rem', backgroundColor: '#1e7e4d', borderColor: '#0d5c3a' }}
+                              >
+                                {action.description}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                       {coreActions.length > 0 && (
@@ -1326,17 +1346,37 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                           <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b46c1', marginBottom: '0.3rem', textTransform: 'uppercase' }}>
                             💜 乗せるコア（スピリット配置用）
                           </div>
-                          {coreActions.map((action) => (
-                            <button
-                              key={action.index}
-                              className="action-button"
-                              onClick={() => executeAction(action.index)}
-                              disabled={isBusy}
-                              style={{ marginBottom: '0.3rem', backgroundColor: '#6b46c1', borderColor: '#553399' }}
-                            >
-                              {action.description}
-                            </button>
-                          ))}
+                          {coreActions.map((action) => {
+                            // Stage ⓪-B diagnostic: Log button creation
+                            console.log('[BUTTON_CREATE]', {
+                              index: action.index,
+                              label: action.description,
+                              type: (action as any).type,
+                              paymentType: (action as any).paymentPlan?.paymentType,
+                              inheritanceCount: (action as any).paymentPlan?.inheritanceCount,
+                            });
+                            return (
+                              <button
+                                key={action.index}
+                                className="action-button"
+                                onClick={() => {
+                                  // Stage ⓪-B diagnostic: Log button click
+                                  console.log('[BUTTON_CLICK]', {
+                                    index: action.index,
+                                    label: action.description,
+                                    type: (action as any).type,
+                                    paymentType: (action as any).paymentPlan?.paymentType,
+                                    inheritanceCount: (action as any).paymentPlan?.inheritanceCount,
+                                  });
+                                  executeAction(action.index);
+                                }}
+                                disabled={isBusy}
+                                style={{ marginBottom: '0.3rem', backgroundColor: '#6b46c1', borderColor: '#553399' }}
+                              >
+                                {action.description}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </>
