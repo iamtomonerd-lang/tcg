@@ -501,16 +501,31 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
     return res.status(400).json({ error: 'Current player is human; use /action instead' });
   }
 
+  // CRITICAL: If pendingInheritanceSelection exists, only human player can proceed
+  // AI must not execute select_inheritance automatically
+  if (session.state.pendingInheritanceSelection) {
+    return res.status(400).json({ error: 'Waiting for player inheritance selection; use /action instead' });
+  }
+
   // Get best action from AI (describe BEFORE applying — indices refer to the pre-action state)
   try {
     const legalActionsDebug = session.game.legalActions(session.state);
-    dbg(DEBUG_VERBOSE, `[DEBUG ai-turn] sessionId=${req.params.sessionId}, decidingPlayer=${decidingPlayer}, phase=${session.state.phase}, pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}, pendingMulligan=${session.state.pendingMulligan ? `{player:${session.state.pendingMulligan.player}}` : 'null'}, legalActionsCount=${legalActionsDebug.length}`);
+    const actionTypes = legalActionsDebug.map((a: any) => a.type);
+    console.log('[AI_LOOP_DEBUG]', {
+      decidingPlayer,
+      phase: session.state.phase,
+      pendingInheritanceSelection: !!session.state.pendingInheritanceSelection,
+      legalActionsCount: legalActionsDebug.length,
+      actionTypes: actionTypes.slice(0, 5),
+      currentPlayer: session.game.currentPlayer(session.state),
+    });
 
     if (legalActionsDebug.length === 0) {
       console.error(`❌ ERROR: legalActions is empty!`);
       console.error(`State: phase=${session.state.phase}, currentPlayer=${session.game.currentPlayer(session.state)}, isTerminal=${session.game.isTerminal(session.state)}`);
       console.error(`pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}`);
       console.error(`pendingMulligan=${JSON.stringify(session.state.pendingMulligan)}`);
+      console.error(`pendingInheritanceSelection=${!!session.state.pendingInheritanceSelection}`);
       return res.status(400).json({ error: 'No legal actions available - game state error' });
     }
   } catch (e) {
@@ -542,6 +557,8 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
 
   const description = session.game.describeAction(session.state, action);
   const stateBefore = session.state;
+  const currentPlayerBefore = session.game.currentPlayer(stateBefore);
+
   dbg(DEBUG_VERBOSE, `[DEBUG] About to apply action: ${JSON.stringify(action).substring(0, 100)}`);
   dbg(DEBUG_VERBOSE, `[DEBUG] Before applyAction (ai-turn):`, {
     p0Cores: stateBefore.players[0].cores,
@@ -549,7 +566,20 @@ app.post('/api/game/:sessionId/ai-turn', async (req, res) => {
     phase: stateBefore.phase,
     turnCount: stateBefore.turnCount,
   });
+
   session.state = session.game.applyAction(session.state, action, session.rng);
+
+  const currentPlayerAfter = session.game.currentPlayer(session.state);
+  console.log('[AI_ACTION_RESULT]', {
+    actionType: action.type,
+    playerBefore: currentPlayerBefore,
+    playerAfter: currentPlayerAfter,
+    phaseBefore: stateBefore.phase,
+    phaseAfter: session.state.phase,
+    pendingInheritanceAfter: !!session.state.pendingInheritanceSelection,
+    stateChanged: stateBefore.turnCount !== session.state.turnCount,
+  });
+
   dbg(DEBUG_VERBOSE, `[DEBUG] After applyAction: phase=${session.state.phase}, pendingMulligan=${session.state.pendingMulligan ? `{player:${session.state.pendingMulligan.player}}` : 'null'}, pendingDiceRoll=${JSON.stringify(session.state.pendingDiceRoll)}`);
   dbg(DEBUG_VERBOSE, `[DEBUG] After applyAction (ai-turn):`, {
     p0Cores: session.state.players[0].cores,
