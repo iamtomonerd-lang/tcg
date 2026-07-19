@@ -1944,12 +1944,29 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Pay cost using game's payCost method
-        if (action.paymentPlan.finalCost > 0 && !action.paymentPlan.useSoulCore) {
+        // Check action.coreType first: if explicitly set to 'soul', pay finalCost in soul cores
+        if (action.coreType === 'soul') {
+          const soulCostToPay = action.paymentPlan.finalCost;
+          let remaining = soulCostToPay;
+          // Pay from reserve soul cores first
+          const fromReserve = Math.min(remaining, me.soulCores);
+          me.soulCores -= fromReserve;
+          me.trashSoulCores += fromReserve;
+          remaining -= fromReserve;
+          // Pay from spirit soul cores if needed
+          for (const spirit of me.spirits) {
+            if (remaining <= 0) break;
+            if (spirit.soulCoreCount > 0) {
+              const take = Math.min(remaining, spirit.soulCoreCount);
+              spirit.soulCoreCount -= take;
+              me.trashSoulCores += take;
+              updateSpiritLevel(spirit);
+              remaining -= take;
+            }
+          }
+        } else if (action.paymentPlan.finalCost > 0 && !action.paymentPlan.useSoulCore) {
           this.payCost(me, action.paymentPlan.finalCost);
-        }
-
-        // Pay soul core if needed
-        if (action.paymentPlan.useSoulCore) {
+        } else if (action.paymentPlan.useSoulCore) {
           if (me.soulCores >= 1) {
             me.soulCores -= 1;
             me.trashSoulCores += 1;
@@ -2829,12 +2846,29 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Pay cost using game's payCost method
-        if (action.paymentPlan.finalCost > 0 && !action.paymentPlan.useSoulCore) {
+        // Check action.coreType first: if explicitly set to 'soul', pay finalCost in soul cores
+        if (action.coreType === 'soul') {
+          const soulCostToPay = action.paymentPlan.finalCost;
+          let remaining = soulCostToPay;
+          // Pay from reserve soul cores first
+          const fromReserve = Math.min(remaining, me.soulCores);
+          me.soulCores -= fromReserve;
+          me.trashSoulCores += fromReserve;
+          remaining -= fromReserve;
+          // Pay from spirit soul cores if needed
+          for (const spirit of me.spirits) {
+            if (remaining <= 0) break;
+            if (spirit.soulCoreCount > 0) {
+              const take = Math.min(remaining, spirit.soulCoreCount);
+              spirit.soulCoreCount -= take;
+              me.trashSoulCores += take;
+              updateSpiritLevel(spirit);
+              remaining -= take;
+            }
+          }
+        } else if (action.paymentPlan.finalCost > 0 && !action.paymentPlan.useSoulCore) {
           this.payCost(me, action.paymentPlan.finalCost);
-        }
-
-        // Pay soul core if needed
-        if (action.paymentPlan.useSoulCore) {
+        } else if (action.paymentPlan.useSoulCore) {
           if (me.soulCores >= 1) {
             me.soulCores -= 1;
             me.trashSoulCores += 1;
@@ -3110,12 +3144,29 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Pay cost using game's payCost method
-        if (action.paymentPlan.finalCost > 0 && !action.paymentPlan.useSoulCore) {
+        // Check action.coreType first: if explicitly set to 'soul', pay finalCost in soul cores
+        if (action.coreType === 'soul') {
+          const soulCostToPay = action.paymentPlan.finalCost;
+          let remaining = soulCostToPay;
+          // Pay from reserve soul cores first
+          const fromReserve = Math.min(remaining, me.soulCores);
+          me.soulCores -= fromReserve;
+          me.trashSoulCores += fromReserve;
+          remaining -= fromReserve;
+          // Pay from spirit soul cores if needed
+          for (const spirit of me.spirits) {
+            if (remaining <= 0) break;
+            if (spirit.soulCoreCount > 0) {
+              const take = Math.min(remaining, spirit.soulCoreCount);
+              spirit.soulCoreCount -= take;
+              me.trashSoulCores += take;
+              updateSpiritLevel(spirit);
+              remaining -= take;
+            }
+          }
+        } else if (action.paymentPlan.finalCost > 0 && !action.paymentPlan.useSoulCore) {
           this.payCost(me, action.paymentPlan.finalCost);
-        }
-
-        // Pay soul core if needed
-        if (action.paymentPlan.useSoulCore) {
+        } else if (action.paymentPlan.useSoulCore) {
           if (me.soulCores >= 1) {
             me.soulCores -= 1;
             me.trashSoulCores += 1;
