@@ -1105,8 +1105,8 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
 
                   // DEBUG logging
                   console.log('[DEBUG] Effect target selection:', {
-                    effectAction: effect.action,
-                    effectTarget: effect.target,
+                    effectAction: effect?.action,
+                    effectTarget: effect?.target,
                     targetIsOpponent,
                     currentPlayer: state.currentPlayer,
                     targetPlayerIndex,
@@ -1117,6 +1117,12 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                     trash: targetPlayer?.trash,
                     trashCards: targetPlayer?.trash?.cards,
                     trashCardCount: targetPlayer?.trash?.cards?.length,
+                  });
+                  console.log('[DEBUG] Trash condition check:', {
+                    'effect?.action === "trash_to_hand"': effect?.action === 'trash_to_hand',
+                    'validTargets.spiritIndices': state.pendingEffectAction?.validTargets?.spiritIndices,
+                    'includes(-1)': state.pendingEffectAction?.validTargets?.spiritIndices?.includes(-1),
+                    'SHOULD_RENDER_TRASH': effect?.action === 'trash_to_hand' && state.pendingEffectAction?.validTargets?.spiritIndices?.includes(-1),
                   });
 
                 return (
