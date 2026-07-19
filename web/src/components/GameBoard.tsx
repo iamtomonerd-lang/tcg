@@ -1044,19 +1044,32 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                 💡 コアを追加して消滅をキャンセルするか、消滅させるかを選択してください
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
               <button
                 className="action-button"
                 onClick={() => {
-                  const addCoreAction = legalActions.find(a => a.action?.type === 'add_core' && a.action?.spiritIndex === state.pendingSpiritDepletion.spiritIndex);
+                  const addCoreAction = legalActions.find(a => a.action?.type === 'add_core' && a.action?.spiritIndex === state.pendingSpiritDepletion.spiritIndex && a.action?.coreType === 'regular');
                   if (addCoreAction) {
                     executeAction(addCoreAction.index);
                   }
                 }}
-                disabled={isBusy || !legalActions.some(a => a.action?.type === 'add_core' && a.action?.spiritIndex === state.pendingSpiritDepletion.spiritIndex)}
+                disabled={isBusy || !legalActions.some(a => a.action?.type === 'add_core' && a.action?.spiritIndex === state.pendingSpiritDepletion.spiritIndex && a.action?.coreType === 'regular')}
                 style={{ backgroundColor: '#1e7e4d', borderColor: '#0d5c3a' }}
               >
-                🟢 コアを追加
+                🟢 通常コア
+              </button>
+              <button
+                className="action-button"
+                onClick={() => {
+                  const addCoreAction = legalActions.find(a => a.action?.type === 'add_core' && a.action?.spiritIndex === state.pendingSpiritDepletion.spiritIndex && a.action?.coreType === 'soul');
+                  if (addCoreAction) {
+                    executeAction(addCoreAction.index);
+                  }
+                }}
+                disabled={isBusy || !legalActions.some(a => a.action?.type === 'add_core' && a.action?.spiritIndex === state.pendingSpiritDepletion.spiritIndex && a.action?.coreType === 'soul')}
+                style={{ backgroundColor: '#7c4ba8', borderColor: '#543982' }}
+              >
+                🟣 ソウルコア
               </button>
               <button
                 className="action-button"
@@ -1071,6 +1084,9 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
               >
                 消滅させる
               </button>
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem', padding: '0.4rem', backgroundColor: '#f5f5f5', borderRadius: '4px', textAlign: 'center' }}>
+              💡 コアをドラッグしてリザーブに戻すこともできます
             </div>
           </div>
         )}
