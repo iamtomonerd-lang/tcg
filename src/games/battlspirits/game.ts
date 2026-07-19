@@ -1318,19 +1318,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     // Note: add_core only uses cores from reserve, not from spirits, so check reserve specifically
     const reserveCores = me.cores + me.soulCores;
     if (reserveCores > 0) {
-      // Add cores to spirits (level-up)
+      // Add cores to any spirit on field (no limit on core count)
       for (let i = 0; i < me.spirits.length; i++) {
-        const s = me.spirits[i]!;
-        if (s.def.lv2 && s.coreCount < s.def.lv2.cost) {
-          actions.push({ type: 'add_core', spiritIndex: i });
-        }
+        actions.push({ type: 'add_core', spiritIndex: i });
       }
-      // Add cores to nexuses (level-up)
+      // Add cores to any nexus on field (no limit on core count)
       for (let i = 0; i < me.nexuses.length; i++) {
-        const n = me.nexuses[i]!;
-        if (n.def.lv2 && n.coreCount < n.def.lv2.cost) {
-          actions.push({ type: 'add_core', nexusIndex: i });
-        }
+        actions.push({ type: 'add_core', nexusIndex: i });
       }
     }
 
