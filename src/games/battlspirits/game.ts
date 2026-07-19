@@ -1820,7 +1820,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       // Important: only trigger battle_end if the attacker still exists on the field
       const attackerStillExists = next.players[next.pendingAttack.attackerPlayer]!.spirits[next.pendingAttack.attackerSpiritIndex] === attacker;
       if (attackerStillExists) {
-        next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer);
+        next = triggerEffects(next, 'battle_end', attacker.def, 1 - next.currentPlayer, next.pendingAttack.attackerSpiritIndex, undefined, undefined, undefined, undefined, undefined, attacker.level);
       }
 
       // このバトル中 boosts expire now that the battle has resolved
@@ -3680,11 +3680,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     // Important: only trigger battle_end if the spirit still exists on the field
     const attackerStillExists = next.players[pendingAttack.attackerPlayer]!.spirits[pendingAttack.attackerSpiritIndex] === attacker;
     if (attackerStillExists) {
-      next = triggerEffects(next, 'battle_end', attacker.def, pendingAttack.attackerPlayer);
+      next = triggerEffects(next, 'battle_end', attacker.def, pendingAttack.attackerPlayer, pendingAttack.attackerSpiritIndex, undefined, undefined, undefined, undefined, undefined, attacker.level);
     }
     const defenderStillExists = next.players[1 - pendingAttack.attackerPlayer]!.spirits[defenderSpiritIndex] === defender;
     if (defenderStillExists) {
-      next = triggerEffects(next, 'battle_end', defender.def, 1 - pendingAttack.attackerPlayer);
+      next = triggerEffects(next, 'battle_end', defender.def, 1 - pendingAttack.attackerPlayer, defenderSpiritIndex, undefined, undefined, undefined, undefined, undefined, defender.level);
     }
 
     // このバトル中 boosts expire now that the battle has resolved
