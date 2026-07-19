@@ -1455,6 +1455,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const me = next.players[next.currentPlayer]!;
     const opponent = next.players[1 - next.currentPlayer]!;
 
+    console.log('[ACTION_EXECUTED]', {
+      type: action.type,
+      coreType: (action as any).coreType,
+      phase: state.phase,
+    });
+
     // Dice roll: collect both players' rolls
     if (action.type === 'dice_roll') {
       if (!next.pendingDiceRoll) return next;
