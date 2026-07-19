@@ -947,11 +947,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // Allow adding cores to cancel depletion
       const me = state.players[state.currentPlayer]!;
-      if (me.cores > 0) {
-        actions.push({ type: 'add_core', spiritIndex: state.pendingSpiritDepletion.spiritIndex, coreType: 'regular' });
-      }
-      if (me.soulCores > 0) {
-        actions.push({ type: 'add_core', spiritIndex: state.pendingSpiritDepletion.spiritIndex, coreType: 'soul' });
+      if (me.cores > 0 || me.soulCores > 0) {
+        // Offer both regular and soul core options if any cores in reserve are available
+        if (me.cores > 0) {
+          actions.push({ type: 'add_core', spiritIndex: state.pendingSpiritDepletion.spiritIndex, coreType: 'regular' });
+        }
+        if (me.soulCores > 0) {
+          actions.push({ type: 'add_core', spiritIndex: state.pendingSpiritDepletion.spiritIndex, coreType: 'soul' });
+        }
       }
 
       return actions;
@@ -965,11 +968,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // Allow adding cores to cancel depletion
       const me = state.players[state.currentPlayer]!;
-      if (me.cores > 0) {
-        actions.push({ type: 'add_core', nexusIndex: state.pendingNexusDepletion.nexusIndex, coreType: 'regular' });
-      }
-      if (me.soulCores > 0) {
-        actions.push({ type: 'add_core', nexusIndex: state.pendingNexusDepletion.nexusIndex, coreType: 'soul' });
+      if (me.cores > 0 || me.soulCores > 0) {
+        // Offer both regular and soul core options if any cores in reserve are available
+        if (me.cores > 0) {
+          actions.push({ type: 'add_core', nexusIndex: state.pendingNexusDepletion.nexusIndex, coreType: 'regular' });
+        }
+        if (me.soulCores > 0) {
+          actions.push({ type: 'add_core', nexusIndex: state.pendingNexusDepletion.nexusIndex, coreType: 'soul' });
+        }
       }
 
       return actions;
