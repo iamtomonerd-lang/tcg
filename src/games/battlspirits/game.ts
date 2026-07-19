@@ -947,6 +947,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // Allow adding cores to cancel depletion
       const me = state.players[state.currentPlayer]!;
+      const spirit = me.spirits[state.pendingSpiritDepletion.spiritIndex];
+
       if (me.cores > 0 || me.soulCores > 0) {
         // Offer both regular and soul core options if any cores in reserve are available
         if (me.cores > 0) {
@@ -955,6 +957,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (me.soulCores > 0) {
           actions.push({ type: 'add_core', spiritIndex: state.pendingSpiritDepletion.spiritIndex, coreType: 'soul' });
         }
+      }
+
+      // Allow moving cores from spirit back to reserve
+      if (spirit && spirit.coreCount > 0) {
+        actions.push({ type: 'move_core', fromZone: 'spirit', fromIndex: state.pendingSpiritDepletion.spiritIndex, toZone: 'reserve', coreType: 'regular' });
+      }
+      if (spirit && spirit.soulCoreCount > 0) {
+        actions.push({ type: 'move_core', fromZone: 'spirit', fromIndex: state.pendingSpiritDepletion.spiritIndex, toZone: 'reserve', coreType: 'soul' });
       }
 
       return actions;
@@ -968,6 +978,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // Allow adding cores to cancel depletion
       const me = state.players[state.currentPlayer]!;
+      const nexus = me.nexuses[state.pendingNexusDepletion.nexusIndex];
+
       if (me.cores > 0 || me.soulCores > 0) {
         // Offer both regular and soul core options if any cores in reserve are available
         if (me.cores > 0) {
@@ -976,6 +988,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         if (me.soulCores > 0) {
           actions.push({ type: 'add_core', nexusIndex: state.pendingNexusDepletion.nexusIndex, coreType: 'soul' });
         }
+      }
+
+      // Allow moving cores from nexus back to reserve
+      if (nexus && nexus.coreCount > 0) {
+        actions.push({ type: 'move_core', fromZone: 'nexus', fromIndex: state.pendingNexusDepletion.nexusIndex, toZone: 'reserve', coreType: 'regular' });
+      }
+      if (nexus && nexus.soulCoreCount > 0) {
+        actions.push({ type: 'move_core', fromZone: 'nexus', fromIndex: state.pendingNexusDepletion.nexusIndex, toZone: 'reserve', coreType: 'soul' });
       }
 
       return actions;

@@ -1044,7 +1044,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                 💡 コアを追加して消滅をキャンセルするか、消滅させるかを選択してください
               </span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.6rem' }}>
               <button
                 className="action-button"
                 onClick={() => {
@@ -1056,7 +1056,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                 disabled={isBusy || !legalActions.some(a => a.action?.type === 'add_core' && a.action?.spiritIndex === state.pendingSpiritDepletion.spiritIndex && a.action?.coreType === 'regular')}
                 style={{ backgroundColor: '#1e7e4d', borderColor: '#0d5c3a' }}
               >
-                🟢 通常コア
+                ➕🟢 通常
               </button>
               <button
                 className="action-button"
@@ -1069,8 +1069,36 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                 disabled={isBusy || !legalActions.some(a => a.action?.type === 'add_core' && a.action?.spiritIndex === state.pendingSpiritDepletion.spiritIndex && a.action?.coreType === 'soul')}
                 style={{ backgroundColor: '#7c4ba8', borderColor: '#543982' }}
               >
-                🟣 ソウルコア
+                ➕🟣 ソウル
               </button>
+              <button
+                className="action-button"
+                onClick={() => {
+                  const moveAction = legalActions.find(a => a.action?.type === 'move_core' && a.action?.fromZone === 'spirit' && a.action?.fromIndex === state.pendingSpiritDepletion.spiritIndex && a.action?.toZone === 'reserve' && a.action?.coreType === 'regular');
+                  if (moveAction) {
+                    executeAction(moveAction.index);
+                  }
+                }}
+                disabled={isBusy || !legalActions.some(a => a.action?.type === 'move_core' && a.action?.fromZone === 'spirit' && a.action?.fromIndex === state.pendingSpiritDepletion.spiritIndex && a.action?.toZone === 'reserve' && a.action?.coreType === 'regular')}
+                style={{ backgroundColor: '#8b6914', borderColor: '#5f4a0a' }}
+              >
+                ➖🟢 リザーブ
+              </button>
+              <button
+                className="action-button"
+                onClick={() => {
+                  const moveAction = legalActions.find(a => a.action?.type === 'move_core' && a.action?.fromZone === 'spirit' && a.action?.fromIndex === state.pendingSpiritDepletion.spiritIndex && a.action?.toZone === 'reserve' && a.action?.coreType === 'soul');
+                  if (moveAction) {
+                    executeAction(moveAction.index);
+                  }
+                }}
+                disabled={isBusy || !legalActions.some(a => a.action?.type === 'move_core' && a.action?.fromZone === 'spirit' && a.action?.fromIndex === state.pendingSpiritDepletion.spiritIndex && a.action?.toZone === 'reserve' && a.action?.coreType === 'soul')}
+                style={{ backgroundColor: '#6b4c8a', borderColor: '#4a3363' }}
+              >
+                ➖🟣 リザーブ
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.6rem' }}>
               <button
                 className="action-button"
                 onClick={() => {
@@ -1084,9 +1112,6 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
               >
                 消滅させる
               </button>
-            </div>
-            <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem', padding: '0.4rem', backgroundColor: '#f5f5f5', borderRadius: '4px', textAlign: 'center' }}>
-              💡 コアをドラッグしてリザーブに戻すこともできます
             </div>
           </div>
         )}
