@@ -1945,7 +1945,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         // Pay cost using game's payCost method
         // Check action.coreType first: if explicitly set to 'soul', pay finalCost in soul cores
+        console.log('[SUMMON_PAYMENT_DEBUG]', {
+          actionCoreType: action.coreType,
+          paymentPlanFinalCost: action.paymentPlan.finalCost,
+          useSoulCore: action.paymentPlan.useSoulCore,
+          playerSoulCores: me.soulCores,
+          playerRegularCores: me.cores,
+        });
         if (action.coreType === 'soul') {
+          console.log('[SUMMON_PAYMENT] Using SOUL cores');
           const soulCostToPay = action.paymentPlan.finalCost;
           let remaining = soulCostToPay;
           // Pay from reserve soul cores first
@@ -1953,6 +1961,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           me.soulCores -= fromReserve;
           me.trashSoulCores += fromReserve;
           remaining -= fromReserve;
+          console.log('[SUMMON_PAYMENT] After reserve soul cores', { remaining, soulCoresAfter: me.soulCores });
           // Pay from spirit soul cores if needed
           for (const spirit of me.spirits) {
             if (remaining <= 0) break;
@@ -1964,9 +1973,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               remaining -= take;
             }
           }
+          console.log('[SUMMON_PAYMENT] Soul core payment complete', { trashSoulCores: me.trashSoulCores });
         } else if (action.paymentPlan.finalCost > 0 && !action.paymentPlan.useSoulCore) {
+          console.log('[SUMMON_PAYMENT] Using REGULAR cores');
           this.payCost(me, action.paymentPlan.finalCost);
         } else if (action.paymentPlan.useSoulCore) {
+          console.log('[SUMMON_PAYMENT] Using SOUL MAGIC RED (1 soul core)');
           if (me.soulCores >= 1) {
             me.soulCores -= 1;
             me.trashSoulCores += 1;
