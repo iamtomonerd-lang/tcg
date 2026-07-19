@@ -691,6 +691,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           position="top"
           isHumanTurn={isHumanTurn}
           legalActions={legalActions}
+          onExecuteAction={executeAction}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDrop={handleDrop}
@@ -735,6 +736,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           position="bottom"
           isHumanTurn={isHumanTurn}
           legalActions={legalActions}
+          onExecuteAction={executeAction}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDrop={handleDrop}

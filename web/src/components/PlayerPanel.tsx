@@ -9,7 +9,7 @@ interface PlayerPanelProps {
   typeLabel: string;
   position: 'top' | 'bottom';
   isHumanTurn: boolean;
-  legalActions: Array<{ index: number; description: string }>;
+  legalActions: Array<{ index: number; description: string; action?: any }>;
   playerRating?: number;
   onDragStart?: (data: any) => void;
   onDragEnd?: () => void;
@@ -20,6 +20,7 @@ interface PlayerPanelProps {
   onViewBottomDeck?: () => void;
   attackingSpiritPlayer?: number;
   attackingSpiritIndex?: number;
+  onExecuteAction?: (actionIndex: number) => void;
 }
 
 function CardImage({ imagePath, name }: { imagePath?: string; name: string }) {
@@ -52,6 +53,8 @@ function CoreTray({
   onDragEnd,
   onDrop,
   targetPlayerNumber,
+  legalActions,
+  onExecuteAction,
 }: {
   zone: 'spirit' | 'nexus';
   index: number;
@@ -62,6 +65,8 @@ function CoreTray({
   onDragEnd?: () => void;
   onDrop?: (data: any) => void;
   targetPlayerNumber: number;
+  legalActions?: Array<{ index: number; action?: any }>;
+  onExecuteAction?: (actionIndex: number) => void;
 }) {
   const startDrag = (e: React.DragEvent, coreType: 'regular' | 'soul') => {
     e.stopPropagation();
@@ -119,6 +124,78 @@ function CoreTray({
       ))}
       {coreCount <= 0 && soulCoreCount <= 0 && <span className="core-tray-empty">コアなし</span>}
     </div>
+    {legalActions && onExecuteAction && (
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginTop: '6px' }}>
+        <button
+          onClick={() => {
+            const addAction = legalActions.find(a =>
+              a.action?.type === 'add_core' &&
+              (zone === 'spirit' ? a.action?.spiritIndex === index : a.action?.nexusIndex === index)
+            );
+            if (addAction) {
+              onExecuteAction(addAction.index);
+            }
+          }}
+          disabled={!legalActions.some(a =>
+            a.action?.type === 'add_core' &&
+            (zone === 'spirit' ? a.action?.spiritIndex === index : a.action?.nexusIndex === index)
+          )}
+          style={{
+            padding: '4px 8px',
+            fontSize: '11px',
+            border: 'none',
+            borderRadius: '4px',
+            backgroundColor: '#1e7e4d',
+            borderColor: '#0d5c3a',
+            color: 'white',
+            fontWeight: 600,
+            cursor: 'pointer',
+            opacity: !legalActions.some(a =>
+              a.action?.type === 'add_core' &&
+              (zone === 'spirit' ? a.action?.spiritIndex === index : a.action?.nexusIndex === index)
+            ) ? 0.5 : 1,
+          }}
+        >
+          ➕ 追加
+        </button>
+        <button
+          onClick={() => {
+            const moveAction = legalActions.find(a =>
+              a.action?.type === 'move_core' &&
+              a.action?.toZone === 'reserve' &&
+              (zone === 'spirit' ? a.action?.fromZone === 'spirit' && a.action?.fromIndex === index : a.action?.fromZone === 'nexus' && a.action?.fromIndex === index)
+            );
+            if (moveAction) {
+              onExecuteAction(moveAction.index);
+            }
+          }}
+          disabled={!legalActions.some(a =>
+            a.action?.type === 'move_core' &&
+            a.action?.toZone === 'reserve' &&
+            (zone === 'spirit' ? a.action?.fromZone === 'spirit' && a.action?.fromIndex === index : a.action?.fromZone === 'nexus' && a.action?.fromIndex === index)
+          )}
+          style={{
+            padding: '4px 8px',
+            fontSize: '11px',
+            border: 'none',
+            borderRadius: '4px',
+            backgroundColor: '#8B7500',
+            borderColor: '#5f4a0a',
+            color: 'white',
+            fontWeight: 600,
+            cursor: 'pointer',
+            opacity: !legalActions.some(a =>
+              a.action?.type === 'move_core' &&
+              a.action?.toZone === 'reserve' &&
+              (zone === 'spirit' ? a.action?.fromZone === 'spirit' && a.action?.fromIndex === index : a.action?.fromZone === 'nexus' && a.action?.fromIndex === index)
+            ) ? 0.5 : 1,
+          }}
+        >
+          ➖ 移動
+        </button>
+      </div>
+    )}
+    </div>
   );
 }
 
@@ -130,7 +207,7 @@ export default function PlayerPanel({
   typeLabel,
   position,
   isHumanTurn,
-  legalActions: _legalActions,
+  legalActions,
   playerRating,
   onDragStart,
   onDragEnd,
@@ -141,6 +218,7 @@ export default function PlayerPanel({
   onViewBottomDeck,
   attackingSpiritPlayer,
   attackingSpiritIndex,
+  onExecuteAction,
 }: PlayerPanelProps) {
   // Cores can be manipulated only on the human player's own panel during their turn
   const canMoveCores = isHumanTurn && isCurrent;
@@ -241,6 +319,8 @@ export default function PlayerPanel({
             onDragEnd={onDragEnd}
             onDrop={isHumanTurn ? onDrop : undefined}
             targetPlayerNumber={playerNumber}
+            legalActions={legalActions}
+            onExecuteAction={onExecuteAction}
           />
         </div>
       ))}
@@ -292,6 +372,8 @@ export default function PlayerPanel({
             onDragEnd={onDragEnd}
             onDrop={isHumanTurn ? onDrop : undefined}
             targetPlayerNumber={playerNumber}
+            legalActions={legalActions}
+            onExecuteAction={onExecuteAction}
           />
         </div>
       ))}
