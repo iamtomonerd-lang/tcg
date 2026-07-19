@@ -1099,6 +1099,7 @@ function serializeState(state: GameState) {
         id: n.def.id,
         name: n.def.name,
         level: n.level,
+        skill: n.def.skill || undefined,
         coreCount: n.coreCount,
         soulCoreCount: n.soulCoreCount || 0,
         coresForLv2: n.def.lv2 ? n.def.lv2.cost : null,
