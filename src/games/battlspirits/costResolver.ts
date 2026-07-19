@@ -250,7 +250,7 @@ export class CostResolver {
     if (isSoulMagicRed && canPaySoulCore) {
       plans.push({
         paymentType: 'soulMagic',
-        finalCost: 0,
+        finalCost: card.cost,
         maxInheritanceCount: 0,
         inheritanceCardIds: [],
         useSoulCore: true,
