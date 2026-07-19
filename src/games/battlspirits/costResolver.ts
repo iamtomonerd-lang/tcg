@@ -320,12 +320,12 @@ export class CostResolver {
   private static payCost(player: PlayerState, cost: number): void {
     let remaining = cost;
 
-    // Reserve から優先的に支払い
+    // Reserve から優先的に支払い（通常コア）
     const fromReserve = Math.min(player.cores, remaining);
     player.cores -= fromReserve;
     remaining -= fromReserve;
 
-    // 不足分をスピリットから支払い
+    // 不足分をスピリットから支払い（通常コア）
     if (remaining > 0) {
       for (const spirit of player.spirits) {
         if (remaining <= 0) break;
@@ -336,7 +336,18 @@ export class CostResolver {
       }
     }
 
-    // ソウルコアからも支払い可能（混合支払い）
+    // 不足分をスピリットのソウルコアから支払い
+    if (remaining > 0) {
+      for (const spirit of player.spirits) {
+        if (remaining <= 0) break;
+
+        const fromSoulSpirit = Math.min(spirit.soulCoreCount, remaining);
+        spirit.soulCoreCount -= fromSoulSpirit;
+        remaining -= fromSoulSpirit;
+      }
+    }
+
+    // 最後にリザーブのソウルコアから支払い
     if (remaining > 0) {
       const fromSoulReserve = Math.min(player.soulCores, remaining);
       player.soulCores -= fromSoulReserve;
