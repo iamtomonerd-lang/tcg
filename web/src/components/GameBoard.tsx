@@ -441,6 +441,8 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         // If we've paid enough cores, execute the action
         if (totalPaid >= pendingCoreCost.requiredCores) {
           const actionIndex = pendingCoreCost.actionIndex;
+          const decidedCoreType = pendingCoreCost.soulOnly ? 'soul' : (newPaidSoul > 0 ? 'soul' : 'regular');
+          console.log('[DRAG_DROP_PAYMENT] コアドラッグ完了', { decidedCoreType, newPaidRegular, newPaidSoul, soulOnly: pendingCoreCost.soulOnly });
           setPendingCoreCost(null);
           setDragData(null);
           setDragOverCard(null);
@@ -449,7 +451,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           // Execute the action with exact core type counts
           setTimeout(() => {
             executeAction(actionIndex, {
-              coreType: pendingCoreCost.soulOnly ? 'soul' : (newPaidSoul > 0 ? 'soul' : 'regular'),
+              coreType: decidedCoreType,
               paidRegularCores: newPaidRegular,
               paidSoulCores: newPaidSoul,
               useInheritance: pendingCoreCost.useInheritance,
@@ -893,6 +895,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 <button
                   onClick={() => {
+                    console.log('[BUTTON_CLICK] 通常コアボタンクリック', { paidRegular: pendingCoreCost.paidRegular, required: pendingCoreCost.requiredCores });
                     const totalPaid = pendingCoreCost.paidRegular + pendingCoreCost.paidSoul;
                     if (totalPaid < pendingCoreCost.requiredCores) {
                       const newPaid = pendingCoreCost.paidRegular + 1;
@@ -903,6 +906,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                       });
                       if (newTotal >= pendingCoreCost.requiredCores) {
                         const actionIndex = pendingCoreCost.actionIndex;
+                        console.log('[BUTTON_EXECUTE] 通常コア支払い完了、coreType: regular を送信');
                         setTimeout(() => {
                           executeAction(actionIndex, {
                             coreType: 'regular',
@@ -954,6 +958,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 <button
                   onClick={() => {
+                    console.log('[BUTTON_CLICK] ソウルコアボタンクリック', { paidSoul: pendingCoreCost.paidSoul, required: pendingCoreCost.requiredCores });
                     const totalPaid = pendingCoreCost.paidRegular + pendingCoreCost.paidSoul;
                     if (totalPaid < pendingCoreCost.requiredCores) {
                       const newPaid = pendingCoreCost.paidSoul + 1;
@@ -964,6 +969,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                       });
                       if (newTotal >= pendingCoreCost.requiredCores) {
                         const actionIndex = pendingCoreCost.actionIndex;
+                        console.log('[BUTTON_EXECUTE] ソウルコア支払い完了、coreType: soul を送信', { paidSoul: newPaid, paidRegular: pendingCoreCost.paidRegular });
                         setTimeout(() => {
                           executeAction(actionIndex, {
                             coreType: 'soul',
