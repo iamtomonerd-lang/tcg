@@ -1927,15 +1927,6 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           console.log('[CP④] payCost終了', { finalCost: action.paymentPlan.finalCost });
         }
 
-        // Paying from field spirits may drain one to 0 cores: in main phase ask
-        // for confirmation (消滅前の処理) instead of silently removing it. The
-        // confirmation dialog appears after the summon completes; the drained
-        // spirit's index stays valid because the new spirit is appended at the end.
-        const needsPaymentDepletionConfirm = this.checkSpiritDepletionInMainPhase(next, next.currentPlayer);
-        if (!needsPaymentDepletionConfirm) {
-          this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
-        }
-
         // 乗せるコア: MOVE Lv1 maintenance cores from reserve onto the spirit
         // (moved, not paid — they stay on the spirit as assets)
         let toPlace = card.lv1.cost;
@@ -1992,6 +1983,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           removeDeadSpirit(me, newSpiritIndex);
           fixupSpiritIndicesAfterRemoval(next, next.currentPlayer, newSpiritIndex);
           break;
+        }
+
+        // Paying from field spirits may drain one to 0 cores: in main phase ask
+        // for confirmation (消滅前の処理) instead of silently removing it. This check
+        // comes AFTER the new spirit's core placement so that pendingSpiritDepletion
+        // for the new spirit (if needed) is checked first.
+        const needsPaymentDepletionConfirm = this.checkSpiritDepletionInMainPhase(next, next.currentPlayer);
+        if (!needsPaymentDepletionConfirm) {
+          this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
         }
 
         // Check if summon effects will destroy opponent's spirits/nexuses
