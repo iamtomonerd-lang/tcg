@@ -1283,41 +1283,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
 
           if (hasDestroyNexusEffect) {
-            const opponent = state.players[1 - state.currentPlayer]!;
-            const destroyNexusEffect = mainEffects.find((e) => e.action === 'destroy_nexus' && e.requiresTarget);
-            const excludeSkill = destroyNexusEffect?.condition?.excludeTargetSkill;
-            const validNexusIndices: number[] = [];
-
-            if (card.name === 'ブレイククロー') {
-              console.log('[BREAK_CLAW_LEGALACTIONS]', {
-                hasDestroyNexusEffect,
-                foundDestroyNexusEffect: !!destroyNexusEffect,
-                excludeSkill,
-                opponentNexusCount: opponent.nexuses.length,
-              });
-            }
-
-            for (let t = 0; t < opponent.nexuses.length; t++) {
-              const nexus = opponent.nexuses[t]!;
-              if (nexus.level !== 2 && (!excludeSkill || nexus.def.skill !== excludeSkill)) {
-                validNexusIndices.push(t);
-              }
-            }
-
-            if (card.name === 'ブレイククロー') {
-              console.log('[BREAK_CLAW_TARGETS]', {
-                validNexusIndices,
-                validCount: validNexusIndices.length,
-              });
-            }
-
-            if (validNexusIndices.length > 0) {
-              for (const nexusIndex of validNexusIndices) {
-                actions.push({ type: 'use_magic', handIndex: i, targetNexusIndex: nexusIndex, paymentPlan: plan });
-              }
-            } else {
-              actions.push({ type: 'use_magic', handIndex: i, paymentPlan: plan });
-            }
+            // For destroy_nexus with requiresTarget, don't embed target in legalActions
+            // Instead, the use_magic handler will set up pendingEffectAction for target selection
+            actions.push({ type: 'use_magic', handIndex: i, paymentPlan: plan });
           } else if (hasOtherTargetEffect) {
             const opponent = state.players[1 - state.currentPlayer]!;
             const destroyCEffect = mainEffects.find((e) => e.action === 'destroy_creature' && e.requiresTarget);
@@ -2472,6 +2440,24 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             pending.sourceNexusIndex,
             targetTrashCardId
           );
+        } else {
+          // Effect triggered from a magic card
+          dbg(DEBUG_VERBOSE, '[GAME] Triggering from magic card');
+          next = triggerEffects(
+            next,
+            pending.trigger,
+            pending.sourceCard,
+            pending.sourcePlayer,
+            undefined,
+            action.targetSpiritIndex,
+            undefined,
+            undefined,
+            undefined,
+            action.targetNexusIndex,
+            sourceLevel,
+            undefined,
+            targetTrashCardId
+          );
         }
 
         dbg(DEBUG_VERBOSE, '[GAME] After triggerEffects, before clearing');
@@ -3162,6 +3148,47 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         const hasSoulMagicRedEffect = isSoulMagicRedCard(card);
         const skipSymbolCheck = hasSoulMagicRedEffect && action.paymentPlan.paymentType !== 'soulMagic';
 
+        // Check for destroy_nexus effects that require target selection
+        const destroyNexusEffect = card.effects?.find(e =>
+          e.trigger === 'immediate' &&
+          e.action === 'destroy_nexus' &&
+          e.requiresTarget &&
+          (!e.mode || e.mode === 'main' || (hasSoulMagicRedEffect && e.mode === 'flash'))
+        );
+
+        // If destroy_nexus requires target and no targetNexusIndex provided, check if we need pending effect
+        if (destroyNexusEffect && action.targetNexusIndex === undefined) {
+          const opponent = next.players[1 - next.currentPlayer]!;
+          const excludeSkill = destroyNexusEffect.condition?.excludeTargetSkill;
+          const validNexusIndices: number[] = [];
+
+          for (let t = 0; t < opponent.nexuses.length; t++) {
+            const nexus = opponent.nexuses[t]!;
+            if (nexus.level !== 2 && (!excludeSkill || nexus.def.skill !== excludeSkill)) {
+              validNexusIndices.push(t);
+            }
+          }
+
+          // If there are multiple valid targets, set up pending effect for user selection
+          // If exactly one valid target, auto-select it; if none, skip the effect
+          if (validNexusIndices.length > 1) {
+            next.pendingEffectAction = {
+              effect: destroyNexusEffect,
+              sourceCard: card,
+              sourcePlayer: next.currentPlayer,
+              spiritIndex: undefined,
+              sourceNexusIndex: undefined,
+              validTargets: { spiritIndices: [], nexusIndices: validNexusIndices },
+              trigger: 'immediate',
+              remainingEffects: [],
+            };
+            return next; // Wait for target selection
+          } else if (validNexusIndices.length === 1) {
+            // Auto-select the only valid target
+            action.targetNexusIndex = validNexusIndices[0];
+          }
+          // If validNexusIndices.length === 0, proceed without targeting (effect will be skipped)
+        }
 
         // Special handling for オファーリングドロー
         if (card.id === 'magic_offering_draw') {
