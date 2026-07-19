@@ -386,13 +386,14 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     }
     // Attach core payment information if provided
     if (action) {
+      // Prioritize coreType (explicit payment method choice from buttons)
+      if (coreType) {
+        action.coreType = coreType;
+      }
+      // Also attach exact core counts if provided
       if (paidRegularCores !== undefined || paidSoulCores !== undefined) {
-        // Use exact core counts from Web UI
         action.paidRegularCores = paidRegularCores || 0;
         action.paidSoulCores = paidSoulCores || 0;
-      } else if (coreType) {
-        // Legacy: use coreType preference
-        action.coreType = coreType;
       }
       // Attach inheritance card selection if provided
       const inheritanceIds = selectedInheritanceIds || selectedCardIds; // Support both parameter names
