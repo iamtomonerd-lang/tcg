@@ -169,6 +169,14 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     }
   }, [state?.pendingDraw]);
 
+  // Remove selected cards from arrangement list
+  useEffect(() => {
+    if (state?.pendingDraw) {
+      const filtered = arrangedCardIndices.filter(idx => !selectedHandIndices.has(idx));
+      setArrangedCardIndices(filtered);
+    }
+  }, [selectedHandIndices, state?.pendingDraw]);
+
   // Reset pending core cost when game state changes
   useEffect(() => {
     setPendingCoreCost(null);
