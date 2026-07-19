@@ -556,7 +556,36 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     }
 
     if (matchingAction) {
-      executeAction(matchingAction.index, { coreType });
+      // If cost > 0 and coreType not yet selected, ask player to choose
+      const actionCost = matchingAction.action?.paymentPlan?.finalCost || 0;
+      const playerSoulCores = state?.players?.[currentPlayer]?.soulCores || 0;
+      const playerHasSpiritSoulCores = state?.players?.[currentPlayer]?.spirits?.some((s: any) => s.soulCoreCount > 0);
+      const canPaySoulCore = playerSoulCores > 0 || playerHasSpiritSoulCores;
+
+      if (actionCost > 0 && canPaySoulCore && coreType === undefined) {
+        // Show dialog to choose payment method
+        setPendingActionChoice({
+          card: dragData.card,
+          options: [
+            {
+              ...matchingAction,
+              index: matchingAction.index,
+              description: `${matchingAction.description} (通常コア支払い)`,
+              action: { ...matchingAction.action, coreType: 'regular' }
+            },
+            {
+              ...matchingAction,
+              index: matchingAction.index,
+              description: `${matchingAction.description} (ソウルコア支払い)`,
+              action: { ...matchingAction.action, coreType: 'soul' }
+            }
+          ]
+        });
+        setSelectedCoreType(null);
+        return;
+      }
+
+      executeAction(matchingAction.index, { coreType: coreType || 'regular' });
     } else if (!pendingCoreCost) {
       setError(`ドラッグ操作は無効です。アクションボタンから実行してください。`);
     }
