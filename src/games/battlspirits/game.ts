@@ -2091,15 +2091,41 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               }
             }
           } else if (targetRequiringEffect.action === 'trash_to_hand') {
-            // For trash_to_hand, we're selecting cards from own trash
-            // Store as temporary info; actual card selection happens differently
-            validTargets.spiritIndices = [-1]; // Special marker: selecting from trash
-            console.log('[SUMMON_TRASH_TO_HAND] Set validTargets for trash selection:', {
-              cardName: card.name,
-              hasTrash: me.trash.length > 0,
-              trashCardCount: me.trash.length,
-              validTargets,
-            });
+            // For trash_to_hand, check if there are actually cards in trash matching the condition
+            const targetLineage = targetRequiringEffect.symbol;
+            const maxCost = targetRequiringEffect.condition?.maxCost;
+            const excludeId = targetRequiringEffect.excludeId;
+
+            let hasValidTrashCards = false;
+            for (const card of me.trash) {
+              const lineageMatch = !targetLineage || (card.lineage && card.lineage.includes(targetLineage));
+              const costMatch = maxCost === undefined || card.cost <= maxCost;
+              const excludeMatch = !excludeId || card.id !== excludeId;
+              const typeMatch = card.cardType === 'spirit';
+
+              if (lineageMatch && costMatch && excludeMatch && typeMatch) {
+                hasValidTrashCards = true;
+                break;
+              }
+            }
+
+            if (hasValidTrashCards) {
+              validTargets.spiritIndices = [-1]; // Special marker: selecting from trash
+              console.log('[SUMMON_TRASH_TO_HAND] Set validTargets for trash selection:', {
+                cardName: card.name,
+                hasTrash: me.trash.length > 0,
+                trashCardCount: me.trash.length,
+                validTargets,
+              });
+            } else {
+              // No valid trash cards: skip target selection and trigger effects normally
+              console.log('[SUMMON_TRASH_TO_HAND] No valid trash cards found, skipping target selection:', {
+                cardName: card.name,
+                trashCount: me.trash.length,
+                targetLineage,
+                maxCost,
+              });
+            }
           } else if (targetRequiringEffect.action === 'place_core') {
             // Find own spirits/nexuses matching condition
             validTargets = this.findValidTargetsForEffect(next, next.currentPlayer, targetRequiringEffect);
@@ -2867,14 +2893,41 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           let validTargets: { spiritIndices: number[]; nexusIndices: number[] } = { spiritIndices: [], nexusIndices: [] };
 
           if (targetRequiringEffect.action === 'trash_to_hand') {
-            // For trash_to_hand, we're selecting cards from own trash
-            validTargets.spiritIndices = [-1]; // Special marker: selecting from trash
-            console.log('[PLACE_NEXUS_TRASH_TO_HAND] Set validTargets for trash selection:', {
-              cardName: card.name,
-              hasTrash: me.trash.length > 0,
-              trashCardCount: me.trash.length,
-              validTargets,
-            });
+            // For trash_to_hand, check if there are actually cards in trash matching the condition
+            const targetLineage = targetRequiringEffect.symbol;
+            const maxCost = targetRequiringEffect.condition?.maxCost;
+            const excludeId = targetRequiringEffect.excludeId;
+
+            let hasValidTrashCards = false;
+            for (const card of me.trash) {
+              const lineageMatch = !targetLineage || (card.lineage && card.lineage.includes(targetLineage));
+              const costMatch = maxCost === undefined || card.cost <= maxCost;
+              const excludeMatch = !excludeId || card.id !== excludeId;
+              const typeMatch = card.cardType === 'spirit';
+
+              if (lineageMatch && costMatch && excludeMatch && typeMatch) {
+                hasValidTrashCards = true;
+                break;
+              }
+            }
+
+            if (hasValidTrashCards) {
+              validTargets.spiritIndices = [-1]; // Special marker: selecting from trash
+              console.log('[PLACE_NEXUS_TRASH_TO_HAND] Set validTargets for trash selection:', {
+                cardName: card.name,
+                hasTrash: me.trash.length > 0,
+                trashCardCount: me.trash.length,
+                validTargets,
+              });
+            } else {
+              // No valid trash cards: skip target selection and trigger effects normally
+              console.log('[PLACE_NEXUS_TRASH_TO_HAND] No valid trash cards found, skipping target selection:', {
+                cardName: card.name,
+                trashCount: me.trash.length,
+                targetLineage,
+                maxCost,
+              });
+            }
           } else if (targetRequiringEffect.action === 'place_core') {
             // Find own spirits/nexuses matching condition
             validTargets = this.findValidTargetsForEffect(next, next.currentPlayer, targetRequiringEffect);
