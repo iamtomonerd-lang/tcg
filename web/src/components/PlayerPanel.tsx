@@ -83,6 +83,7 @@ function CoreTray({
   };
 
   return (
+    <>
     <div
       className={`core-tray ${canDrag ? 'interactive' : ''}`}
       onDragOver={(e) => {
@@ -195,7 +196,7 @@ function CoreTray({
         </button>
       </div>
     )}
-    </div>
+    </>
   );
 }
 
