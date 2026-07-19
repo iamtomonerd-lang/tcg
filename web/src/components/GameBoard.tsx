@@ -1141,11 +1141,30 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                         </div>
                         {state.players[state.currentPlayer]?.trash?.cards?.map((trashCard, trashIdx) => {
                           // Filter cards based on effect conditions
-                          if (!effect) return null;
+                          if (!effect) {
+                            console.log('[TRASH_MAP] Early return: no effect');
+                            return null;
+                          }
                           const targetLineage = effect.symbol;
                           const excludeId = effect.excludeId;
                           const excludeEXSymbol = effect.condition?.excludeEXSymbol ?? false;
                           const maxCost = effect.condition?.maxCost;
+
+                          console.log('[TRASH_MAP] Checking card:', {
+                            cardName: trashCard.name,
+                            cardId: trashCard.id,
+                            lineage: trashCard.lineage,
+                            targetLineage,
+                            lineageMatch: !targetLineage || trashCard.lineage?.includes(targetLineage),
+                            excludeId,
+                            idMatch: !excludeId || trashCard.id !== excludeId,
+                            excludeEXSymbol,
+                            exSymbol: trashCard.exSymbol,
+                            exSymbolMatch: !excludeEXSymbol || !trashCard.exSymbol,
+                            maxCost,
+                            costMatch: maxCost === undefined || trashCard.cost <= maxCost,
+                            cardType: trashCard.cardType,
+                          });
 
                           if ((!targetLineage || trashCard.lineage?.includes(targetLineage)) &&
                               (!excludeId || trashCard.id !== excludeId) &&
