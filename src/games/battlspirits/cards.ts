@@ -254,7 +254,6 @@ export const CARD_DB: Record<string, CardDef> = {
         excludeId: 'spirit_seldalius',
         level: [1, 2],
         requiresTarget: true,
-        condition: { excludeEXSymbol: true },
         description: 'Lv1-2時、召喚時に自分のトラッシュの「セルタリウス」以外の系統：「風牙」を持つスピリットカード1枚を指定する。それを手札に戻す',
       },
     ],
