@@ -39,6 +39,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
     useInheritance?: boolean;
     hasInheritance?: boolean;
     soulOnly?: boolean; // Soul Magic soul-core payment: only soul cores accepted
+    chosenCoreType?: 'regular' | 'soul'; // User's choice of payment method (via button)
   } | null>(null);
   // When a dragged card has multiple distinct plays (different targets / payment
   // modes), the player must choose one — never auto-pick the first
@@ -441,8 +442,9 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         // If we've paid enough cores, execute the action
         if (totalPaid >= pendingCoreCost.requiredCores) {
           const actionIndex = pendingCoreCost.actionIndex;
-          const decidedCoreType = pendingCoreCost.soulOnly ? 'soul' : (newPaidSoul > 0 ? 'soul' : 'regular');
-          console.log('[DRAG_DROP_PAYMENT] コアドラッグ完了', { decidedCoreType, newPaidRegular, newPaidSoul, soulOnly: pendingCoreCost.soulOnly });
+          // Use chosenCoreType if user selected via button, otherwise infer from what was paid
+          const decidedCoreType = pendingCoreCost.chosenCoreType || (pendingCoreCost.soulOnly ? 'soul' : (newPaidSoul > 0 ? 'soul' : 'regular'));
+          console.log('[DRAG_DROP_PAYMENT] コアドラッグ完了', { decidedCoreType, newPaidRegular, newPaidSoul, chosenCoreType: pendingCoreCost.chosenCoreType });
           setPendingCoreCost(null);
           setDragData(null);
           setDragOverCard(null);
@@ -903,6 +905,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                       setPendingCoreCost({
                         ...pendingCoreCost,
                         paidRegular: newPaid,
+                        chosenCoreType: 'regular', // 支払い方法を記録
                       });
                       if (newTotal >= pendingCoreCost.requiredCores) {
                         const actionIndex = pendingCoreCost.actionIndex;
@@ -966,6 +969,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                       setPendingCoreCost({
                         ...pendingCoreCost,
                         paidSoul: newPaid,
+                        chosenCoreType: 'soul', // 支払い方法を記録
                       });
                       if (newTotal >= pendingCoreCost.requiredCores) {
                         const actionIndex = pendingCoreCost.actionIndex;
