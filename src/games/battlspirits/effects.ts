@@ -731,12 +731,25 @@ export function triggerEffects(
   for (const effect of effects) {
     // Debug log for Break Claw
     if (card.name === 'ブレイククロー') {
+      const conditionsMet = checkEffectConditions(effect, next, sourcePlayer);
       console.log('[BREAK_CLAW] Processing effect:', {
         action: effect.action,
         mode: effect.mode,
         requiresTarget: effect.requiresTarget,
-        conditionsMet: checkEffectConditions(effect, next, sourcePlayer),
+        conditionsMet,
       });
+      if (!conditionsMet) {
+        console.log('[BREAK_CLAW] Skipping effect due to failed conditions');
+        continue;
+      }
+    }
+
+    // Check conditions before applying effect
+    if (!checkEffectConditions(effect, next, sourcePlayer)) {
+      if (card.name === 'ブレイククロー') {
+        console.log('[BREAK_CLAW] Effect conditions failed, skipping');
+      }
+      continue;
     }
 
     // Activation cost (▶ compound effects): pay it first, or the effect does not fire.
