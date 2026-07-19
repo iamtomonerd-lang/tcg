@@ -1334,6 +1334,26 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
     }
 
+    // Generate move_core actions (move one core at a time from field cards to reserve)
+    for (let i = 0; i < me.spirits.length; i++) {
+      const s = me.spirits[i]!;
+      const totalCores = s.coreCount + s.soulCoreCount;
+      if (totalCores > 0) {
+        const coreType = s.coreCount > 0 ? 'regular' : 'soul';
+        actions.push({ type: 'move_core', coreType, fromZone: 'spirit', fromIndex: i, toZone: 'reserve' });
+      }
+    }
+
+    // Generate move_core actions for nexuses
+    for (let i = 0; i < me.nexuses.length; i++) {
+      const n = me.nexuses[i]!;
+      const totalCores = n.coreCount + n.soulCoreCount;
+      if (totalCores > 0) {
+        const coreType = n.coreCount > 0 ? 'regular' : 'soul';
+        actions.push({ type: 'move_core', coreType, fromZone: 'nexus', fromIndex: i, toZone: 'reserve' });
+      }
+    }
+
     // Can pass to next phase (or end turn if Main2)
     actions.push({ type: 'pass' });
 
