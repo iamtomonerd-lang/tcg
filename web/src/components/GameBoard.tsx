@@ -505,51 +505,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
         return;
       }
 
-      // Single action candidate: check if we need to show payment choice dialog
-      const action = candidates[0];
-      const playerSoulCores = state?.players?.[currentPlayer]?.soulCores || 0;
-      const playerHasSpiritSoulCores = state?.players?.[currentPlayer]?.spirits?.some((s: any) => s.soulCoreCount > 0);
-      const canPaySoulCore = playerSoulCores > 0 || playerHasSpiritSoulCores;
-
-      // Get action cost to determine if payment choice dialog is needed
-      try {
-        const response = await fetch(`/api/game/${sessionId}/action-cost`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ actionIndex: action.index }),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const actionCost = data.cost ?? 0;
-
-          // If cost > 0 and player has soul cores, show payment method choice
-          if (actionCost > 0 && canPaySoulCore) {
-            setPendingActionChoice({
-              card: dragData.card,
-              options: [
-                {
-                  ...action,
-                  index: action.index,
-                  description: `${action.description} (通常コア支払い)`,
-                  action: { ...action.action, coreType: 'regular' }
-                },
-                {
-                  ...action,
-                  index: action.index,
-                  description: `${action.description} (ソウルコア支払い)`,
-                  action: { ...action.action, coreType: 'soul' }
-                }
-              ]
-            });
-            setSelectedCoreType(null);
-            return;
-          }
-        }
-      } catch (err) {
-        console.error('Failed to get action cost for payment dialog:', err);
-      }
-
-      beginCardAction(action, dragData.card);
+      beginCardAction(candidates[0], dragData.card);
       setSelectedCoreType(null);
       return;
     } else if (dragData.type === 'spirit') {
@@ -949,6 +905,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                         const actionIndex = pendingCoreCost.actionIndex;
                         setTimeout(() => {
                           executeAction(actionIndex, {
+                            coreType: 'regular',
                             paidRegularCores: newPaid,
                             paidSoulCores: pendingCoreCost.paidSoul,
                             useInheritance: pendingCoreCost.useInheritance,
@@ -1009,6 +966,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                         const actionIndex = pendingCoreCost.actionIndex;
                         setTimeout(() => {
                           executeAction(actionIndex, {
+                            coreType: 'soul',
                             paidRegularCores: pendingCoreCost.paidRegular,
                             paidSoulCores: newPaid,
                             useInheritance: pendingCoreCost.useInheritance,
