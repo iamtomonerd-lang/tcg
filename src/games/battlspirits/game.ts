@@ -1212,12 +1212,28 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // Generate action for each plan
         for (const plan of plans) {
           if (card.cardType === 'spirit') {
+            // Check if we can pay with soul cores in addition to regular cores
+            const canPaySoulCore = me.soulCores > 0 || me.spirits.some(s => s.soulCoreCount > 0);
+
+            // Generate regular core payment action
             const action: any = {
               type: 'summon',
               handIndex: i,
               paymentPlan: plan,
+              coreType: 'regular',
             };
             actions.push(action);
+
+            // If soul core payment is possible and cost > 0, also generate soul core variant
+            if (canPaySoulCore && plan.finalCost > 0) {
+              const soulAction: any = {
+                type: 'summon',
+                handIndex: i,
+                paymentPlan: plan,
+                coreType: 'soul',
+              };
+              actions.push(soulAction);
+            }
 
             // ③ Inheritance plan in action check
             if (plan.maxInheritanceCount > 0) {
@@ -1230,12 +1246,28 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               });
             }
           } else if (card.cardType === 'nexus') {
+            // Check if we can pay with soul cores in addition to regular cores
+            const canPaySoulCore = me.soulCores > 0 || me.spirits.some(s => s.soulCoreCount > 0);
+
+            // Generate regular core payment action
             const action: any = {
               type: 'place_nexus',
               handIndex: i,
               paymentPlan: plan,
+              coreType: 'regular',
             };
             actions.push(action);
+
+            // If soul core payment is possible and cost > 0, also generate soul core variant
+            if (canPaySoulCore && plan.finalCost > 0) {
+              const soulAction: any = {
+                type: 'place_nexus',
+                handIndex: i,
+                paymentPlan: plan,
+                coreType: 'soul',
+              };
+              actions.push(soulAction);
+            }
 
             // ③ Inheritance plan in action check
             if (plan.maxInheritanceCount > 0) {
