@@ -1220,25 +1220,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           }
         }
       } else if (card.cardType === 'magic') {
-        if (card.name === 'ブレイククロー') {
-          console.log('[BREAK_CLAW_LEGALACTIONS_ENTRY]', {
-            cardName: card.name,
-            effectsCount: card.effects?.length,
-          });
-        }
-
         // Get all possible payment plans using CostResolver
         const magicPlans = CostResolver.getPaymentPlans(state, me, card);
-        if (magicPlans.length === 0) {
-          if (card.name === 'ブレイククロー') {
-            console.log('[BREAK_CLAW_NO_PLANS]', { canAfford: false });
-          }
-          continue; // Can't afford this magic card
-        }
-
-        if (card.name === 'ブレイククロー') {
-          console.log('[BREAK_CLAW_PLANS]', { plansCount: magicPlans.length });
-        }
+        if (magicPlans.length === 0) continue; // Can't afford this magic card
 
         // Filter effects by mode (main phase effects: mode 'main', no mode, or Soul Magic can use flash as main too)
         const mainEffects = card.effects?.filter(e => {
@@ -1247,19 +1231,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           return false;
         }) ?? [];
 
-        if (card.name === 'ブレイククロー') {
-          console.log('[BREAK_CLAW_MAINEFFECTS]', {
-            mainEffectsCount: mainEffects.length,
-            mainEffectActions: mainEffects.map(e => e.action),
-          });
-        }
-
-        if (mainEffects.length === 0) {
-          if (card.name === 'ブレイククロー') {
-            console.log('[BREAK_CLAW_NO_MAINEFFECTS]');
-          }
-          continue; // No main-phase effects for this card
-        }
+        if (mainEffects.length === 0) continue; // No main-phase effects for this card
 
         // Check if card has effects with requiresTarget (for spirits or nexuses)
         const hasDestroyNexusEffect = mainEffects.some((e) => e.action === 'destroy_nexus') ?? false;
