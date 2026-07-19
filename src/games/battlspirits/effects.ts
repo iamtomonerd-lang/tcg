@@ -718,7 +718,27 @@ export function triggerEffects(
     return true;
   });
 
+  if (card.name === 'ブレイククロー') {
+    console.log('[BREAK_CLAW] triggerEffects called:', {
+      trigger,
+      cardName: card.name,
+      modeFilter,
+      effectCount: effects.length,
+      effects: effects.map(e => ({ action: e.action, trigger: e.trigger, mode: e.mode })),
+    });
+  }
+
   for (const effect of effects) {
+    // Debug log for Break Claw
+    if (card.name === 'ブレイククロー') {
+      console.log('[BREAK_CLAW] Processing effect:', {
+        action: effect.action,
+        mode: effect.mode,
+        requiresTarget: effect.requiresTarget,
+        conditionsMet: checkEffectConditions(effect, next, sourcePlayer),
+      });
+    }
+
     // Activation cost (▶ compound effects): pay it first, or the effect does not fire.
     if (effect.costAction === 'discard_hand') {
       // Cost: discard a card (matching costSymbol lineage) chosen via discardCardIndex.
