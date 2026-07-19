@@ -403,11 +403,11 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           );
         } else {
           // No cost, execute immediately
-          executeAction(actionEntry.index, {});
+          executeAction(actionEntry.index, { coreType: soulOnly ? 'soul' : undefined });
         }
       } catch (err) {
         console.error('Failed to get action cost:', err);
-        executeAction(actionEntry.index, {});
+        executeAction(actionEntry.index, { coreType: soulOnly ? 'soul' : undefined });
       }
     };
     checkCost();
@@ -449,6 +449,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           // Execute the action with exact core type counts
           setTimeout(() => {
             executeAction(actionIndex, {
+              coreType: pendingCoreCost.soulOnly ? 'soul' : (newPaidSoul > 0 ? 'soul' : 'regular'),
               paidRegularCores: newPaidRegular,
               paidSoulCores: newPaidSoul,
               useInheritance: pendingCoreCost.useInheritance,
