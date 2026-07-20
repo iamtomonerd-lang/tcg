@@ -3601,9 +3601,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       case 'pass': {
         // Handle phase transitions based on current phase
         if (next.phase === 'main') {
-          // Both sente and gote's first turn: skip attack + main2, go directly to end
-          const isFirstTurnOfGame = next.turnCount < 2;
-          if (isFirstTurnOfGame) {
+          // Only sente (player 0) turn 1: skip attack + main2, go directly to end
+          // Gote (player 1) can attack starting from turn 1
+          const isSenteTurn1 = next.turnCount === 0 && next.currentPlayer === 0;
+          if (isSenteTurn1) {
             // Skip to end phase directly (skip attack and main2)
             next.phase = 'end';
 
