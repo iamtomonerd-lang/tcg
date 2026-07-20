@@ -398,10 +398,29 @@ app.post('/api/game/:sessionId/action', (req, res) => {
       // Attach inheritance selection if provided
       if (inheritanceCount !== undefined && action.type === 'select_inheritance') {
         action.inheritanceCount = inheritanceCount;
+        console.log('[SERVER_INHERITANCE_DEBUG] inheritanceCount attached:', {
+          received: inheritanceCount,
+          actionType: action.type,
+        });
       }
       const inheritanceIds = selectedInheritanceIds || selectedCardIds; // Support both parameter names
       if (inheritanceIds !== undefined && action.type === 'select_inheritance') {
         action.selectedCardIds = inheritanceIds || [];
+        console.log('[SERVER_INHERITANCE_DEBUG] selectedCardIds attached:', {
+          received: inheritanceIds,
+          length: inheritanceIds.length,
+          actionType: action.type,
+        });
+      }
+      // Debug: Log all select_inheritance actions
+      if (action.type === 'select_inheritance') {
+        console.log('[SERVER_INHERITANCE_FINAL] select_inheritance action:', {
+          inheritanceCount: action.inheritanceCount,
+          selectedCardIds: action.selectedCardIds,
+          reqBodyInheritanceCount: inheritanceCount,
+          reqBodySelectedCardIds: selectedCardIds,
+          reqBodySelectedInheritanceIds: selectedInheritanceIds,
+        });
       }
     }
   }
