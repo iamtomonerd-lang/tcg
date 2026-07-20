@@ -2531,6 +2531,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         } else if (pending.trigger === 'summon') {
           // For summon effects, continue with remaining summon effects for this card
           // Trigger all summon effects (now that target has been selected)
+          // Pass targetTrashCardId for trash_to_hand effects
+          const targetTrashCardId = (action as any).trashCardId;
           next = triggerEffects(
             next,
             'summon',
@@ -2541,8 +2543,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             undefined,
             undefined,
             undefined,
-            undefined,
-            pending.sourceCard.effects?.find((e) => e.level?.includes(1 || 2))?.level?.[0] ?? 1
+            action.targetNexusIndex,
+            pending.sourceCard.effects?.find((e) => e.level?.includes(1 || 2))?.level?.[0] ?? 1,
+            pending.sourceNexusIndex,
+            targetTrashCardId
           );
         } else if (pending.trigger === 'attack') {
           // For attack effects, continue attack flow: search_deck handling, then create pending attack
