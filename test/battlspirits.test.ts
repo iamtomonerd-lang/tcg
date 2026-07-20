@@ -940,6 +940,8 @@ describe('継召 (inheritance) cost reduction', () => {
     };
     after = game.applyAction(after, selectAction, new Mulberry32(1));
     expect(after.players[0].trash.filter((c) => c.exSymbol).length).toBe(0); // the 1 EX card is removed from game
+    expect(after.players[0].excludedCards.length).toBe(1); // the 1 EX card is recorded in excludedCards
+    expect(after.players[0].excludedCards[0]?.id).toBe('spirit_gun_gata');
   });
 
   it('EXカード3枚(色一致)なら軽減枠3まで使い切る、cost 6→3、EXカード3枚除外', () => {

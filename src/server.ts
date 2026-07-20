@@ -347,7 +347,7 @@ app.post('/api/game/:sessionId/action', (req, res) => {
     }
   }
 
-  const { actionIndex, cardIndices, selectedCardIndices, arrangedCardIndices, coreType, paidRegularCores, paidSoulCores, selectedInheritanceIds, selectedCardIds, moveCore } = req.body;
+  const { actionIndex, cardIndices, selectedCardIndices, arrangedCardIndices, coreType, paidRegularCores, paidSoulCores, inheritanceCount, selectedInheritanceIds, selectedCardIds, moveCore } = req.body;
   let action: any;
 
   if (moveCore !== undefined) {
@@ -395,7 +395,10 @@ app.post('/api/game/:sessionId/action', (req, res) => {
         action.paidRegularCores = paidRegularCores || 0;
         action.paidSoulCores = paidSoulCores || 0;
       }
-      // Attach inheritance card selection if provided
+      // Attach inheritance selection if provided
+      if (inheritanceCount !== undefined && action.type === 'select_inheritance') {
+        action.inheritanceCount = inheritanceCount;
+      }
       const inheritanceIds = selectedInheritanceIds || selectedCardIds; // Support both parameter names
       if (inheritanceIds !== undefined && action.type === 'select_inheritance') {
         action.selectedCardIds = inheritanceIds || [];
