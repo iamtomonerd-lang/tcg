@@ -1249,7 +1249,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                         }}>
                           トラッシュから選択：
                         </div>
-                        {state.players[state.currentPlayer]?.trash?.map((trashCard, trashIdx) => {
+                        {state.players[state.currentPlayer]?.trash?.cards?.map((trashCard, trashIdx) => {
                           // Filter cards based on effect conditions
                           if (!effect) {
                             console.log('[TRASH_MAP] Early return: no effect');
