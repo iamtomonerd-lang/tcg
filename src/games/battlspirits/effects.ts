@@ -794,6 +794,7 @@ function clonePlayerState(p: PlayerState): PlayerState {
     spirits: p.spirits.map((s) => ({ ...s, soulCoreCount: s.soulCoreCount })),
     nexuses: p.nexuses.map((n) => ({ ...n })),
     trash: p.trash.slice(),
+    excludedCards: (p.excludedCards || []).slice(),
     bottomDeckCards: p.bottomDeckCards.slice(),
     damageThisTurn: p.damageThisTurn,
   };

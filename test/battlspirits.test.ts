@@ -13,7 +13,7 @@ function makeSpirit(): Spirit {
 }
 
 function makePlayer(spirits: Spirit[]): PlayerState {
-  return { life: 5, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [], bottomDeckCards: [] };
+  return { life: 5, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [], excludedCards: [], bottomDeckCards: [] };
 }
 
 /** Resolve both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */
@@ -1502,6 +1502,7 @@ describe('【継召】 inheritance (cost reduction) system', () => {
           spirits: [],
           nexuses: [],
           trash: [CARD_DB.spirit_graipher!],
+          excludedCards: [],
           bottomDeckCards: [],
         },
         makePlayer([]),
@@ -1569,6 +1570,7 @@ describe('【継召】 inheritance (cost reduction) system', () => {
           spirits: [],
           nexuses: [],
           trash: [CARD_DB.spirit_graipher!],
+          excludedCards: [],
           bottomDeckCards: [],
         },
         makePlayer([]),

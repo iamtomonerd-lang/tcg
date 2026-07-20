@@ -213,6 +213,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       spirits: [],
       nexuses: [],
       trash: [],
+      excludedCards: [],
       bottomDeckCards: [],
     };
   }
@@ -245,6 +246,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       spirits: [],
       nexuses: [],
       trash: [],
+      excludedCards: [],
       bottomDeckCards: [],
     };
   }
@@ -1594,6 +1596,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       });
 
       if (action.paymentPlan?.inheritanceCardIds && action.paymentPlan.inheritanceCardIds.length > 0) {
+        const inheritedCards = me.trash.filter((c) => action.paymentPlan!.inheritanceCardIds.includes(c.id));
+        me.excludedCards.push(...inheritedCards);
         me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
         console.log('[INHERITANCE_REMOVAL_DEBUG] flash: cards removed from trash');
       }
@@ -1968,7 +1972,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             trash_before: trashBefore,
             remove_ids: action.paymentPlan.inheritanceCardIds,
           });
-          // Apply inheritance (remove EX cards from trash)
+          // Apply inheritance (remove EX cards from trash and record them in excludedCards)
+          const inheritedCards = me.trash.filter((c) => action.paymentPlan!.inheritanceCardIds.includes(c.id));
+          me.excludedCards.push(...inheritedCards);
           me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
           const trashAfter = me.trash.map(c => c.name);
           console.log('[CP③] removeInheritance完了', {
@@ -2908,9 +2914,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // ⑤ removeInheritance 実行
         if (action.paymentPlan?.inheritanceCardIds && action.paymentPlan.inheritanceCardIds.length > 0) {
           const trashBefore = me.trash.map(c => c.name).join(', ');
-          const toRemove = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id)).map(c => c.name).join(', ');
+          const inheritedCards = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id));
+          const toRemove = inheritedCards.map(c => c.name).join(', ');
 
-          // Apply inheritance (remove EX cards from trash)
+          // Apply inheritance (remove EX cards from trash and record them in excludedCards)
+          me.excludedCards.push(...inheritedCards);
           me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
 
           console.log('[INHERITANCE⑤] removeInheritance executed (place_nexus):', {
@@ -3212,9 +3220,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         // ⑤ removeInheritance 実行
         if (action.paymentPlan?.inheritanceCardIds && action.paymentPlan.inheritanceCardIds.length > 0) {
           const trashBefore = me.trash.map(c => c.name).join(', ');
-          const toRemove = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id)).map(c => c.name).join(', ');
+          const inheritedCards = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id));
+          const toRemove = inheritedCards.map(c => c.name).join(', ');
 
-          // Apply inheritance (remove EX cards from trash)
+          // Apply inheritance (remove EX cards from trash and record them in excludedCards)
+          me.excludedCards.push(...inheritedCards);
           me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
 
           console.log('[INHERITANCE⑤] removeInheritance executed (use_magic):', {
@@ -4233,6 +4243,7 @@ function clonePlayer(p: any) {
     spirits: p.spirits.map((s: any) => ({ ...s, bpBoost: s.bpBoost ?? 0, soulCoreCount: s.soulCoreCount ?? 0 })),
     nexuses: p.nexuses.map((n: any) => ({ ...n, placedCores: n.placedCores ?? 0, soulCoreCount: n.soulCoreCount ?? 0 })),
     trash: p.trash.slice(),
+    excludedCards: (p.excludedCards || []).slice(),
     bottomDeckCards: (p.bottomDeckCards || []).slice(),
     damageThisTurn: p.damageThisTurn, // Soul Magic red condition tracking — must survive cloning
   };

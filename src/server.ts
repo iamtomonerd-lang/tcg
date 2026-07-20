@@ -1120,6 +1120,18 @@ function serializeState(state: GameState) {
           imagePath: c.imagePath,
         })),
       },
+      excludedCards: {
+        count: p.excludedCards.length,
+        cards: p.excludedCards.map((c) => ({
+          id: c.id,
+          name: c.name,
+          cost: c.cost,
+          cardType: c.cardType,
+          lineage: c.lineage,
+          exSymbol: c.exSymbol,
+          imagePath: c.imagePath,
+        })),
+      },
       bottomDeckCards: p.bottomDeckCards.map((c) => ({
         id: c.id,
         name: c.name,

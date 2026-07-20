@@ -46,6 +46,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
   const [pendingActionChoice, setPendingActionChoice] = useState<{ card: any; options: LegalAction[] } | null>(null);
   const [selectedCardImage, setSelectedCardImage] = useState<{ imagePath: string; name: string } | null>(null);
   const [trashViewPlayer, setTrashViewPlayer] = useState<number | null>(null);
+  const [excludedViewPlayer, setExcludedViewPlayer] = useState<number | null>(null);
   const [bottomDeckViewPlayer, setBottomDeckViewPlayer] = useState<number | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
@@ -2049,6 +2050,43 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                 </div>
               ) : (
                 <div className="trash-empty">山札下にカードがありません</div>
+              )}
+            </div>
+            <div className="card-image-modal-hint">クリックまたは Esc で閉じる</div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Excluded cards viewing modal ===== */}
+      {excludedViewPlayer !== null && state && (
+        <div className="card-image-modal" onClick={() => setExcludedViewPlayer(null)}>
+          <div className="card-image-modal-content trash-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="card-image-modal-title">
+              P{excludedViewPlayer} の除外カード（{state.players[excludedViewPlayer].excludedCards.count}枚）
+            </div>
+            <div className="trash-modal-body">
+              {state.players[excludedViewPlayer].excludedCards.cards && state.players[excludedViewPlayer].excludedCards.cards.length > 0 ? (
+                <div className="trash-grid">
+                  {state.players[excludedViewPlayer].excludedCards.cards.map((card: any, idx: number) => (
+                    <div
+                      key={`excluded-${idx}`}
+                      className="trash-card"
+                      title={`${card.name}\nコスト${card.cost}\n継承により除外\nクリックで拡大表示`}
+                      onClick={() => card.imagePath && setSelectedCardImage({ imagePath: card.imagePath, name: card.name })}
+                      style={{ cursor: card.imagePath ? 'pointer' : 'default' }}
+                    >
+                      {card.imagePath ? (
+                        <img src={`/${card.imagePath}`} alt={card.name} />
+                      ) : null}
+                      <div className="trash-card-info">
+                        <div className="trash-card-name">{card.name}</div>
+                        <div className="trash-card-cost">コスト{card.cost}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="trash-empty">除外カードがありません</div>
               )}
             </div>
             <div className="card-image-modal-hint">クリックまたは Esc で閉じる</div>
