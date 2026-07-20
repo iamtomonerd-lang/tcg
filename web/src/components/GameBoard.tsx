@@ -900,7 +900,15 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                     console.log('[BUTTON_CLICK] 通常コアボタンクリック', { paidRegular: pendingCoreCost.paidRegular, required: pendingCoreCost.requiredCores });
                     const totalPaid = pendingCoreCost.paidRegular + pendingCoreCost.paidSoul;
                     if (totalPaid < pendingCoreCost.requiredCores) {
+                      // Check if player has enough regular cores
+                      const availableRegularCores = state?.players?.[currentPlayer]?.cores || 0;
                       const newPaid = pendingCoreCost.paidRegular + 1;
+
+                      if (newPaid > availableRegularCores) {
+                        setError(`通常コアが不足しています。利用可能: ${availableRegularCores}個、必要: ${newPaid}個`);
+                        return;
+                      }
+
                       const newTotal = newPaid + pendingCoreCost.paidSoul;
                       setPendingCoreCost({
                         ...pendingCoreCost,
@@ -964,7 +972,16 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
                     console.log('[BUTTON_CLICK] ソウルコアボタンクリック', { paidSoul: pendingCoreCost.paidSoul, required: pendingCoreCost.requiredCores });
                     const totalPaid = pendingCoreCost.paidRegular + pendingCoreCost.paidSoul;
                     if (totalPaid < pendingCoreCost.requiredCores) {
+                      // Check if player has enough soul cores
+                      const availableSoulCores = (state?.players?.[currentPlayer]?.soulCores || 0) +
+                        (state?.players?.[currentPlayer]?.spirits?.reduce((sum: number, s: any) => sum + (s.soulCoreCount || 0), 0) || 0);
                       const newPaid = pendingCoreCost.paidSoul + 1;
+
+                      if (newPaid > availableSoulCores) {
+                        setError(`ソウルコアが不足しています。利用可能: ${availableSoulCores}個、必要: ${newPaid}個`);
+                        return;
+                      }
+
                       const newTotal = pendingCoreCost.paidRegular + newPaid;
                       setPendingCoreCost({
                         ...pendingCoreCost,
