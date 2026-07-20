@@ -1909,13 +1909,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         const card = me.hand[action.handIndex];
         if (!card || card.cardType !== 'spirit') return next;
-        if (!action.paymentPlan) {
-          // No paymentPlan provided - try to generate one
-          console.log('[INHERITANCE_CRITICAL] No paymentPlan in summon action! This should not happen on recursive applyAction.');
-          const plans = CostResolver.getPaymentPlans(next, me, card);
-          if (plans.length === 0) return next;
-          action.paymentPlan = plans[0]; // Use first available plan as fallback
-        }
+        if (!action.paymentPlan) return next; // paymentPlan is required
 
         // Check if inheritance selection is needed (Phase 3 refactoring)
         // Selection is pending if inheritanceCandidates exists (not removed by finalizePaymentPlanFromSelection)
