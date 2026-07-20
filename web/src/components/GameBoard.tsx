@@ -734,6 +734,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           onCardRightClick={(cardId, imagePath, name) => handleShowCardRulebook(cardId, imagePath, name)}
           onViewTrash={() => setTrashViewPlayer(topPlayer)}
           onViewBottomDeck={() => setBottomDeckViewPlayer(topPlayer)}
+          onViewExcluded={() => setExcludedViewPlayer(topPlayer)}
           attackingSpiritPlayer={state.pendingAttack?.attackerPlayer ?? state.pendingFlash?.stashedAttack?.attackerPlayer}
           attackingSpiritIndex={state.pendingAttack?.attackerSpiritIndex ?? state.pendingFlash?.stashedAttack?.attackerSpiritIndex}
         />
@@ -779,6 +780,7 @@ export default function GameBoard({ sessionId, p1Rating, onEndGame }: GameBoardP
           onCardRightClick={(cardId, imagePath, name) => handleShowCardRulebook(cardId, imagePath, name)}
           onViewTrash={() => setTrashViewPlayer(bottomPlayer)}
           onViewBottomDeck={() => setBottomDeckViewPlayer(bottomPlayer)}
+          onViewExcluded={() => setExcludedViewPlayer(bottomPlayer)}
           attackingSpiritPlayer={state.pendingAttack?.attackerPlayer ?? state.pendingFlash?.stashedAttack?.attackerPlayer}
           attackingSpiritIndex={state.pendingAttack?.attackerSpiritIndex ?? state.pendingFlash?.stashedAttack?.attackerSpiritIndex}
         />

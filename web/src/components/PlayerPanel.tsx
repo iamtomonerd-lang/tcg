@@ -18,6 +18,7 @@ interface PlayerPanelProps {
   onCardRightClick?: (cardId: string, imagePath: string | undefined, name: string) => void;
   onViewTrash?: () => void;
   onViewBottomDeck?: () => void;
+  onViewExcluded?: () => void;
   attackingSpiritPlayer?: number;
   attackingSpiritIndex?: number;
   onExecuteAction?: (actionIndex: number) => void;
@@ -217,6 +218,7 @@ export default function PlayerPanel({
   onCardRightClick,
   onViewTrash,
   onViewBottomDeck,
+  onViewExcluded,
   attackingSpiritPlayer,
   attackingSpiritIndex,
   onExecuteAction,
@@ -251,6 +253,15 @@ export default function PlayerPanel({
             title="クリックで山札下のカードを表示"
           >
             📋 {player.bottomDeckCards.length}
+          </button>
+        )}
+        {onViewExcluded && player.excludedCards && player.excludedCards.count > 0 && (
+          <button
+            className="pstat-button"
+            onClick={onViewExcluded}
+            title="クリックで除外カードを表示"
+          >
+            ❌ {player.excludedCards.count}
           </button>
         )}
       </div>
