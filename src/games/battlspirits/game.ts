@@ -2426,6 +2426,15 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           };
         }
 
+        // Debug: Log finalPlan with inheritanceCardIds before re-applying action
+        console.log('[SELECT_INHERITANCE_COMPLETE] finalPlan details:', {
+          actionType,
+          inheritanceCardIds: finalPlan.inheritanceCardIds,
+          inheritanceCardIdsLength: finalPlan.inheritanceCardIds?.length || 0,
+          maxInheritanceCount: finalPlan.maxInheritanceCount,
+          finalCost: finalPlan.finalCost,
+        });
+
         // Recursively call applyAction to complete the action
         // Note: rng can be undefined for deterministic actions
         return this.applyAction(next, finalAction, undefined as any);
