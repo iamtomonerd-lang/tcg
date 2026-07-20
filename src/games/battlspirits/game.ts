@@ -1585,8 +1585,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       me.hand.splice(action.handIndex, 1);
 
       // Apply inheritance (remove EX cards from trash)
-      if (action.paymentPlan.inheritanceCardIds.length > 0) {
+      console.log('[INHERITANCE_REMOVAL_DEBUG] flash payment plan:', {
+        hasPaymentPlan: !!action.paymentPlan,
+        hasInheritanceCardIds: !!action.paymentPlan?.inheritanceCardIds,
+        inheritanceCardIds: action.paymentPlan?.inheritanceCardIds,
+        inheritanceCardIdsLength: action.paymentPlan?.inheritanceCardIds?.length || 0,
+        trashLength: me.trash.length,
+      });
+
+      if (action.paymentPlan?.inheritanceCardIds && action.paymentPlan.inheritanceCardIds.length > 0) {
         me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
+        console.log('[INHERITANCE_REMOVAL_DEBUG] flash: cards removed from trash');
       }
 
       // Pay cost using game's payCost method
@@ -1885,13 +1894,28 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     switch (action.type) {
       case 'summon': {
         // ① applyAction開始
+        const summmonCallId = Math.random().toString(36).slice(-6);
+        console.log(`[SUMMON_APPLYACTION_DEBUG_${summmonCallId}]`, {
+          hasPaymentPlan: !!action.paymentPlan,
+          inheritanceCardIds: (action.paymentPlan as any)?.inheritanceCardIds,
+          inheritanceCandidates: (action.paymentPlan as any)?.inheritanceCandidates ? 'exists' : 'none',
+          maxInheritanceCount: (action.paymentPlan as any)?.maxInheritanceCount,
+          cardName: me.hand[action.handIndex]?.name,
+        });
+
         if ((action as any).paymentPlan?.maxInheritanceCount > 0) {
           console.log('[CP①] applyAction開始', { card: me.hand[action.handIndex]?.name });
         }
 
         const card = me.hand[action.handIndex];
         if (!card || card.cardType !== 'spirit') return next;
-        if (!action.paymentPlan) return next; // paymentPlan is required
+        if (!action.paymentPlan) {
+          // No paymentPlan provided - try to generate one
+          console.log('[INHERITANCE_CRITICAL] No paymentPlan in summon action! This should not happen on recursive applyAction.');
+          const plans = CostResolver.getPaymentPlans(next, me, card);
+          if (plans.length === 0) return next;
+          action.paymentPlan = plans[0]; // Use first available plan as fallback
+        }
 
         // Check if inheritance selection is needed (Phase 3 refactoring)
         // Selection is pending if inheritanceCandidates exists (not removed by finalizePaymentPlanFromSelection)
@@ -1935,7 +1959,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.hand.splice(action.handIndex, 1);
 
         // ③ removeInheritance開始
-        if (action.paymentPlan.inheritanceCardIds.length > 0) {
+        console.log('[INHERITANCE_REMOVAL_DEBUG] summon action payment plan:', {
+          hasPaymentPlan: !!action.paymentPlan,
+          hasInheritanceCardIds: !!action.paymentPlan?.inheritanceCardIds,
+          inheritanceCardIds: action.paymentPlan?.inheritanceCardIds,
+          inheritanceCardIdsLength: action.paymentPlan?.inheritanceCardIds?.length || 0,
+          trashLength: me.trash.length,
+          trashCards: me.trash.map(c => c.name),
+        });
+
+        if (action.paymentPlan?.inheritanceCardIds && action.paymentPlan.inheritanceCardIds.length > 0) {
           const trashBefore = me.trash.map(c => c.name);
           console.log('[CP③] removeInheritance開始', {
             trash_before: trashBefore,
@@ -1945,8 +1978,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
           const trashAfter = me.trash.map(c => c.name);
           console.log('[CP③] removeInheritance完了', {
+            trash_before: trashBefore,
             trash_after: trashAfter,
+            removed_count: trashBefore.length - trashAfter.length,
           });
+        } else {
+          console.log('[CP③] removeInheritance スキップ: inheritanceCardIds が空または存在しない');
         }
 
         // Pay cost using game's payCost method
@@ -2435,9 +2472,26 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           finalCost: finalPlan.finalCost,
         });
 
+        const callId = Math.random().toString(36).slice(-6);
+        console.log(`[SELECT_INHERITANCE_COMPLETE_${callId}] finalAction being passed to applyAction:`, {
+          type: finalAction.type,
+          handIndex: finalAction.handIndex,
+          hasPaymentPlan: !!finalAction.paymentPlan,
+          paymentPlanInheritanceCardIds: finalAction.paymentPlan?.inheritanceCardIds,
+          fullPaymentPlan: JSON.stringify({
+            finalCost: finalAction.paymentPlan?.finalCost,
+            inheritanceCardIds: finalAction.paymentPlan?.inheritanceCardIds,
+            maxInheritanceCount: finalAction.paymentPlan?.maxInheritanceCount,
+            paymentType: finalAction.paymentPlan?.paymentType,
+          }),
+        });
+
         // Recursively call applyAction to complete the action
         // Note: rng can be undefined for deterministic actions
-        return this.applyAction(next, finalAction, undefined as any);
+        console.log(`[SELECT_INHERITANCE_BEFORE_RECURSIVE_CALL_${callId}] About to call applyAction recursively`);
+        const result = this.applyAction(next, finalAction, undefined as any);
+        console.log(`[SELECT_INHERITANCE_AFTER_APPLYACTION_${callId}] Result state updated`);
+        return result;
       }
       case 'select_effect_target': {
         dbg(DEBUG_VERBOSE, '[GAME] Processing select_effect_target:', {
@@ -2849,16 +2903,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.hand.splice(action.handIndex, 1);
 
         // ④ removeInheritance 処理開始
-        if (action.paymentPlan.inheritanceCardIds.length > 0) {
-          console.log('[INHERITANCE④] applyPaymentPlan equivalent - about to remove inheritance cards (place_nexus):', {
-            cardName: card.name,
-            inheritanceCardsCount: action.paymentPlan.inheritanceCardIds.length,
-            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
-          });
-        }
+        console.log('[INHERITANCE_REMOVAL_DEBUG] place_nexus payment plan:', {
+          hasPaymentPlan: !!action.paymentPlan,
+          hasInheritanceCardIds: !!action.paymentPlan?.inheritanceCardIds,
+          inheritanceCardIds: action.paymentPlan?.inheritanceCardIds,
+          inheritanceCardIdsLength: action.paymentPlan?.inheritanceCardIds?.length || 0,
+          trashLength: me.trash.length,
+        });
 
         // ⑤ removeInheritance 実行
-        if (action.paymentPlan.inheritanceCardIds.length > 0) {
+        if (action.paymentPlan?.inheritanceCardIds && action.paymentPlan.inheritanceCardIds.length > 0) {
           const trashBefore = me.trash.map(c => c.name).join(', ');
           const toRemove = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id)).map(c => c.name).join(', ');
 
@@ -3153,16 +3207,16 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         me.hand.splice(action.handIndex, 1);
 
         // ④ removeInheritance 処理開始
-        if (action.paymentPlan.inheritanceCardIds.length > 0) {
-          console.log('[INHERITANCE④] applyPaymentPlan equivalent - about to remove inheritance cards (use_magic):', {
-            cardName: card.name,
-            inheritanceCardsCount: action.paymentPlan.inheritanceCardIds.length,
-            inheritanceCardIds: action.paymentPlan.inheritanceCardIds,
-          });
-        }
+        console.log('[INHERITANCE_REMOVAL_DEBUG] use_magic payment plan:', {
+          hasPaymentPlan: !!action.paymentPlan,
+          hasInheritanceCardIds: !!action.paymentPlan?.inheritanceCardIds,
+          inheritanceCardIds: action.paymentPlan?.inheritanceCardIds,
+          inheritanceCardIdsLength: action.paymentPlan?.inheritanceCardIds?.length || 0,
+          trashLength: me.trash.length,
+        });
 
         // ⑤ removeInheritance 実行
-        if (action.paymentPlan.inheritanceCardIds.length > 0) {
+        if (action.paymentPlan?.inheritanceCardIds && action.paymentPlan.inheritanceCardIds.length > 0) {
           const trashBefore = me.trash.map(c => c.name).join(', ');
           const toRemove = me.trash.filter(c => action.paymentPlan!.inheritanceCardIds.includes(c.id)).map(c => c.name).join(', ');
 
