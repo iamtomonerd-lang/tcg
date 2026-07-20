@@ -78,12 +78,26 @@ type PlayerState = {
 
 ---
 
+#### Color: シンボル色の型定義
+
+```typescript
+type Color =
+  | "red"
+  | "purple"
+  | "green"
+  | "white"
+  | "yellow"
+  | "blue";
+```
+
+---
+
 #### Card: カード定義
 
 ```typescript
 type Reduction = {
   max: number;          // 軽減可能な最大シンボル数
-  colors: string[];     // 軽減対応のシンボル色
+  colors: Color[];      // 軽減対応のシンボル色
 };
 
 type Card = {
@@ -96,7 +110,7 @@ type Card = {
   // シンボル関連（軽減シンボルとは別）
   symbol?: {
     count: number;      // 通常シンボル数（ライフダメージ計算に使用）
-    colors: string[];   // 各シンボルの色
+    colors: Color[];    // 各シンボルの色
   };
   exSymbol?: boolean;   // EXシンボルの有無
   
@@ -130,13 +144,18 @@ type Effect = {
 ```
 
 **設計のポイント:**
+- **Color型**: 型安全性を確保（red, purple, green, white, yellow, blue）
+  - タイプミスをコンパイル時に防止
+  - IDE補完により開発効率向上
+  - ゲームルール上の色を明示的に型定義
 - **symbol**: 通常のシンボル（カードが持つ色マーク、軽減シンボルとは別）
   - `symbol.count` はライフダメージ計算に使用（層2ルール）
+  - `symbol.colors` は Color[] で型安全性確保
   - 将来 `attackSymbol` などの概念へ拡張可能な設計
 - **exSymbol**: EXシンボル（複数存在する場合もある）
 - **reduction**: 軽減シンボル（コスト支払い時に軽減可能なシンボル数）
   - `reduction.max`: 軽減可能な最大数（明確で拡張性高い）
-  - `reduction.colors`: 軽減対応色
+  - `reduction.colors`: 軽減対応色を Color[] で型安全に管理
 - **ライフダメージの決定方法**（層2ルール）
   - ダメージ値は Card や CardLevel に持たない
   - 層2ルールで「ライフダメージ = symbol.count」と定義
