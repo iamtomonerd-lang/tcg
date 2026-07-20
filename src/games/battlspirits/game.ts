@@ -1966,29 +1966,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           const soulToPay = (action as any).paidSoulCores || 0;
           console.log('[SUMMON_PAYMENT] Using explicit payment counts', { regularToPay, soulToPay });
 
-          // Pay regular cores first
-          if (regularToPay > 0) {
-            this.payCost(me, regularToPay);
-          }
-
-          // Pay soul cores
-          if (soulToPay > 0) {
-            let remaining = soulToPay;
-            const fromReserve = Math.min(remaining, me.soulCores);
-            me.soulCores -= fromReserve;
-            me.trashSoulCores += fromReserve;
-            remaining -= fromReserve;
-            for (const spirit of me.spirits) {
-              if (remaining <= 0) break;
-              if (spirit.soulCoreCount > 0) {
-                const take = Math.min(remaining, spirit.soulCoreCount);
-                spirit.soulCoreCount -= take;
-                me.trashSoulCores += take;
-                updateSpiritLevel(spirit);
-                remaining -= take;
-              }
-            }
-          }
+          // Use payCost to handle both regular and soul core payment properly
+          this.payCost(me, regularToPay + soulToPay, regularToPay, soulToPay);
         }
         // Priority 2: coreType-based payment
         else if (action.coreType === 'soul') {
@@ -2892,8 +2871,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Pay cost using game's payCost method
-        // Check action.coreType first: if explicitly set to 'soul', pay finalCost in soul cores
-        if (action.coreType === 'soul') {
+        // Priority 1: Use explicit UI-specified payment (from buttons)
+        if ((action as any).paidRegularCores !== undefined || (action as any).paidSoulCores !== undefined) {
+          const regularToPay = (action as any).paidRegularCores || 0;
+          const soulToPay = (action as any).paidSoulCores || 0;
+          this.payCost(me, regularToPay + soulToPay, regularToPay, soulToPay);
+        }
+        // Priority 2: Check action.coreType first: if explicitly set to 'soul', pay finalCost in soul cores
+        else if (action.coreType === 'soul') {
           const soulCostToPay = action.paymentPlan.finalCost;
           let remaining = soulCostToPay;
           // Pay from reserve soul cores first
@@ -3190,8 +3175,14 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Pay cost using game's payCost method
-        // Check action.coreType first: if explicitly set to 'soul', pay finalCost in soul cores
-        if (action.coreType === 'soul') {
+        // Priority 1: Use explicit UI-specified payment (from buttons)
+        if ((action as any).paidRegularCores !== undefined || (action as any).paidSoulCores !== undefined) {
+          const regularToPay = (action as any).paidRegularCores || 0;
+          const soulToPay = (action as any).paidSoulCores || 0;
+          this.payCost(me, regularToPay + soulToPay, regularToPay, soulToPay);
+        }
+        // Priority 2: Check action.coreType first: if explicitly set to 'soul', pay finalCost in soul cores
+        else if (action.coreType === 'soul') {
           const soulCostToPay = action.paymentPlan.finalCost;
           let remaining = soulCostToPay;
           // Pay from reserve soul cores first
