@@ -87,10 +87,20 @@ type Card = {
   name: string;
   cardType: 'spirit' | 'nexus' | 'magic';
   cost: number;
-  reduction: {
-    symbolCount: number;
-    symbolColors: string[];
+  
+  // シンボル関連（軽減シンボルとは別）
+  symbol?: {
+    count: number;        // シンボル数
+    colors: string[];     // 各シンボルの色
   };
+  exSymbol?: boolean;     // EXシンボルの有無
+  
+  // 軽減シンボル（コスト軽減用）
+  reduction?: {
+    symbolCount: number;  // 軽減可能なシンボル数
+    symbolColors: string[];  // 軽減対応のシンボル色
+  };
+  
   lineage: string[];
   text: string;
   levels: CardLevel[];
@@ -117,9 +127,11 @@ type Effect = {
 ```
 
 **設計のポイント:**
+- **symbol**: 通常のシンボル（カードが持つ色マーク、軽減シンボルとは別）
+- **exSymbol**: EXシンボル（複数存在する場合もある）
+- **reduction**: 軽減シンボル（コスト支払い時に軽減可能なシンボル数）
 - **levels**: 複数のレベルを配列で管理（Lv1とLv2で BP が異なる）
 - **effects**: minLevel でレベル依存性を表現
-- **reduction**: 軽減シンボル（将来の継召対応）
 - **構築情報**: ゲームロジックでは使わない（UI/デッキ構築のみ）
 
 ---
