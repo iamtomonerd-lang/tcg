@@ -2,7 +2,7 @@
 
 **作成日**: 2026-07-20  
 **最終更新**: 2026-07-21  
-**ステータス**: LifeZone アーキテクチャ実装完了 ✅
+**ステータス**: LifeZone + CardState 実装完了 ✅
 
 ---
 
@@ -1168,6 +1168,36 @@ Express API、React コンポーネント。
 
 **コミット:** cf8ab75  
 **PR**: draft PR 作成済み
+
+### ✅ CardState 概念定義実装完了 (2026-07-21)
+
+**実装内容:**
+- `CardState` 型定義（recovered/fatigued/heavyFatigued）
+- Spirit と Nexus に state フィールドを追加
+- フィールド配置時に初期状態を 'recovered' に設定
+- 公式ルール 5-5「カードの表示形式」に対応
+
+**修正ファイル:**
+- `src/games/battlspirits/types.ts`: CardState 型、Spirit/Nexus インターフェース
+- `src/games/battlspirits/game.ts`: Spirit/Nexus 初期化時に state 設定
+- `test/battlspirits.test.ts`: テストケース更新
+
+**実装範囲（層1のみ）:**
+- ✅ 型定義：CardState（recovered/fatigued/heavyFatigued）
+- ✅ データ構造：Spirit.state、Nexus.state
+- ✅ 初期状態：フィールド配置時は 'recovered'
+
+**未実装範囲:**
+- ❌ 層2：CardStateRule（状態変更ロジック）
+- ❌ 層3：ゲーム進行（状態変更タイミング）
+- ❌ 層4：UI（表示形式）
+
+**検証結果:**
+- TypeScript 型チェック: ✅ エラーなし
+- テスト実行: ✅ 69/69 成功
+- 責務分離: ✅ 層1に型定義のみ
+
+**コミット:** 3d716cc
 
 ---
 
