@@ -2,7 +2,7 @@
 
 **作成日**: 2026-07-20  
 **最終更新**: 2026-07-21  
-**ステータス**: LifeZone + CardState + Effect + Player + DrawRule 実装完了 ✅
+**ステータス**: LifeZone + CardState + Effect + Player + DrawRule + Core 実装完了 ✅
 
 ---
 
@@ -1279,6 +1279,92 @@ Express API、React コンポーネント。
 - 責務分離: ✅ 層1に型定義・データ構造のみ
 
 **コミット:** 1661187
+
+### ✅ Core 概念定義実装完了 (2026-07-21)
+
+**実装内容:**
+- `CoreType` 型定義：通常コアとソウルコアの識別
+- 各ゾーンでの Core 種類の分離管理
+- 公式ルール 5-7「コア」に対応
+
+**修正ファイル:**
+- `src/games/battlspirits/types.ts`: CoreType 型定義・ドキュメント
+
+**CoreType の定義:**
+
+```typescript
+export type CoreType = 'core' | 'soulCore';
+```
+
+- `'core'`：通常のコア
+- `'soulCore'`：ソウルコア
+
+**Core が存在するゾーン:**
+
+1. **リザーブ**
+   - `PlayerState.cores`: number
+   - `PlayerState.soulCores`: number
+
+2. **ライフゾーン**
+   - `PlayerState.lifeZone.cores`: number
+   - ドキュメント：CoreType: 'core' | 'soulCore'
+
+3. **トラッシュゾーン**
+   - `PlayerState.trashCores`: number
+   - `PlayerState.trashSoulCores`: number
+
+4. **フィールド上カード**
+   - Spirit:
+     - `coreCount`: number（CoreType: 'core'）
+     - `soulCoreCount`: number（CoreType: 'soulCore'）
+   - Nexus:
+     - `coreCount`: number（CoreType: 'core'）
+     - `soulCoreCount`: number（CoreType: 'soulCore'）
+
+**実装範囲（層1のみ）:**
+- ✅ CoreType 型定義
+- ✅ 各ゾーンでの Core 種類の分離
+- ✅ ドキュメント注釈でのCoreType明記
+
+**層責務定義:**
+- ✅ 層1（ここ）：Core データ型と CoreType 識別
+- ❌ 層2：コアリソースの意味定義（CoreRule）
+- ❌ 層3：コア移動タイミング管理
+- ❌ 層3.2：効果によるコア移動（将来実装）
+
+**ソウルコア管理:**
+- 型定義レベルでは「ソウルコアという種類が存在する」のみ実装
+- ソウルコア1個制限は実装しない（ゲーム開始処理の責務）
+- ソウルコア個数制限チェックなし
+- ソウルコア回収・消滅処理なし
+
+**未実装範囲（禁止）:**
+- ❌ ゲーム開始時のソウルコア配置
+- ❌ ソウルコア個数制限
+- ❌ ソウルコア回収処理
+- ❌ コスト支払い処理
+- ❌ コア移動処理
+- ❌ リザーブ回復処理
+- ❌ ライフダメージによるコア移動
+- ❌ ソウルコア使用効果
+
+**設計上の注意:**
+- Core は単なる number ではなく、型で管理（将来の拡張性）
+- Core はカード（Card[]）ではなく、リソースとして分離管理
+- 各ゾーンで通常コアとソウルコアを区別（実装例：cores vs soulCores）
+
+**検証結果:**
+- TypeScript 型チェック: ✅ エラーなし
+- テスト実行: ✅ 69/69 成功
+- 責務分離: ✅ 層1に型定義・データ構造のみ
+- ゾーン設計: ✅ 既存 LifeZone/Reserve/Trash 設計と矛盾なし
+
+**実装の特徴:**
+- CoreType はシンプルな型定義（インターフェースではない）
+- 各ゾーン・カードで数値で管理（将来 Core オブジェクト化の可能性）
+- ドキュメント注釈で CoreType 関連性を明示
+
+**コミット:** 既存実装（型定義レベルで完成）
 
 ### ✅ DrawRule 基本概念実装完了 (2026-07-21)
 
