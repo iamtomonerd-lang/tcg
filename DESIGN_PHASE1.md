@@ -2,7 +2,7 @@
 
 **作成日**: 2026-07-20  
 **最終更新**: 2026-07-21  
-**ステータス**: LifeZone + CardState + Effect + Player 実装完了 ✅
+**ステータス**: LifeZone + CardState + Effect + Player + DrawRule 実装完了 ✅
 
 ---
 
@@ -1279,6 +1279,63 @@ Express API、React コンポーネント。
 - 責務分離: ✅ 層1に型定義・データ構造のみ
 
 **コミット:** 1661187
+
+### ✅ DrawRule 基本概念実装完了 (2026-07-21)
+
+**実装内容:**
+- `drawCard(state, playerId)` 関数：単体ドロー処理
+- `drawCards(state, playerId, count)` 関数：複数ドロー処理
+- 公式ルール 5-6「ドロー（カードを引く）」に対応
+
+**修正ファイル:**
+- `src/games/battlspirits/game.ts`: drawCard/drawCards 関数実装
+
+**DrawRuleの責務:**
+- ✅ デッキから手札へのカード移動ルール定義
+- ✅ 単体ドロー処理（1枚）
+- ✅ 複数ドロー処理（N枚）
+- ✅ デッキ空時の処理（null 返却、敗北判定なし）
+
+**層責務定義:**
+- ✅ 層1：Deck/Hand/Cardのデータ構造
+- ✅ 層2（ここ）：デッキから手札へのカード移動ルール
+- ❌ 層3：ドロータイミング決定（phase管理）
+- ❌ 層3.2：効果によるドロー要求（将来実装）
+
+**禁止事項（ドキュメント化）:**
+- ❌ 勝敗判定（デッキ切れ敗北）
+- ❌ フェーズ変更
+- ❌ 効果処理
+- ❌ UI更新
+- ❌ ドローしたカード情報の公開
+
+**単体ドロー処理：**
+```typescript
+drawCard(state: GameState, playerId: PlayerId): { state, drawn: CardDef | null }
+```
+- デッキから1枚取得
+- 手札に追加（他プレイヤーに非公開）
+- デッキ空の場合は null を返す
+
+**複数ドロー処理：**
+```typescript
+drawCards(state: GameState, playerId: PlayerId, count: number): GameState
+```
+- count が 0 → 何もしない
+- count >= 1 → drawCard を count 回呼び出し
+- デッキ空になったら残りをスキップ
+
+**デッキ0枚時の処理:**
+- drawCard が null を返す
+- 敗北判定は層3で別途実装
+- 「相手のスタートステップにデッキが0枚」は異なるルール
+
+**検証結果:**
+- TypeScript 型チェック: ✅ エラーなし
+- テスト実行: ✅ 69/69 成功
+- 責務分離: ✅ 層2にルール定義のみ
+
+**コミット:** 686b79e
 
 ---
 
