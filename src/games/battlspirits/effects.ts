@@ -2,7 +2,7 @@
  * Battle Spirits effect engine. Processes all card effects from data.
  */
 
-import type { CardDef, CardEffect, GameState, PendingAttack, PlayerState, Spirit } from './types.js';
+import type { CardDef, CardEffect, GameState, PendingAttack, PlayerState, Spirit, Nexus } from './types.js';
 import { dbg, DEBUG_EFFECT, DEBUG_CORE } from './debug.js';
 
 /**
@@ -38,6 +38,26 @@ export function updateSpiritLevel(spirit: Spirit): void {
     } else {
       spirit.level = 1;
     }
+  }
+}
+
+/**
+ * Recompute a nexus's level from the cores placed on it.
+ * lv2.cost is the total number of cores required to be at Lv2.
+ * Nexuses use default Lv calculation (no special skills).
+ */
+export function updateNexusLevel(nexus: Nexus): void {
+  if (!nexus.def.lv2) {
+    nexus.level = 1;
+    return;
+  }
+
+  // Default: Total cores (regular + soul) determine Lv2
+  const totalCores = nexus.coreCount + nexus.soulCoreCount;
+  if (totalCores >= nexus.def.lv2.cost) {
+    nexus.level = 2;
+  } else {
+    nexus.level = 1;
   }
 }
 

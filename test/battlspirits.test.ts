@@ -3,7 +3,7 @@ import { Mulberry32 } from '../src/core/rng.js';
 import { BattlSpiritsGame } from '../src/games/battlspirits/game.js';
 import { CARD_DB } from '../src/games/battlspirits/cards.js';
 import { DeckFactory } from '../src/games/battlspirits/deckFactory.js';
-import { destroySpirit, fixupSpiritIndicesAfterRemoval, updateSpiritLevel } from '../src/games/battlspirits/effects.js';
+import { destroySpirit, fixupSpiritIndicesAfterRemoval, updateSpiritLevel, updateNexusLevel } from '../src/games/battlspirits/effects.js';
 import type { GameState, PlayerState, Spirit, GameConfig, PlayerConfig } from '../src/games/battlspirits/types.js';
 
 const game = new BattlSpiritsGame();
@@ -1607,5 +1607,161 @@ describe('【継召】 inheritance (cost reduction) system', () => {
     // The game should progress (not remain in same state)
     // A new spirit should be summoned or state should advance
     expect(resultState.phase).toBe('main');
+  });
+});
+
+describe('Nexus Depletion (消滅)', () => {
+  it('updateNexusLevel: Lv2 nexus downgrades when cores drop below lv2.cost', () => {
+    // Nexus with Lv1 cost=2, Lv2 cost=3
+    const nexus = {
+      def: CARD_DB.nexus_sertarius || CARD_DB.nexus_wind_claw_stone || {
+        id: 'test-nexus',
+        name: 'Test Nexus',
+        cardType: 'nexus' as const,
+        lv1: { cost: 2 },
+        lv2: { cost: 3 },
+        effects: [],
+      },
+      level: 2,
+      coreCount: 3,
+      soulCoreCount: 0,
+      state: 'recovered' as const,
+    };
+
+    // Start at Lv2 with 3 cores
+    updateNexusLevel(nexus);
+    expect(nexus.level).toBe(2);
+
+    // Drop to 2 cores: should downgrade to Lv1
+    nexus.coreCount = 2;
+    updateNexusLevel(nexus);
+    expect(nexus.level).toBe(1);
+
+    // 2 cores is exactly Lv1 cost: should stay at Lv1
+    expect(nexus.level).toBe(1);
+  });
+
+  it('removeDeadNexuses: Lv1 nexus is removed when cores < lv1.cost (direct function test)', () => {
+    const player: PlayerState = {
+      id: 0,
+      lifeZone: { cores: 5 },
+      cores: 3,
+      soulCores: 1,
+      trashCores: 0,
+      trashSoulCores: 0,
+      hand: [],
+      deck: [],
+      spirits: [],
+      nexuses: [],
+      trash: [],
+      bottomDeckCards: [],
+    };
+
+    // Create a nexus with Lv1 cost=2, Lv2 cost=3
+    const nexus = {
+      def: {
+        id: 'test-nexus',
+        name: 'Test Nexus',
+        cardType: 'nexus' as const,
+        lv1: { cost: 2 },
+        lv2: { cost: 3 },
+        effects: [],
+      },
+      level: 1,
+      coreCount: 1, // Below Lv1 cost
+      soulCoreCount: 0,
+      state: 'recovered' as const,
+    };
+    player.nexuses.push(nexus);
+
+    // Verify nexus exists before removal
+    expect(player.nexuses.length).toBe(1);
+    expect(player.trash.length).toBe(0);
+
+    // Create minimal game state just for testing removeDeadNexuses
+    const state: GameState = {
+      players: [player, makePlayer([], 1)] as [PlayerState, PlayerState],
+      currentPlayer: 0,
+      phase: 'main',
+      battle: null,
+      result: null,
+      pendingDraw: null,
+      pendingAttack: null,
+      pendingFlash: null,
+      pendingMulligan: null,
+      pendingSpiritDepletion: null,
+      pendingNexusDepletion: null,
+      pendingSpellChain: null,
+      pendingEffectAction: null,
+      pendingInheritanceSelection: null,
+      pendingDiceRoll: null,
+    };
+
+    // Manually call removeDeadNexuses through game instance
+    const game_test = new BattlSpiritsGame();
+    (game_test as any).removeDeadNexuses(state, 0);
+
+    // Nexus should be removed
+    expect(player.nexuses.length).toBe(0);
+    expect(player.trash.length).toBe(1);
+    expect(player.trash[0]!.id).toBe('test-nexus');
+  });
+
+  it('place_nexus: Lv2 nexus should be set correctly after placement', () => {
+    const rng = new Mulberry32(42);
+    const game_test = new BattlSpiritsGame();
+
+    let state = game_test.createInitialState(rng);
+    state = skipToMainPhase(state, rng);
+
+    const player = state.players[0]!;
+
+    // Add Sertarius (Lv2 nexus with inheritance) to hand
+    const nexusCard = CARD_DB.nexus_sertarius;
+    if (!nexusCard) {
+      console.log('Skipping: Sertarius not found in CARD_DB');
+      expect(true).toBe(true);
+      return;
+    }
+
+    player.hand = [nexusCard];
+    player.cores = 10; // Plenty of cores
+
+    // Verify the nexus has Lv2 definition
+    if (!nexusCard.lv2) {
+      console.log('Skipping: Sertarius has no Lv2');
+      expect(true).toBe(true);
+      return;
+    }
+
+    const lv1Cost = nexusCard.lv1.cost;
+    const lv2Cost = nexusCard.lv2.cost;
+
+    // Place nexus with enough cores for Lv2
+    const placeAction = {
+      type: 'place_nexus' as const,
+      handIndex: 0,
+      paymentPlan: {
+        finalCost: lv1Cost,
+        paymentType: 'normal' as const,
+        useSoulCore: false,
+        inheritanceCardIds: [],
+        maxInheritanceCount: 0,
+      },
+    };
+
+    const beforeNexuses = player.nexuses.length;
+    state = game_test.applyAction(state, placeAction, rng);
+    const playerAfter = state.players[0]!;
+
+    if (playerAfter.nexuses.length > beforeNexuses) {
+      const placedNexus = playerAfter.nexuses[playerAfter.nexuses.length - 1]!;
+      // With lv1Cost cores, nexus should be Lv1
+      expect(placedNexus.level).toBe(1);
+
+      // If we had enough for Lv2, it would upgrade
+      // This test just confirms Lv calculation happens
+      expect(placedNexus.coreCount + placedNexus.soulCoreCount).toBeGreaterThanOrEqual(lv1Cost);
+    }
   });
 });

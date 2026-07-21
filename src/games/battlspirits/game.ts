@@ -3,7 +3,7 @@ import { Mulberry32 } from '../../core/rng.js';
 import { CARD_DB } from './cards.js';
 import { DeckFactory } from './deckFactory.js';
 import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef, CardEffect, GameConfig, PlayerConfig, GameRuleConfig, PlayerId } from './types.js';
-import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit, checkEffectConditions } from './effects.js';
+import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, updateNexusLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit, checkEffectConditions } from './effects.js';
 import { dbg, DEBUG_FLASH, DEBUG_CORE, DEBUG_VERBOSE } from './debug.js';
 import { CostResolver, type PaymentPlan } from './costResolver.js';
 
@@ -2824,7 +2824,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               if (n.coreCount <= 0) return false;
               n.coreCount -= 1;
             }
-            updateSpiritLevel(n as any);
+            updateNexusLevel(n);
             return true;
           }
           return false;
@@ -2850,7 +2850,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
             if (!n) return false;
             if (coreType === 'soul') n.soulCoreCount += 1;
             else n.coreCount += 1;
-            updateSpiritLevel(n as any);
+            updateNexusLevel(n);
             return true;
           }
           return false;
@@ -3024,6 +3024,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         };
         const nexusIndex = me.nexuses.length;
         me.nexuses.push(nexus);
+
+        // Recompute nexus level based on placed cores, then check for depletion
+        updateNexusLevel(nexus);
+        this.removeDeadNexuses(next, next.currentPlayer);
 
         // Stage ⑤ diagnostic: Log post-place_nexus state
         if (action.paymentPlan.maxInheritanceCount > 0) {
