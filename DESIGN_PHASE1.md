@@ -56,21 +56,22 @@ type MatchState = {
 
 ```typescript
 type PlayerState = {
-  // 基本情報
-  life: number;
-
   // ゾーン
+  lifeZone: {
+    cores: number;         // ライフゾーン内のコア数
+  };
   hand: Card[];
   deck: Card[];
-  reserves: number;        // リザーブ（コア数）
-  trashCores: number;      // トラッシュ内のコア数
+  reserves: number;        // リザーブゾーン（コア数）
+  trashCores: number;      // トラッシュゾーン内のコア数
   field: Spirit[];         // 場（スピリット・ネクサス）
-  trash: Card[];           // トラッシュ（カード）
-  excluded: Card[];        // 除外ゾーン（継召で使われたカード）
+  trash: Card[];           // トラッシュゾーン（カード）
+  excluded: Card[];        // 除外エリア（除外されたカード）
 };
 ```
 
 **ゾーン解説:**
+- **lifeZone**: ライフゾーン（ライフを表現するコアが置かれる領域）
 - **deck**: デッキゾーン（ゲーム開始時のカード集合、順序を保持）
 - **hand**: 手札ゾーン
 - **reserves**: リザーブゾーン（プレイヤーが使用可能なコア）
@@ -470,7 +471,7 @@ trash.cores: number
 → リフレッシュ時に reserves へ戻される
 
 【ライフゾーン】
-life: number
+lifeZone.cores: number
 → ライフとして扱われるコア
 
 【フィールド上のカード】
@@ -732,30 +733,38 @@ BattleRule導入後も、LifeRuleとの責務分離原則は変わりません�
 | ライフゾーン上のコアをライフとして解釈 | — | ✅ |
 | ライフイベントの提供 | — | ✅ |
 
-**【ゲン＝ガタでの簡略実装方針】**
+**【実装方針】**
 
-ゲン＝ガタでは実装を簡略化するため、PlayerState の `life: number` フィールドでライフゾーン上のコア数を表現して構いません。
+ライフゾーンはコアを保持するゾーンであり、`life: number` による直接管理は禁止します。
 
-ただし、この数値は：
-- 「ライフゾーン上のコア数を簡略化した表現」であることを明記します
-- 概念上は「ライフゾーン上のコア」と同等です
+PlayerState では以下の構造を使用します：
+
+```typescript
+PlayerState {
+  lifeZone: {
+    cores: number  ← ライフゾーン上のコア数（ライフ値として解釈）
+  }
+}
+```
+
+**LifeRule の参照方法：**
+
+LifeRule はライフゾーンを参照する際：
 
 ```
-ゲン＝ガタ（簡略版）:
-  PlayerState {
-    life: number  ← ライフゾーン上のコア数を表現
-  }
+players[i].lifeZone.cores
+```
 
-正式実装（Battle Spirits）:
-  PlayerState {
-    zones: {
-      life: LifeZone {
-        cores: Core[]  ← ライフゾーン上のコア
-      }
-    }
-  }
-  
-LifeRule は両者で同じ概念を使用：
+のみを使用して、ライフ値を解釈します。
+
+`life: number` への直接参照は禁止。
+
+**設計の一貫性：**
+
+- ライフゾーン：コアを保持する領域
+- LifeRule：lifeZone.cores をライフとして解釈
+- ダメージ処理：lifeZone.cores からコアを移動
+- 層3：ライフ0判定で勝敗判定
   「ライフゾーン上のコアをライフとして扱う」
 ```
 
@@ -930,11 +939,11 @@ enum Trigger {
    └─ その他の勝敗条件（将来）
 
 2. 勝利条件を総合判定する
-   if (state.players[0].life <= 0) {
+   if (state.players[0].lifeZone.cores <= 0) {
      gameState.gameOver = true;
      gameState.winner = 1;
    }
-   if (state.players[1].life <= 0) {
+   if (state.players[1].lifeZone.cores <= 0) {
      gameState.gameOver = true;
      gameState.winner = 0;
    }
@@ -1066,7 +1075,7 @@ Express API、React コンポーネント。
   └─ ゲーム1開始
       ↓
 層1: GameState（初期化）
-  ├─ players[0].life = 5
+  ├─ players[0].lifeZone.cores = 20
   ├─ players[0].hand = 4枚
   ├─ players[0].deck = 20枚
   ├─ players[0].reserves = 0
