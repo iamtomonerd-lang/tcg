@@ -9,9 +9,22 @@ export type EffectAction = 'damage' | 'heal' | 'draw' | 'boost_bp' | 'search_dec
 export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate' | 'battle_end' | 'end_step' | 'opponent_summon' | 'opponent_attack' | 'opponent_magic';
 export type FlashTrigger = 'opponent_summon' | 'opponent_attack' | 'opponent_magic' | 'opponent_destroy' | 'opponent_block';
 
+/**
+ * Effect: カードが持つ効果を表現するデータ構造 (公式ルール 5-2「効果」対応)
+ *
+ * 責務分離：
+ * - 層1（ここ）：効果データの定義のみ
+ * - 層3.2（効果エンジン）：効果の実行・条件判定・ターゲット選択
+ * - 層3.5（カード定義）：各カードが持つ効果の列挙
+ *
+ * 禁止事項：
+ * ❌ このインターフェース内にゲーム状態変更処理を書かない
+ * ❌ 効果データが勝敗判定を行わない
+ * ❌ 効果が直接ゾーンを操作しない
+ */
 export interface CardEffect {
   trigger: EffectTrigger; // when it activates
-  action: EffectAction; // what it does
+  action: EffectAction; // what it does (effect engine will process this)
   value?: number; // amount of damage/heal/draw or BP boost or deck cards to open or cores to place
   target?: string; // "opponent_hero" | "opponent_creature" | "any" | "self" | "trash"
   level?: (1 | 2)[]; // which levels this effect activates on (e.g. [1,2] for Lv1-2, [2] for Lv2 only)
@@ -62,6 +75,18 @@ export interface LvStats {
   coreType?: string;
 }
 
+/**
+ * CardDef: カード定義（層3.5）
+ *
+ * 責務：
+ * ✅ カードの固定情報（id, name, cost, stats）
+ * ✅ カードが持つ効果の列挙（effects）
+ *
+ * 禁止：
+ * ❌ ゲーム状態を変更する処理
+ * ❌ ゲーム進行ロジック
+ * ❌ 層3以上の責務を持つコード
+ */
 export interface CardDef {
   id: string;
   name: string;
@@ -79,7 +104,8 @@ export interface CardDef {
   // For spirits and nexuses: Lv1 and Lv2
   lv1: LvStats;
   lv2?: LvStats;
-  // Data-driven effects
+  // Data-driven effects: カードが持つ複数の効果（公式ルール 5-2対応）
+  // 層3.2（効果エンジン）が triggerEffects/applyEffect で処理する
   effects?: CardEffect[];
 }
 
