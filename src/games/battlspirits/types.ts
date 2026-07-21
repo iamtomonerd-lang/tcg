@@ -4,6 +4,7 @@
 
 export type CardType = 'spirit' | 'nexus' | 'magic';
 export type CardState = 'recovered' | 'fatigued' | 'heavyFatigued';
+export type CoreType = 'core' | 'soulCore';
 export type EffectAction = 'damage' | 'heal' | 'draw' | 'boost_bp' | 'search_deck' | 'destroy_creature' | 'trash_to_hand' | 'place_core' | 'discard_hand' | 'destroy_nexus';
 export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate' | 'battle_end' | 'end_step' | 'opponent_summon' | 'opponent_attack' | 'opponent_magic';
 export type FlashTrigger = 'opponent_summon' | 'opponent_attack' | 'opponent_magic' | 'opponent_destroy' | 'opponent_block';
@@ -85,8 +86,8 @@ export interface CardDef {
 export interface Spirit {
   def: CardDef;
   level: 1 | 2;
-  coreCount: number;
-  /** soul cores (persist across refresh, used for permanent leveling) */
+  coreCount: number; // regular cores placed on this spirit (CoreType: 'core')
+  /** soul cores (persist across refresh, used for permanent leveling) — (CoreType: 'soulCore') */
   soulCoreCount: number;
   /** card display state (recovered/fatigued/heavyFatigued) per 公式ルール 5-5 */
   state: CardState;
@@ -111,8 +112,8 @@ export interface Spirit {
 export interface Nexus {
   def: CardDef;
   level: 1 | 2;
-  coreCount: number;
-  /** soul cores placed on this nexus */
+  coreCount: number; // regular cores placed on this nexus (CoreType: 'core')
+  /** soul cores placed on this nexus — (CoreType: 'soulCore') */
   soulCoreCount: number;
   /** card display state (recovered/fatigued/heavyFatigued) per 公式ルール 5-5 */
   state: CardState;
@@ -124,12 +125,12 @@ export interface Nexus {
 
 export interface PlayerState {
   lifeZone: {
-    cores: number; // ライフゾーン内のコア数
+    cores: number; // ライフゾーン内のコア数（CoreType: 'core' | 'soulCore'）
   };
-  cores: number; // regular cores in reserve
-  soulCores: number; // soul cores in reserve
-  trashCores: number; // regular cores in trash
-  trashSoulCores: number; // soul cores in trash
+  cores: number; // regular cores in reserve (CoreType: 'core')
+  soulCores: number; // soul cores in reserve (CoreType: 'soulCore')
+  trashCores: number; // regular cores in trash (CoreType: 'core')
+  trashSoulCores: number; // soul cores in trash (CoreType: 'soulCore')
   hand: CardDef[];
   deck: CardDef[];
   spirits: Spirit[];
