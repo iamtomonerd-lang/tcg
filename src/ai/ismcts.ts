@@ -104,6 +104,12 @@ export class IsmctsAgent<S, A> implements Agent<S, A> {
       let depth = 0;
       while (!game.isTerminal(state) && depth < this.maxRolloutDepth) {
         const legal = game.legalActions(state);
+        if (legal.length === 0) {
+          // 🚨 DEBUG: legalActions returned empty, should not happen
+          console.error(`[ISMCTS ERROR] legalActions returned empty array!`);
+          console.error(`  State: phase=${(state as any).phase}, currentPlayer=${(state as any).currentPlayer}, pendingMulligan=${JSON.stringify((state as any).pendingMulligan)}, pendingDiceRoll=${JSON.stringify((state as any).pendingDiceRoll)}`);
+          break; // Exit rollout early to prevent crash
+        }
         state = game.applyAction(state, rng.pick(legal), rng);
         depth++;
       }

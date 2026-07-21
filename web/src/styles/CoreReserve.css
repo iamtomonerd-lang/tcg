@@ -1,0 +1,157 @@
+/* Core reserve display and interaction */
+
+.core-reserve {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.6rem 0.5rem;
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+}
+
+.core-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.core-label {
+  font-weight: 700;
+  color: #9aa3b8;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+}
+
+.core-display {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  position: relative;
+}
+
+.core {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.core.regular {
+  background: #1e7e4d;
+  border-color: #3eb876;
+}
+
+.core.regular.draggable {
+  cursor: grab;
+}
+
+.core.regular.draggable:active {
+  cursor: grabbing;
+  opacity: 0.7;
+  transform: scale(1.1);
+}
+
+.core.soul {
+  background: #6b46c1;
+  border-color: #9f7aea;
+}
+
+.core.soul.draggable {
+  cursor: grab;
+}
+
+.core.soul.draggable:active {
+  cursor: grabbing;
+  opacity: 0.7;
+  transform: scale(1.1);
+}
+
+.core-count {
+  font-weight: 800;
+  color: #e8eaf0;
+  font-size: 0.8rem;
+  min-width: 20px;
+  text-align: right;
+}
+
+/* Trash section */
+.core-trash-section {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  background: rgba(80, 40, 40, 0.3);
+  border-radius: 6px;
+  border: 1px solid rgba(139, 69, 69, 0.4);
+}
+
+.trash-label {
+  font-weight: 700;
+  color: #a89a8a;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+}
+
+.core.trash {
+  background: #4a3333;
+  border-color: #8b5a5a;
+  opacity: 0.6;
+}
+
+.core.trash-soul {
+  background: #6b46c1;
+  border-color: #4a3333;
+  opacity: 0.4;
+}
+
+.core-group.trash-empty {
+  color: #999;
+  font-style: italic;
+}
+
+/* Void section */
+.core-void-section {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  background: rgba(40, 20, 60, 0.3);
+  border-radius: 6px;
+  border: 1px solid rgba(100, 50, 140, 0.4);
+}
+
+.void-label {
+  font-weight: 700;
+  color: #a89aba;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+}
+
+.core.void {
+  background: #2a1a3a;
+  border-color: #6b4b8b;
+  opacity: 0.7;
+}
+
+.core-group.void-empty {
+  color: #999;
+  font-style: italic;
+}
+
+/* Visual feedback during drag */
+.core-reserve.drag-over {
+  background: rgba(102, 126, 234, 0.15);
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+}

@@ -1,0 +1,177 @@
+.game-setup {
+  width: 100%;
+  max-width: 1000px;
+}
+
+.setup-container {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.setup-container h2 {
+  text-align: center;
+  color: #667eea;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+}
+
+.player-config {
+  display: flex;
+  justify-content: space-around;
+  align-items: stretch;
+  gap: 2rem;
+  margin: 2rem 0;
+  flex-wrap: wrap;
+}
+
+.player-settings {
+  flex: 1;
+  min-width: 250px;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.player-settings h3 {
+  color: #333;
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.setting-group label {
+  font-weight: 600;
+  color: #555;
+}
+
+.setting-group select,
+.setting-group input {
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+.setting-group select:focus,
+.setting-group input:focus {
+  border-color: #667eea;
+  outline: none;
+}
+
+.vs-divider {
+  display: flex;
+  align-items: center;
+  font-size: 1.5rem;
+  color: #667eea;
+  font-weight: bold;
+  min-width: 50px;
+}
+
+@media (max-width: 768px) {
+  .player-config {
+    flex-direction: column;
+  }
+
+  .vs-divider {
+    writing-mode: horizontal-tb;
+    margin: 1rem 0;
+  }
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+  margin: 2rem 0 1rem;
+  align-items: stretch;
+}
+
+.start-button {
+  flex: 2;
+  padding: 1.2rem 2rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.start-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+}
+
+.start-button:active {
+  transform: translateY(-1px);
+}
+
+.back-button {
+  flex: 1;
+  padding: 1.2rem 2rem;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #667eea;
+  background: #f0f2f5;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.back-button:hover {
+  background: #667eea;
+  color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.2);
+}
+
+.back-button:active {
+  transform: translateY(-1px);
+}
+
+.info-box {
+  background: #e7f3ff;
+  border-left: 4px solid #667eea;
+  padding: 1.5rem;
+  border-radius: 6px;
+  margin-top: 2rem;
+}
+
+.info-box h4 {
+  color: #667eea;
+  margin-bottom: 1rem;
+}
+
+.info-box ul {
+  list-style: none;
+  padding: 0;
+}
+
+.info-box li {
+  margin: 0.5rem 0;
+  color: #555;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+.info-box li:before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  color: #667eea;
+}
+
+.info-box strong {
+  color: #333;
+}

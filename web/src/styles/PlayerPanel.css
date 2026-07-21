@@ -1,0 +1,412 @@
+/* ===== Compact player panel for the single-screen layout ===== */
+
+.player-panel {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem 0.8rem;
+  overflow: hidden;
+}
+
+.player-panel.top {
+  background: linear-gradient(to bottom, rgba(231, 76, 60, 0.10), transparent);
+}
+
+.player-panel.bottom {
+  background: linear-gradient(to top, rgba(102, 126, 234, 0.12), transparent);
+}
+
+.player-panel.current.top {
+  box-shadow: inset 4px 0 0 #e74c3c;
+}
+
+.player-panel.current.bottom {
+  box-shadow: inset 4px 0 0 #ffd700;
+}
+
+/* ---- Stats bar ---- */
+
+.player-stats-section {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.2rem 0;
+}
+
+.player-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.2rem 0;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.pname {
+  font-weight: 700;
+  color: #e8eaf0;
+}
+
+.pname .ptype {
+  color: #9aa3b8;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.rating-badge {
+  margin-left: 0.4rem;
+  background: linear-gradient(135deg, #667eea, #64b5f6);
+  color: #fff;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.turn-badge {
+  margin-left: 0.5rem;
+  background: #ffd700;
+  color: #333;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.pstat {
+  color: #cfd5e4;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.pstat.life {
+  font-size: 1.05rem;
+  color: #7ee787;
+}
+
+.pstat.life.low {
+  color: #ff7b6b;
+  animation: pulse 1s infinite;
+}
+
+.pstat.soul {
+  color: #fbbf24;
+  font-weight: 800;
+}
+
+.pstat-button {
+  background: none;
+  border: none;
+  color: #e8eaf0;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pstat-button:hover {
+  background: rgba(238, 143, 60, 0.3);
+  color: #ff9d5c;
+  text-decoration: none;
+}
+
+.pstat-button:active {
+  background: rgba(238, 143, 60, 0.5);
+  color: #ffc896;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* ---- Field & hand rows ---- */
+
+.field-row,
+.hand-row {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.15rem 0;
+}
+
+.hand-label {
+  flex: 0 0 auto;
+  writing-mode: vertical-rl;
+  font-size: 0.65rem;
+  color: #9aa3b8;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.field-empty {
+  color: #5b6479;
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+/* ---- Cards ---- */
+
+.fcard {
+  position: relative;
+  flex: 0 0 var(--card-w);
+  width: var(--card-w);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 6px;
+  background: #232a3b;
+  border: 1px solid #39415a;
+  padding: 2px;
+  overflow: hidden;
+}
+
+.fcard.spirit {
+  border-color: #4a90d9;
+}
+
+.fcard.nexus {
+  border-color: #9b59b6;
+}
+
+.fcard.hand {
+  border-color: #667eea;
+}
+
+.fcard-image {
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+
+.fcard-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.chip {
+  background: #39415a;
+  color: #e8eaf0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 3px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.chip.bp {
+  background: #2f5d8a;
+}
+
+.chip.core {
+  background: #1e7e4d;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.7rem;
+}
+
+.chip.soul {
+  background: #6b46c1;
+  color: #fbbf24;
+  font-weight: 800;
+  font-size: 0.7rem;
+}
+
+.chip.nexus-chip {
+  background: #5e3a75;
+}
+
+.fcard-name {
+  width: 100%;
+  font-size: 0.62rem;
+  color: #cfd5e4;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+/* Cost badge on hand cards */
+.cost-badge {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #667eea;
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+/* Fatigued (rotated) spirits */
+.fcard.spirit-fatigued {
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: transform 0.3s ease;
+  clip-path: inset(0);
+  max-height: var(--card-w);
+}
+
+/* Exhausted (rotated) nexuses — 【起動：フラッシュ】 activation cost paid this turn */
+.fcard.nexus-exhausted {
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: transform 0.3s ease;
+  clip-path: inset(0);
+  max-height: var(--card-w);
+}
+
+/* Attacking spirits */
+.fcard.spirit.attacking {
+  border-color: #ff6b6b;
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.7);
+  background: rgba(255, 107, 107, 0.1);
+  animation: pulse-attack 1s infinite;
+}
+
+@keyframes pulse-attack {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 107, 107, 0.7); }
+  50% { box-shadow: 0 0 20px rgba(255, 107, 107, 1); }
+}
+
+/* Wrapper: field card + its core tray stacked vertically */
+.fcard-wrap {
+  flex: 0 0 var(--card-w);
+  width: var(--card-w);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  overflow: hidden;
+}
+
+/* .fcard inside a wrapper no longer manages its own flex sizing */
+.fcard-wrap .fcard {
+  flex: none;
+  width: 100%;
+}
+
+/* Core tray: separate zone BELOW the card — never overlaps card drag */
+.core-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 6px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+}
+
+.core-tray.interactive {
+  border-color: rgba(255, 215, 100, 0.55);
+  background: rgba(20, 30, 20, 0.55);
+}
+
+.core-tray-empty {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.45);
+  user-select: none;
+}
+
+.field-core {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 -3px 4px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.field-core.regular {
+  background: radial-gradient(circle at 35% 30%, #6fe3a5, #1e7e4d);
+  border: 1px solid #0d5c3a;
+}
+
+.field-core.soul {
+  background: radial-gradient(circle at 35% 30%, #c4a7f5, #6b46c1);
+  border: 1px solid #553399;
+}
+
+.field-core.draggable {
+  cursor: grab;
+  transition: transform 0.12s ease;
+}
+
+.field-core.draggable:hover {
+  transform: scale(1.3);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.75), 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.field-core.draggable:active {
+  cursor: grabbing;
+  opacity: 0.6;
+}
+
+.tap-overlay {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%) rotate(-12deg);
+  background: rgba(231, 76, 60, 0.92);
+  color: white;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 1px 8px;
+  border-radius: 3px;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+/* Drag and drop states */
+.fcard[draggable="true"] {
+  cursor: grab;
+}
+
+.fcard[draggable="true"]:active {
+  cursor: grabbing;
+  opacity: 0.7;
+}
+
+.fcard.drag-over {
+  border-color: #ffd700;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+  background: rgba(255, 215, 0, 0.05);
+}
+
+.field-row {
+  position: relative;
+  overflow: hidden;
+}
+
+.field-row.drag-over-zone {
+  background: rgba(102, 126, 234, 0.08);
+  border-radius: 4px;
+}

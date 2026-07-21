@@ -1,0 +1,628 @@
+.deck-builder {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(135deg, #1a1f3a 0%, #2d3561 50%, #1a2847 100%);
+  color: #e8eaf0;
+}
+
+.deck-builder.loading,
+.deck-builder.error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.deck-builder.error {
+  color: #ff6b6b;
+}
+
+/* ヘッダー */
+.deck-builder-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1.5rem 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.deck-builder-header .header-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.header-back-button {
+  flex-shrink: 0;
+  padding: 0.6rem 1.2rem;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.header-back-button:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.deck-builder-header h2 {
+  margin: 0 0 0.3rem 0;
+  font-size: 2rem;
+}
+
+.deck-builder-header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 0.95rem;
+}
+
+/* メッセージ表示 */
+.deck-message {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  padding: 0.75rem 1.5rem;
+  background: rgba(35, 42, 59, 0.95);
+  color: #e8eaf0;
+  border: 1px solid #667eea;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  animation: message-in 0.2s ease-out;
+}
+
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* コンテンツ */
+.deck-builder-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+/* カード一覧パネル */
+.cards-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: rgba(35, 42, 59, 0.8);
+  border: 2px solid #39415a;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.category-tabs {
+  display: flex;
+  border-bottom: 2px solid #39415a;
+  background: rgba(26, 31, 58, 0.6);
+}
+
+.category-tabs .tab {
+  flex: 1;
+  padding: 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #9aa3b8;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s;
+}
+
+.category-tabs .tab:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #e8eaf0;
+}
+
+.category-tabs .tab.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+.cards-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.card-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #39415a;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  background: rgba(57, 65, 90, 0.4);
+  transition: all 0.2s;
+}
+
+.card-item:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.card-image-container {
+  flex: 0 0 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26, 31, 58, 0.6);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #39415a;
+}
+
+.card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.card-name {
+  font-weight: 700;
+  color: #e8eaf0;
+  margin-bottom: 0.4rem;
+}
+
+.card-details {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+
+.card-type {
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.card-type.spirit {
+  background: rgba(74, 144, 217, 0.2);
+  color: #64b5f6;
+}
+
+.card-type.nexus {
+  background: rgba(156, 39, 176, 0.2);
+  color: #ce93d8;
+}
+
+.card-type.magic {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ffb74d;
+}
+
+.card-cost,
+.card-bp {
+  color: #9aa3b8;
+}
+
+.add-button {
+  flex: 0 0 40px;
+  height: 40px;
+  margin-left: 0;
+  padding: 0;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: center;
+}
+
+.add-button:hover:not(:disabled) {
+  background: #5568d3;
+  transform: scale(1.05);
+}
+
+.add-button:disabled {
+  background: #39415a;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* デッキパネル */
+.deck-panel {
+  width: 350px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(35, 42, 59, 0.8);
+  border: 2px solid #39415a;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.deck-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 2px solid #39415a;
+  background: rgba(26, 31, 58, 0.6);
+}
+
+.deck-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #e8eaf0;
+}
+
+.deck-count .count {
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  background: rgba(57, 65, 90, 0.6);
+  color: #667eea;
+}
+
+.deck-count .count.valid {
+  background: rgba(46, 125, 50, 0.3);
+  color: #81c784;
+}
+
+.deck-count .count.invalid {
+  background: rgba(198, 40, 40, 0.25);
+  color: #e57373;
+}
+
+/* デッキ名入力 */
+.deck-name-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #39415a;
+}
+
+.deck-name-input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  background: rgba(26, 31, 58, 0.6);
+  border: 1px solid #39415a;
+  border-radius: 6px;
+  color: #e8eaf0;
+  font-size: 0.95rem;
+}
+
+.deck-name-input::placeholder {
+  color: #5b6479;
+}
+
+.deck-name-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.new-deck-button {
+  flex-shrink: 0;
+  padding: 0.6rem 1rem;
+  background: rgba(57, 65, 90, 0.6);
+  color: #9aa3b8;
+  border: 1px solid #39415a;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.new-deck-button:hover {
+  border-color: #667eea;
+  color: #e8eaf0;
+}
+
+.deck-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  min-height: 100px;
+}
+
+.empty-deck {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #5b6479;
+  text-align: center;
+  padding: 2rem;
+}
+
+.empty-deck p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.deck-card-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border: 1px solid #39415a;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  background: rgba(57, 65, 90, 0.4);
+  transition: all 0.2s;
+}
+
+.deck-card-item:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.deck-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-card-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #e8eaf0;
+  margin-bottom: 0.2rem;
+}
+
+.deck-card-type {
+  font-size: 0.75rem;
+  color: #9aa3b8;
+}
+
+.deck-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.75rem;
+}
+
+.minus-button,
+.plus-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #39415a;
+  border-radius: 4px;
+  background: rgba(26, 31, 58, 0.6);
+  color: #667eea;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.minus-button:hover,
+.plus-button:hover:not(:disabled) {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.15);
+}
+
+.plus-button:disabled {
+  color: #5b6479;
+  cursor: not-allowed;
+}
+
+.deck-card-controls .count {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+  color: #e8eaf0;
+}
+
+/* 保存済みデッキ */
+.saved-decks-section {
+  border-top: 2px solid #39415a;
+  padding: 0.75rem 1rem;
+  max-height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+.saved-decks-section h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  color: #9aa3b8;
+  font-weight: 600;
+}
+
+.no-saved-decks {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #5b6479;
+}
+
+.saved-decks-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.saved-deck-item {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.saved-deck-item.editing .saved-deck-load {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.15);
+  color: #e8eaf0;
+}
+
+.saved-deck-load {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background: rgba(57, 65, 90, 0.4);
+  color: #9aa3b8;
+  border: 1px solid #39415a;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-deck-load:hover {
+  border-color: #667eea;
+  color: #e8eaf0;
+}
+
+.saved-deck-delete {
+  flex-shrink: 0;
+  width: 34px;
+  padding: 0;
+  background: rgba(57, 65, 90, 0.4);
+  border: 1px solid #39415a;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.saved-deck-delete:hover {
+  border-color: #e57373;
+  background: rgba(198, 40, 40, 0.2);
+}
+
+/* デッキフッター */
+.deck-footer {
+  padding: 1rem 1.25rem;
+  border-top: 2px solid #39415a;
+  background: rgba(26, 31, 58, 0.6);
+}
+
+.save-button {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.save-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+}
+
+.save-button:disabled {
+  background: #39415a;
+  color: #9aa3b8;
+  cursor: not-allowed;
+}
+
+/* レスポンシブ */
+@media (max-width: 1200px) {
+  .deck-builder-content {
+    flex-direction: column;
+  }
+
+  .deck-panel {
+    width: 100%;
+    max-height: 500px;
+  }
+}
+
+@media (max-width: 768px) {
+  .deck-builder {
+    height: auto;
+  }
+
+  .deck-builder-header {
+    padding: 1rem;
+  }
+
+  .deck-builder-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .deck-builder-content {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .cards-panel {
+    height: 400px;
+  }
+
+  .deck-panel {
+    height: 500px;
+  }
+
+  .category-tabs .tab {
+    font-size: 0.8rem;
+    padding: 0.75rem 0.5rem;
+  }
+}
+
+/* スクロールバースタイル */
+.cards-list::-webkit-scrollbar,
+.deck-list::-webkit-scrollbar,
+.saved-decks-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cards-list::-webkit-scrollbar-track,
+.deck-list::-webkit-scrollbar-track,
+.saved-decks-list::-webkit-scrollbar-track {
+  background: rgba(57, 65, 90, 0.4);
+}
+
+.cards-list::-webkit-scrollbar-thumb,
+.deck-list::-webkit-scrollbar-thumb,
+.saved-decks-list::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.4);
+  border-radius: 4px;
+}
+
+.cards-list::-webkit-scrollbar-thumb:hover,
+.deck-list::-webkit-scrollbar-thumb:hover,
+.saved-decks-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.6);
+}
