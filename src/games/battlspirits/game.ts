@@ -2,7 +2,7 @@ import type { Game, Rng } from '../../core/game.js';
 import { Mulberry32 } from '../../core/rng.js';
 import { CARD_DB } from './cards.js';
 import { DeckFactory } from './deckFactory.js';
-import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef, CardEffect, GameConfig, PlayerConfig, GameRuleConfig } from './types.js';
+import type { Action, GameState, Nexus, Spirit, PlayerState, PendingAttack, CardDef, CardEffect, GameConfig, PlayerConfig, GameRuleConfig, PlayerId } from './types.js';
 import { applyEffect, triggerEffects, destroySpirit, removeDeadSpirit, updateSpiritLevel, fixupSpiritIndicesAfterRemoval, destroyCreatureBpLimit, checkEffectConditions } from './effects.js';
 import { dbg, DEBUG_FLASH, DEBUG_CORE, DEBUG_VERBOSE } from './debug.js';
 import { CostResolver, type PaymentPlan } from './costResolver.js';
@@ -4077,6 +4077,80 @@ function clonePlayer(p: any) {
     bottomDeckCards: (p.bottomDeckCards || []).slice(),
     damageThisTurn: p.damageThisTurn, // Soul Magic red condition tracking — must survive cloning
   };
+}
+
+/**
+ * DrawRule: ドロー（カードを引く）ルール（公式ルール 5-6対応）
+ *
+ * 責務分離：
+ * - 層1：Deck/Hand/Cardのデータ構造
+ * - 層2（ここ）：デッキから手札へのカード移動ルール定義
+ * - 層3：いつドローするか決定（start/draw フェーズ等）
+ * - 層3.2：効果によるドロー要求（将来実装）
+ *
+ * ドローの定義（公式 5-6-1）：
+ * - デッキの1番上のカードを他プレイヤーに公開せず、自身の手札に加える
+ *
+ * 禁止事項：
+ * ❌ 勝敗判定
+ * ❌ フェーズ変更
+ * ❌ 効果処理
+ * ❌ UI更新
+ * ❌ ドローしたカード情報の公開
+ */
+
+/**
+ * 単体ドロー処理：デッキから1枚カードを引く（公式 5-6-1対応）
+ *
+ * @param state - ゲーム状態
+ * @param playerId - ドロー対象プレイヤー
+ * @returns { state: 更新後のゲーム状態, drawn: ドローしたカード (デッキ空の場合null) }
+ */
+function drawCard(state: GameState, playerId: PlayerId): { state: GameState; drawn: CardDef | null } {
+  const p = state.players[playerId]!;
+
+  // デッキが空の場合
+  if (p.deck.length === 0) {
+    return { state, drawn: null };
+  }
+
+  // デッキから1枚取得
+  const card = p.deck.shift()!;
+
+  // 手札に追加（他プレイヤーに非公開）
+  p.hand.push(card);
+
+  return { state, drawn: card };
+}
+
+/**
+ * 複数ドロー処理：N枚ドローする（公式 5-6-3対応）
+ *
+ * ルール：
+ * - count = 0 → 何もしない
+ * - count >= 1 → 1枚ドローをcount回行う
+ *
+ * @param state - ゲーム状態
+ * @param playerId - ドロー対象プレイヤー
+ * @param count - ドロー枚数
+ * @returns 更新後のゲーム状態
+ */
+function drawCards(state: GameState, playerId: PlayerId, count: number): GameState {
+  if (count <= 0) {
+    return state;
+  }
+
+  let current = state;
+  for (let i = 0; i < count; i++) {
+    const result = drawCard(current, playerId);
+    current = result.state;
+    // デッキが空になった場合、残りのドローをスキップ
+    if (result.drawn === null) {
+      break;
+    }
+  }
+
+  return current;
 }
 
 function checkResult(state: GameState): void {
