@@ -5,6 +5,7 @@
 export type CardType = 'spirit' | 'nexus' | 'magic';
 export type CardState = 'recovered' | 'fatigued' | 'heavyFatigued';
 export type CoreType = 'core' | 'soulCore';
+export type PlayerId = 0 | 1; // プレイヤー識別子：0 = プレイヤー1, 1 = プレイヤー2
 export type EffectAction = 'damage' | 'heal' | 'draw' | 'boost_bp' | 'search_deck' | 'destroy_creature' | 'trash_to_hand' | 'place_core' | 'discard_hand' | 'destroy_nexus';
 export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate' | 'battle_end' | 'end_step' | 'opponent_summon' | 'opponent_attack' | 'opponent_magic';
 export type FlashTrigger = 'opponent_summon' | 'opponent_attack' | 'opponent_magic' | 'opponent_destroy' | 'opponent_block';
@@ -81,11 +82,18 @@ export interface LvStats {
  * 責務：
  * ✅ カードの固定情報（id, name, cost, stats）
  * ✅ カードが持つ効果の列挙（effects）
+ * ✅ カード所有者情報の保持（ownerId）
  *
  * 禁止：
  * ❌ ゲーム状態を変更する処理
  * ❌ ゲーム進行ロジック
  * ❌ 層3以上の責務を持つコード
+ *
+ * 所有者（owner）について（公式ルール 5-3-4）：
+ * - ownerId は「そのカードを元々持っているプレイヤー」を指す
+ * - カードテキストの「持ち主」はこの値に基づいて判定される
+ * - 操作プレイヤー（現在そのカードを使用しているプレイヤー）とは別概念
+ * - 所有権変更（奪取効果）は実装しない（将来の効果エンジンで扱う）
  */
 export interface CardDef {
   id: string;
@@ -107,6 +115,9 @@ export interface CardDef {
   // Data-driven effects: カードが持つ複数の効果（公式ルール 5-2対応）
   // 層3.2（効果エンジン）が triggerEffects/applyEffect で処理する
   effects?: CardEffect[];
+  // Card ownership: カード所有者識別（公式ルール 5-3-4対応）
+  // 層3.5（カード定義）で保持可能。層3で「そのカード誰のか」を判定する際に参照
+  ownerId?: PlayerId;
 }
 
 export interface Spirit {
@@ -149,7 +160,23 @@ export interface Nexus {
   exhausted?: boolean;
 }
 
+/**
+ * Player: ゲーム内プレイヤーを表現する概念（公式ルール 5-3「プレイヤー」対応）
+ *
+ * 責務分離：
+ * - 層1（ここ）：プレイヤーを識別し、状態（ゾーン情報）を保持
+ * - 層3（ゲーム進行）：ターンプレイヤーの管理、ターン交代
+ * - 層3.5（カード定義）：カード所有者情報（ownerId）の保持
+ *
+ * 禁止事項：
+ * ❌ ゲーム終了時のカード返却処理
+ * ❌ 相手領域への移動禁止処理
+ * ❌ プレイヤー勝敗処理
+ * ❌ 所有権変更（奪取効果）
+ * ❌ コントロール変更
+ */
 export interface PlayerState {
+  id: PlayerId; // プレイヤー識別子（0 = プレイヤー1, 1 = プレイヤー2）
   lifeZone: {
     cores: number; // ライフゾーン内のコア数（CoreType: 'core' | 'soulCore'）
   };
@@ -278,7 +305,7 @@ export interface EffectResult {
 
 export interface GameState {
   players: [PlayerState, PlayerState];
-  currentPlayer: number;
+  currentPlayer: number; // ターンプレイヤー識別子（0 | 1）— 層3で管理される
   turnCount: number;
   phase: GamePhase;
   battle: BattleState | null;

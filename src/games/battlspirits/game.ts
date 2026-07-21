@@ -153,13 +153,13 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const config = rngOrConfig as GameConfig;
       rng = this.createRng(config.rngSeed);
       players = [
-        this.newPlayerFromConfig(config.players[0]!, rng, config.ruleConfig),
-        this.newPlayerFromConfig(config.players[1]!, rng, config.ruleConfig),
+        this.newPlayerFromConfig(config.players[0]!, rng, config.ruleConfig, 0),
+        this.newPlayerFromConfig(config.players[1]!, rng, config.ruleConfig, 1),
       ];
     } else {
       // Rng passed (backward compatibility)
       rng = rngOrConfig as Rng;
-      players = [this.newPlayer(rng), this.newPlayer(rng)];
+      players = [this.newPlayer(rng, 0), this.newPlayer(rng, 1)];
     }
 
     dbg(DEBUG_VERBOSE, '[INIT] After player creation:', {
@@ -199,10 +199,11 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     }
   }
 
-  private newPlayer(rng: Rng) {
+  private newPlayer(rng: Rng, playerId: 0 | 1 = 0) {
     const deck = DeckFactory.getStarterDeck();
     rng.shuffle(deck);
     return {
+      id: playerId,
       lifeZone: { cores: 20 },
       cores: 3, // starting regular cores
       soulCores: 1, // starting soul core
@@ -226,7 +227,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
    * Initialize a player from PlayerConfig and optional GameRuleConfig.
    * Used by createInitialState(config: GameConfig) overload.
    */
-  private newPlayerFromConfig(config: PlayerConfig, rng: Rng, ruleConfig?: GameRuleConfig): PlayerState {
+  private newPlayerFromConfig(config: PlayerConfig, rng: Rng, ruleConfig?: GameRuleConfig, playerId: 0 | 1 = 0): PlayerState {
     const defaults = this.getDefaultRuleConfig();
     const rules = { ...defaults, ...ruleConfig };
 
@@ -235,6 +236,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     rng.shuffle(deck);
 
     return {
+      id: playerId,
       lifeZone: { cores: config.initialLife ?? rules.startingLife ?? 20 },
       cores: config.initialCores ?? rules.startingCores ?? 3,
       soulCores: config.initialSoulCores ?? rules.startingSoulCores ?? 1,
@@ -4061,6 +4063,7 @@ function cloneState(state: GameState): GameState {
 
 function clonePlayer(p: any) {
   return {
+    id: p.id, // player identifier (PlayerId) — must survive cloning
     lifeZone: { cores: p.lifeZone.cores },
     cores: p.cores,
     soulCores: p.soulCores || 0,

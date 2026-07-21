@@ -784,6 +784,7 @@ function cloneGameState(state: GameState): GameState {
 
 function clonePlayerState(p: PlayerState): PlayerState {
   return {
+    id: p.id, // player identifier (PlayerId) — must survive cloning
     lifeZone: { cores: p.lifeZone.cores },
     cores: p.cores,
     soulCores: p.soulCores,

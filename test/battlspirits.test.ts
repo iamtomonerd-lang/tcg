@@ -12,8 +12,8 @@ function makeSpirit(): Spirit {
   return { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
 }
 
-function makePlayer(spirits: Spirit[]): PlayerState {
-  return { lifeZone: { cores: 5 }, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [], bottomDeckCards: [] };
+function makePlayer(spirits: Spirit[], playerId: 0 | 1 = 0): PlayerState {
+  return { id: playerId, lifeZone: { cores: 5 }, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [], bottomDeckCards: [] };
 }
 
 /** Resolve both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */
@@ -1492,6 +1492,7 @@ describe('【継召】 inheritance (cost reduction) system', () => {
     const mockState: GameState = {
       players: [
         {
+          id: 0,
           lifeZone: { cores: 20 },
           cores: 5,
           soulCores: 0,
@@ -1504,7 +1505,7 @@ describe('【継召】 inheritance (cost reduction) system', () => {
           trash: [CARD_DB.spirit_graipher!],
           bottomDeckCards: [],
         },
-        makePlayer([]),
+        makePlayer([], 1),
       ],
       currentPlayer: 0,
       turnCount: 1,
@@ -1559,6 +1560,7 @@ describe('【継召】 inheritance (cost reduction) system', () => {
     const mockState: GameState = {
       players: [
         {
+          id: 0,
           lifeZone: { cores: 20 },
           cores: 5,
           soulCores: 0,
@@ -1571,7 +1573,7 @@ describe('【継召】 inheritance (cost reduction) system', () => {
           trash: [CARD_DB.spirit_graipher!],
           bottomDeckCards: [],
         },
-        makePlayer([]),
+        makePlayer([], 1),
       ],
       currentPlayer: 0,
       turnCount: 1,
