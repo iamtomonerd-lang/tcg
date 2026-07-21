@@ -2,7 +2,7 @@
 
 **作成日**: 2026-07-20  
 **最終更新**: 2026-07-21  
-**ステータス**: LifeZone + CardState + Effect 実装完了 ✅
+**ステータス**: LifeZone + CardState + Effect + Player 実装完了 ✅
 
 ---
 
@@ -1230,6 +1230,55 @@ Express API、React コンポーネント。
 - 責務分離: ✅ 層1に型定義・ドキュメントのみ
 
 **コミット:** e80b1ca
+
+### ✅ Player 概念定義実装完了 (2026-07-21)
+
+**実装内容:**
+- `PlayerId` 型定義（0 | 1）
+- `PlayerState.id` フィールド追加
+- `CardDef.ownerId` フィールド追加（カード所有者情報）
+- 公式ルール 5-3「プレイヤー」に対応
+
+**修正ファイル:**
+- `src/games/battlspirits/types.ts`: PlayerId型、PlayerState/CardDef更新
+- `src/games/battlspirits/game.ts`: newPlayer/newPlayerFromConfigでid初期化、clonePlayer更新
+- `src/games/battlspirits/effects.ts`: clonePlayerStateでid保持
+- `test/battlspirits.test.ts`: makePlayer関数更新、テストケース修正
+
+**実装範囲（層1のみ）:**
+- ✅ 型定義：PlayerId（プレイヤー識別子）
+- ✅ データ構造：PlayerState.id
+- ✅ カード所有者情報：CardDef.ownerId（オプション）
+- ✅ ターンプレイヤー管理：GameState.currentPlayerの確認
+
+**層責務定義:**
+- ✅ 層1：プレイヤー識別情報の定義と保持
+- ❌ 層3：ターンプレイヤー管理、ターン交代処理
+- ❌ 層3.5：カード所有者情報の活用
+
+**未実装範囲（禁止）:**
+- ❌ ゲーム終了時のカード返却処理
+- ❌ 相手領域への移動禁止処理
+- ❌ プレイヤー勝敗処理
+- ❌ 所有権変更（奪取効果）
+- ❌ コントロール変更
+
+**非ターンプレイヤー管理:**
+- 独立したデータ構造として実装しない
+- 2人対戦では「相手 = 非ターンプレイヤー」として取得可能
+- 例：`opponent = players.find(p => p.id !== currentPlayer)`
+
+**所有者（owner）と操作プレイヤーの分離:**
+- 所有者：そのカードを元々持っているプレイヤー（ownerId）
+- 操作プレイヤー：現在そのカードを使用しているプレイヤー（将来実装）
+- 今回はownerのみ定義
+
+**検証結果:**
+- TypeScript 型チェック: ✅ エラーなし
+- テスト実行: ✅ 69/69 成功
+- 責務分離: ✅ 層1に型定義・データ構造のみ
+
+**コミット:** 1661187
 
 ---
 
