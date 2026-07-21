@@ -13,7 +13,7 @@ function makeSpirit(): Spirit {
 }
 
 function makePlayer(spirits: Spirit[]): PlayerState {
-  return { life: 5, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [], bottomDeckCards: [] };
+  return { lifeZone: { cores: 5 }, cores: 3, soulCores: 1, trashCores: 0, trashSoulCores: 0, hand: [], deck: [], spirits, nexuses: [], trash: [], bottomDeckCards: [] };
 }
 
 /** Resolve both players' opening-hand mulligan by keeping their hand, reaching the first Main phase. */
@@ -118,7 +118,7 @@ describe('Battle Spirits Mulligan', () => {
 describe('Battle Spirits Summon', () => {
   it('creates initial state correctly', () => {
     const s = skipToMainPhase(game.createInitialState(new Mulberry32(1)), new Mulberry32(1));
-    expect(s.players[0].life).toBe(5);
+    expect(s.players[0].lifeZone.cores).toBe(20);
     expect(s.players[0].cores).toBe(3);
     expect(s.players[0].soulCores).toBe(1);
     expect(s.players[0].hand.length).toBe(4); // 4 initial
@@ -757,7 +757,7 @@ describe('Attack-time search_deck effects', () => {
     state = game.applyAction(state, { type: 'skip_flash' }, new Mulberry32(3)); // attacker passes
     expect(state.pendingAttack).toBeDefined();
     state = game.applyAction(state, { type: 'take_damage' }, new Mulberry32(4));
-    expect(state.players[1].life).toBe(4); // 1 symbol damage dealt
+    expect(state.players[1].lifeZone.cores).toBe(4); // 1 symbol damage dealt
     expect(state.players[0].spirits[0]!.canAttack).toBe(false); // still exhausted
     expect(state.players[1].damageThisTurn).toBe(1); // Soul Magic red condition tracked
   });
@@ -1063,10 +1063,10 @@ describe('GameConfig pattern', () => {
       rngSeed: 123,
     };
     const state = game.createInitialState(config);
-    expect(state.players[0].life).toBe(10);
+    expect(state.players[0].lifeZone.cores).toBe(10);
     expect(state.players[0].cores).toBe(5);
     expect(state.players[0].soulCores).toBe(2);
-    expect(state.players[1].life).toBe(10);
+    expect(state.players[1].lifeZone.cores).toBe(10);
     expect(state.players[1].cores).toBe(5);
     expect(state.players[1].soulCores).toBe(2);
   });
@@ -1080,7 +1080,7 @@ describe('GameConfig pattern', () => {
       rngSeed: 123,
     };
     const state = game.createInitialState(config);
-    expect(state.players[0].life).toBe(5); // default
+    expect(state.players[0].lifeZone.cores).toBe(20); // default
     expect(state.players[0].cores).toBe(3); // default
     expect(state.players[0].soulCores).toBe(1); // default
   });
@@ -1492,7 +1492,7 @@ describe('【継召】 inheritance (cost reduction) system', () => {
     const mockState: GameState = {
       players: [
         {
-          life: 20,
+          lifeZone: { cores: 20 },
           cores: 5,
           soulCores: 0,
           trashCores: 0,
@@ -1559,7 +1559,7 @@ describe('【継召】 inheritance (cost reduction) system', () => {
     const mockState: GameState = {
       players: [
         {
-          life: 20,
+          lifeZone: { cores: 20 },
           cores: 5,
           soulCores: 0,
           trashCores: 0,

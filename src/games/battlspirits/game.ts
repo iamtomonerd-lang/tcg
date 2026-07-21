@@ -203,7 +203,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     const deck = DeckFactory.getStarterDeck();
     rng.shuffle(deck);
     return {
-      life: 5,
+      lifeZone: { cores: 20 },
       cores: 3, // starting regular cores
       soulCores: 1, // starting soul core
       trashCores: 0, // cores in trash
@@ -235,7 +235,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     rng.shuffle(deck);
 
     return {
-      life: config.initialLife ?? rules.startingLife ?? 5,
+      lifeZone: { cores: config.initialLife ?? rules.startingLife ?? 20 },
       cores: config.initialCores ?? rules.startingCores ?? 3,
       soulCores: config.initialSoulCores ?? rules.startingSoulCores ?? 1,
       trashCores: 0,
@@ -252,7 +252,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
   /** Get default rule configuration (Battle Spirits standard rules). */
   private getDefaultRuleConfig(): GameRuleConfig {
     return {
-      startingLife: 5,
+      startingLife: 20,
       startingCores: 3,
       startingSoulCores: 1,
       startingHandSize: 4,
@@ -1842,7 +1842,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
       // Take damage and place cores in reserve
       const damage = next.pendingAttack.damage;
-      me.life -= damage;
+      me.lifeZone.cores -= damage;
       logCoreChange(me, next.currentPlayer, me.cores + damage, 'damageToCore');
       me.damageThisTurn = (me.damageThisTurn ?? 0) + damage; // Soul Magic red condition (ライフが減った)
 
@@ -4059,7 +4059,7 @@ function cloneState(state: GameState): GameState {
 
 function clonePlayer(p: any) {
   return {
-    life: p.life,
+    lifeZone: { cores: p.lifeZone.cores },
     cores: p.cores,
     soulCores: p.soulCores || 0,
     trashCores: p.trashCores || 0,
@@ -4076,8 +4076,8 @@ function clonePlayer(p: any) {
 
 function checkResult(state: GameState): void {
   if (state.result) return;
-  const l0 = state.players[0]!.life;
-  const l1 = state.players[1]!.life;
+  const l0 = state.players[0]!.lifeZone.cores;
+  const l1 = state.players[1]!.lifeZone.cores;
   const d0 = state.players[0]!.deck.length;
   const d1 = state.players[1]!.deck.length;
 

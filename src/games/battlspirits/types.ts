@@ -118,7 +118,9 @@ export interface Nexus {
 }
 
 export interface PlayerState {
-  life: number;
+  lifeZone: {
+    cores: number; // ライフゾーン内のコア数
+  };
   cores: number; // regular cores in reserve
   soulCores: number; // soul cores in reserve
   trashCores: number; // regular cores in trash

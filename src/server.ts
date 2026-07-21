@@ -244,8 +244,8 @@ app.get('/api/game/:sessionId/state', (req, res) => {
       player0CardsPlayed: extractCardsPlayed(session.state.players[0]),
       player1CardsPlayed: extractCardsPlayed(session.state.players[1]),
       damageDealt: [
-        session.state.players[1].life < 5 ? 5 - session.state.players[1].life : 0,
-        session.state.players[0].life < 5 ? 5 - session.state.players[0].life : 0,
+        session.state.players[1].lifeZone.cores < 20 ? 20 - session.state.players[1].lifeZone.cores : 0,
+        session.state.players[0].lifeZone.cores < 20 ? 20 - session.state.players[0].lifeZone.cores : 0,
       ],
       spiritsDestroyed: session.state.players[0].trash.filter(c => c.cardType === 'spirit').length +
                         session.state.players[1].trash.filter(c => c.cardType === 'spirit').length,
@@ -1046,10 +1046,10 @@ function detectEffectResults(before: GameState, after: GameState, action: Action
     const afterPlayer = after.players[p];
     if (!beforePlayer || !afterPlayer) continue;
 
-    const lifeLoss = beforePlayer.life - afterPlayer.life;
+    const lifeLoss = beforePlayer.lifeZone.cores - afterPlayer.lifeZone.cores;
     if (lifeLoss > 0) {
       results.push({
-        description: `💔 P${p}は${lifeLoss}ダメージを受けた（${beforePlayer.life} → ${afterPlayer.life}）`,
+        description: `💔 P${p}は${lifeLoss}ダメージを受けた（${beforePlayer.lifeZone.cores} → ${afterPlayer.lifeZone.cores}）`,
         type: 'damage',
       });
     }
@@ -1061,7 +1061,7 @@ function detectEffectResults(before: GameState, after: GameState, action: Action
 function serializeState(state: GameState) {
   return {
     players: state.players.map((p) => ({
-      life: p.life,
+      life: p.lifeZone.cores,
       cores: p.cores,
       soulCores: p.soulCores || 0,
       trashCores: p.trashCores || 0,

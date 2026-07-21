@@ -340,7 +340,7 @@ export function applyEffect(
       const target = effect.target || 'opponent_hero';
       const damageValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
       if (target === 'opponent_hero') {
-        opponent.life -= damageValue;
+        opponent.lifeZone.cores -= damageValue;
         opponent.damageThisTurn = (opponent.damageThisTurn ?? 0) + damageValue;
       } else if (target === 'opponent_creature' && targetNexusIndex !== undefined) {
         // TODO: damage creature (not in phase 1)
@@ -349,8 +349,8 @@ export function applyEffect(
     }
     case 'heal': {
       const healValue = effect.variableValue && effectValue !== undefined ? effectValue : (effect.value ?? 1);
-      me.life += healValue;
-      if (me.life > 5) me.life = 5; // Cap at starting life
+      me.lifeZone.cores += healValue;
+      if (me.lifeZone.cores > 20) me.lifeZone.cores = 20; // Cap at starting life
       break;
     }
     case 'draw': {
@@ -784,7 +784,7 @@ function cloneGameState(state: GameState): GameState {
 
 function clonePlayerState(p: PlayerState): PlayerState {
   return {
-    life: p.life,
+    lifeZone: { cores: p.lifeZone.cores },
     cores: p.cores,
     soulCores: p.soulCores,
     trashCores: p.trashCores,
