@@ -136,6 +136,99 @@ function logSoulCoreChange(
   player.soulCores = newCores;
 }
 
+/**
+ * 破壊解決フロー（層3責務）
+ *
+ * 統一された破壊処理：
+ * 1. destroySpirit() でフィールド削除 + コア移動
+ * 2. トラッシュにカード定義を追加
+ * 3. triggerEffects('destroy') で破壊時効果を処理
+ * 4. スピリットインデックスの修正
+ *
+ * バトル時・Summon効果・その他全ての破壊がこのフローを通る
+ * applyEffect のパターンに従い、state をクローンしてから操作する
+ *
+ * @param state GameState
+ * @param playerIndex 破壊されるスピリットの所有者
+ * @param spiritIndex 破壊されるスピリットのインデックス
+ * @returns 破壊時効果処理後の GameState
+ */
+function resolveDestructionFlow(state: GameState, playerIndex: number, spiritIndex: number): GameState {
+  // applyEffect と同じパターン：state をクローン
+  const next: GameState = { ...state, players: [clonePlayerStateForMutation(state.players[0]!), clonePlayerStateForMutation(state.players[1]!)] as [PlayerState, PlayerState] };
+  const player = next.players[playerIndex]!;
+  const spirit = player.spirits[spiritIndex];
+  if (!spirit) return state;
+
+  const spiritCard = spirit.def;
+  const spiritLevel = spirit.level;
+
+  // Step 1: フィールド削除 + コア移動（層3.2関数）
+  destroySpirit(player, spiritIndex);
+
+  // Step 2: トラッシュにカード定義を追加（層3責務）
+  player.trash.push(spiritCard);
+
+  // Step 3: 破壊時効果を処理（層3.2）
+  let result = triggerEffects(next, 'destroy', spiritCard, playerIndex, undefined, undefined, undefined, undefined, undefined, undefined, spiritLevel);
+
+  // Step 4: スピリット削除後にpendingAttack・stashedAttackのインデックスを修正
+  fixupSpiritIndicesAfterRemoval(result, playerIndex, spiritIndex);
+
+  return result;
+}
+
+/**
+ * PlayerState をミューテーション用にクローン（destroySpirit など直接変更する関数用）
+ */
+function clonePlayerStateForMutation(p: PlayerState): PlayerState {
+  return {
+    id: p.id,
+    lifeZone: { cores: p.lifeZone.cores },
+    cores: p.cores,
+    soulCores: p.soulCores,
+    trashCores: p.trashCores,
+    trashSoulCores: p.trashSoulCores,
+    hand: [...p.hand],
+    deck: [...p.deck],
+    spirits: p.spirits.map(s => ({ ...s, placedCores: s.placedCores })),
+    nexuses: p.nexuses.map(n => ({ ...n, placedCores: n.placedCores })),
+    trash: [...p.trash],
+    bottomDeckCards: [...p.bottomDeckCards],
+    damageThisTurn: p.damageThisTurn,
+  };
+}
+
+/**
+ * ネクサス破壊解決フロー（層3責務）
+ *
+ * ネクサスが破壊される場合の統一処理
+ *
+ * @param state GameState
+ * @param playerIndex 破壊されるネクサスの所有者
+ * @param nexusIndex 破壊されるネクサスのインデックス
+ * @returns 破壊時効果処理後の GameState
+ */
+function resolveNexusDestructionFlow(state: GameState, playerIndex: number, nexusIndex: number): GameState {
+  const player = state.players[playerIndex]!;
+  const nexus = player.nexuses[nexusIndex];
+  if (!nexus) return state;
+
+  const nexusCard = nexus.def;
+  const nexusLevel = nexus.level;
+
+  // ネクサスをフィールドから削除
+  player.nexuses.splice(nexusIndex, 1);
+
+  // トラッシュに追加
+  player.trash.push(nexusCard);
+
+  // 破壊時効果を処理
+  let next = triggerEffects(state, 'destroy', nexusCard, playerIndex, undefined, undefined, undefined, undefined, undefined, undefined, nexusLevel);
+
+  return next;
+}
+
 export class BattlSpiritsGame implements Game<GameState, Action> {
   readonly playerCount = 2;
 
@@ -2043,11 +2136,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
           const destructedSpiritIndices: number[] = [];
           const destructedNexusIndices: number[] = [];
+          const destructedSpiritCards: CardDef[] = [];
+          const destructedSpiritLevels: (1 | 2)[] = [];
+          const destructedNexusCards: CardDef[] = [];
+          const destructedNexusLevels: (1 | 2)[] = [];
 
           // Find destroyed spirits
           for (let i = 0; i < originalOpponent.spirits.length; i++) {
             if (!opponent.spirits[i]) {
               destructedSpiritIndices.push(i);
+              destructedSpiritCards.push(originalOpponent.spirits[i]!.def);
+              destructedSpiritLevels.push(originalOpponent.spirits[i]!.level);
             }
           }
 
@@ -2055,6 +2154,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           for (let i = 0; i < originalOpponent.nexuses.length; i++) {
             if (!opponent.nexuses[i]) {
               destructedNexusIndices.push(i);
+              destructedNexusCards.push(originalOpponent.nexuses[i]!.def);
+              destructedNexusLevels.push(originalOpponent.nexuses[i]!.level);
             }
           }
 
@@ -2065,6 +2166,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               summonedCard: card,
               destructedSpiritIndices,
               destructedNexusIndices,
+              destructedSpiritCards,
+              destructedSpiritLevels,
+              destructedNexusCards,
+              destructedNexusLevels,
             };
             break;
           }
@@ -2215,6 +2320,25 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
         // User confirmed: trigger the summon effects
         next = triggerEffects(next, 'summon', card, next.currentPlayer, newSpiritIndex, undefined, undefined, undefined, undefined, undefined, newSpirit.level);
+
+        // Trigger destruction effects for destroyed spirits (統一された破壊フロー)
+        if (pending.destructedSpiritCards && pending.destructedSpiritLevels) {
+          for (let i = 0; i < pending.destructedSpiritCards.length; i++) {
+            const destroyedCard = pending.destructedSpiritCards[i]!;
+            const destroyedLevel = pending.destructedSpiritLevels[i] ?? 1;
+            next = triggerEffects(next, 'destroy', destroyedCard, 1 - next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, destroyedLevel);
+          }
+        }
+
+        // Trigger destruction effects for destroyed nexuses
+        if (pending.destructedNexusCards && pending.destructedNexusLevels) {
+          for (let i = 0; i < pending.destructedNexusCards.length; i++) {
+            const destroyedCard = pending.destructedNexusCards[i]!;
+            const destroyedLevel = pending.destructedNexusLevels[i] ?? 1;
+            next = triggerEffects(next, 'destroy', destroyedCard, 1 - next.currentPlayer, undefined, undefined, undefined, undefined, undefined, undefined, destroyedLevel);
+          }
+        }
+
         break;
       }
       case 'confirm_spirit_depletion': {
@@ -3675,37 +3799,34 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     });
 
     // Resolve battle (destroyed spirits go to trash; their cores return to reserve)
+    // Use unified destruction flow for all battle cases
     if (attackBP > defendBP) {
       // Attacker wins: destroy defender
-      destroySpirit(defender_player, defenderSpiritIndex);
-      next = triggerEffects(next, 'destroy', defender.def, 1 - pendingAttack.attackerPlayer);
+      next = resolveDestructionFlow(next, 1 - pendingAttack.attackerPlayer, defenderSpiritIndex);
       // Trigger nexus destroy effects for defender's player
-      for (let ni = 0; ni < defender_player.nexuses.length; ni++) {
-        const nexus = defender_player.nexuses[ni]!;
+      for (let ni = 0; ni < next.players[1 - pendingAttack.attackerPlayer]!.nexuses.length; ni++) {
+        const nexus = next.players[1 - pendingAttack.attackerPlayer]!.nexuses[ni]!;
         next = triggerEffects(next, 'destroy', nexus.def, 1 - pendingAttack.attackerPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
       }
     } else if (attackBP < defendBP) {
       // Defender wins: destroy attacker
-      destroySpirit(attacker_player, pendingAttack.attackerSpiritIndex);
-      next = triggerEffects(next, 'destroy', attacker.def, pendingAttack.attackerPlayer);
+      next = resolveDestructionFlow(next, pendingAttack.attackerPlayer, pendingAttack.attackerSpiritIndex);
       // Trigger nexus destroy effects for attacker's player
-      for (let ni = 0; ni < attacker_player.nexuses.length; ni++) {
-        const nexus = attacker_player.nexuses[ni]!;
+      for (let ni = 0; ni < next.players[pendingAttack.attackerPlayer]!.nexuses.length; ni++) {
+        const nexus = next.players[pendingAttack.attackerPlayer]!.nexuses[ni]!;
         next = triggerEffects(next, 'destroy', nexus.def, pendingAttack.attackerPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
       }
     } else {
       // Equal BP: both destroyed
-      destroySpirit(defender_player, defenderSpiritIndex);
-      destroySpirit(attacker_player, pendingAttack.attackerSpiritIndex);
-      next = triggerEffects(next, 'destroy', defender.def, 1 - pendingAttack.attackerPlayer);
-      next = triggerEffects(next, 'destroy', attacker.def, pendingAttack.attackerPlayer);
+      next = resolveDestructionFlow(next, 1 - pendingAttack.attackerPlayer, defenderSpiritIndex);
+      next = resolveDestructionFlow(next, pendingAttack.attackerPlayer, pendingAttack.attackerSpiritIndex);
       // Trigger nexus destroy effects for both players
-      for (let ni = 0; ni < defender_player.nexuses.length; ni++) {
-        const nexus = defender_player.nexuses[ni]!;
+      for (let ni = 0; ni < next.players[1 - pendingAttack.attackerPlayer]!.nexuses.length; ni++) {
+        const nexus = next.players[1 - pendingAttack.attackerPlayer]!.nexuses[ni]!;
         next = triggerEffects(next, 'destroy', nexus.def, 1 - pendingAttack.attackerPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
       }
-      for (let ni = 0; ni < attacker_player.nexuses.length; ni++) {
-        const nexus = attacker_player.nexuses[ni]!;
+      for (let ni = 0; ni < next.players[pendingAttack.attackerPlayer]!.nexuses.length; ni++) {
+        const nexus = next.players[pendingAttack.attackerPlayer]!.nexuses[ni]!;
         next = triggerEffects(next, 'destroy', nexus.def, pendingAttack.attackerPlayer, undefined, undefined, undefined, undefined, undefined, undefined, nexus.level);
       }
     }

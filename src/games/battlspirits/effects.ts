@@ -42,21 +42,23 @@ export function updateSpiritLevel(spirit: Spirit): void {
 }
 
 /**
- * Destroy a spirit: its card goes to the owner's trash and the cores on it
- * go to the trash (returned to reserve on refresh phase per official rules).
+ * Destroy a spirit: removes it from field and returns cores to reserve.
+ * Called by resolveDestruction() only — not directly from game flow.
+ *
+ * 層3.2 責務: フィールド削除 + コア移動のみ
+ * 層3責務: トラッシュ移動 + 破壊時効果トリガー (resolveDestruction経由)
  */
 export function destroySpirit(owner: PlayerState, spiritIndex: number): Spirit | undefined {
   const spirit = owner.spirits[spiritIndex];
   if (!spirit) return undefined;
   owner.spirits.splice(spiritIndex, 1);
-  owner.trash.push(spirit.def);
   // Return cores to reserve immediately
   if (spirit.coreCount > 0) {
     const oldCores = owner.cores;
     owner.cores += spirit.coreCount;
     dbg(DEBUG_CORE, '[CORE_CHANGE]', {
       reason: 'destroySpirit_returnCores',
-      player: 0, // Player ID unknown in this function
+      player: 0,
       before: oldCores,
       after: owner.cores,
       diff: `+${spirit.coreCount}`,

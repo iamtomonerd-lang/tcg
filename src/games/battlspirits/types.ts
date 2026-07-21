@@ -251,6 +251,10 @@ export interface PendingSpellChain {
   summonedCard: CardDef; // card definition of the newly summoned spirit
   destructedSpiritIndices: number[]; // indices of spirits that will be destroyed by the summon effect(s)
   destructedNexusIndices: number[]; // indices of nexuses that will be destroyed
+  destructedSpiritCards?: CardDef[]; // card definitions of destroyed spirits (for destruction effect processing)
+  destructedSpiritLevels?: (1 | 2)[]; // levels of destroyed spirits (for destruction effect processing)
+  destructedNexusCards?: CardDef[]; // card definitions of destroyed nexuses (for destruction effect processing)
+  destructedNexusLevels?: (1 | 2)[]; // levels of destroyed nexuses (for destruction effect processing)
 }
 
 export interface PendingSpiritDepletion {
