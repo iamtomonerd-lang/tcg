@@ -540,6 +540,75 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     return true;
   }
 
+  /**
+   * Common logic for using a hand card: remove from hand, apply inheritance,
+   * pay cost, remove dead spirits, push to trash.
+   *
+   * Currently supports magic cards; future extension to other card types.
+   *
+   * Returns modified GameState with card consumed and cost paid.
+   */
+  private useCardFromHand(
+    state: GameState,
+    handIndex: number,
+    paymentPlan: PaymentPlan,
+    isMainPhase: boolean,
+  ): GameState {
+    let next = cloneState(state);
+    const me = next.players[next.currentPlayer]!;
+    const card = me.hand[handIndex];
+
+    if (!card) return state;
+
+    // Currently card.cardType must be 'magic'
+    if (card.cardType !== 'magic') return state;
+
+    // Remove card from hand
+    me.hand.splice(handIndex, 1);
+
+    // Apply inheritance (remove EX cards from trash)
+    if (paymentPlan.inheritanceCardIds && paymentPlan.inheritanceCardIds.length > 0) {
+      me.trash = me.trash.filter((c) => !paymentPlan.inheritanceCardIds!.includes(c.id));
+    }
+
+    // Pay cost using game's payCost method (regular cores)
+    if (paymentPlan.finalCost > 0 && !paymentPlan.useSoulCore) {
+      this.payCost(me, paymentPlan.finalCost);
+    }
+
+    // Pay soul core if needed
+    if (paymentPlan.useSoulCore) {
+      if (me.soulCores >= 1) {
+        me.soulCores -= 1;
+        me.trashSoulCores += 1;
+      } else {
+        // Take spirit soul core
+        for (const spirit of me.spirits) {
+          if (spirit.soulCoreCount > 0) {
+            spirit.soulCoreCount -= 1;
+            me.trashSoulCores += 1;
+            updateSpiritLevel(spirit);
+            break;
+          }
+        }
+      }
+    }
+
+    // Remove dead spirits (main phase uses depletion confirmation, flash direct removal)
+    if (isMainPhase) {
+      if (!this.checkSpiritDepletionInMainPhase(next, next.currentPlayer)) {
+        this.removeDeadSpirits(next, next.currentPlayer);
+      }
+    } else {
+      this.removeDeadSpirits(next, next.currentPlayer);
+    }
+
+    // Push card to trash
+    me.trash.push(card);
+
+    return next;
+  }
+
   private startTurn(state: GameState): GameState {
     dbg(DEBUG_VERBOSE, '[START_TURN] Starting new turn:', {
       currentPlayer: state.currentPlayer,
@@ -1656,43 +1725,17 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       if (!card || card.cardType !== 'magic') return next;
       if (!action.paymentPlan) return next; // paymentPlan is required
 
-      // Remove card from hand
-      me.hand.splice(action.handIndex, 1);
+      // Use common card consumption logic (inheritance, cost, trash)
+      next = this.useCardFromHand(next, action.handIndex, action.paymentPlan, false);
+      if (next === state) return next; // useCardFromHand failed validation
 
-      // Apply inheritance (remove EX cards from trash)
-      if (action.paymentPlan.inheritanceCardIds.length > 0) {
-        me.trash = me.trash.filter((c) => !action.paymentPlan!.inheritanceCardIds.includes(c.id));
-      }
+      const me2 = next.players[next.currentPlayer]!;
+      const card2 = me2.trash[me2.trash.length - 1]!; // Card was just added to trash
 
-      // Pay cost using game's payCost method
-      if (action.paymentPlan.finalCost > 0 && !action.paymentPlan.useSoulCore) {
-        this.payCost(me, action.paymentPlan.finalCost);
-      }
-
-      // Pay soul core if needed
-      if (action.paymentPlan.useSoulCore) {
-        if (me.soulCores >= 1) {
-          me.soulCores -= 1;
-          me.trashSoulCores += 1;
-        } else {
-          // Spirit soul core
-          for (const spirit of me.spirits) {
-            if (spirit.soulCoreCount > 0) {
-              spirit.soulCoreCount -= 1;
-              me.trashSoulCores += 1;
-              updateSpiritLevel(spirit);
-              break;
-            }
-          }
-        }
-      }
-
-      const hasSoulMagicRedEffect = isSoulMagicRedCard(card);
-      this.removeDeadSpirits(next, next.currentPlayer); // Remove spirits that reached 0 cores
-      me.trash.push(card);
+      const hasSoulMagicRedEffect = isSoulMagicRedCard(card2);
       // For Soul Magic Red: skip symbol check when cast with the normal cost (not the soul-core cost)
       const skipSymbolCheck = hasSoulMagicRedEffect && action.paymentPlan.paymentType !== 'soulMagic';
-      next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex, undefined, undefined, undefined, skipSymbolCheck);
+      next = triggerEffects(next, 'immediate', card2, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex, undefined, undefined, undefined, skipSymbolCheck);
       checkResult(next);
       if (next.result) return next;
 
@@ -1719,7 +1762,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       next.currentPlayer = 1 - next.currentPlayer;
       dbg(DEBUG_FLASH, '[FLASH_USE]', {
         player: 1 - next.currentPlayer,
-        card: card.name,
+        card: card2.name,
       });
       return next;
     }

@@ -190,6 +190,28 @@ Opponent can react with flash magic during certain events:
 - フレイムハリケーン: BP 7000 threshold, but 10000 if player took damage this turn
 - Damage tracking: `player.damageThisTurn` incremented when opponent deals damage, reset at turn start
 
+### 5-12 "Use" (使用)
+
+"Use" means to activate a hand card's effect. This is distinct from "summon/place" which puts the card on the field.
+
+**Definition**:
+- "Use" applies to ANY hand card with an effect, not just magic cards
+- Includes: Magic cards, and future support for Artifact/Spirit/Nexus with hand effects
+- "Place/Summon" (配置/召喚): Card goes to field → summon effect triggers
+- "Use" (使用): Card stays in hand → hand effect triggers → card to trash
+
+**Use Flow**:
+1. Player selects hand card with `handIndex`
+2. Check usability: Card has a usable effect for current phase/timing
+3. Pay cost: Regular cores, soul cores, or special conditions
+4. Resolve effect: `triggerEffects(..., 'immediate', card, ...)`
+5. Card disposal: Trash the used card
+
+**Current Implementation Status**:
+- ✅ Magic cards: Fully supported via `use_magic` (main phase) and `flash` (flash timing)
+- ⚠️ Unified naming: Action type still named `use_magic` (should be generalized to `use_card` in future)
+- ❌ Non-magic hand effects: Not yet implemented (awaiting refactoring)
+
 ## Implementing New Cards
 
 1. **Add to `cards.ts`**: Define `CardDef` with `effects` array
