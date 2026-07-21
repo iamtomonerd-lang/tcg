@@ -2,7 +2,7 @@
 
 **作成日**: 2026-07-20  
 **最終更新**: 2026-07-21  
-**ステータス**: 設計確定（実装前）
+**ステータス**: LifeZone アーキテクチャ実装完了 ✅
 
 ---
 
@@ -1139,6 +1139,35 @@ Express API、React コンポーネント。
 2. **発見があれば、この設計を修正**
 3. **設計確定後、層2～4 の詳細設計**
 4. **実装開始**
+
+---
+
+## 🔧 実装ステータス
+
+### ✅ LifeZone アーキテクチャ実装完了 (2026-07-21)
+
+**実装内容:**
+- `PlayerState.lifeZone: { cores: number }` 構造を全層に導入
+- ゾーン責務分離の徹底
+  - **LifeZone**: コアを保持するゾーン
+  - **LifeRule**: lifeZone.cores をライフ値として解釈
+  - **Layer 3**: 勝敗判定時に LifeRule 経由でライフを取得
+
+**修正ファイル:**
+- `src/games/battlspirits/types.ts`: PlayerState インターフェース更新
+- `src/games/battlspirits/game.ts`: 初期化・複製・ダメージ処理
+- `src/games/battlspirits/effects.ts`: 効果エンジン
+- `src/games/battlspirits/render.ts`: CLI レンダリング
+- `src/server.ts`: API シリアライゼーション
+- `test/battlspirits.test.ts`: テストケース更新
+
+**検証結果:**
+- TypeScript 型チェック: ✅ エラーなし
+- テスト実行: ✅ 69/69 成功
+- 初期ライフ: 20 コア（Battle Spirits 標準）
+
+**コミット:** cf8ab75  
+**PR**: draft PR 作成済み
 
 ---
 
