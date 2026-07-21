@@ -2138,8 +2138,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           const destructedNexusIndices: number[] = [];
           const destructedSpiritCards: CardDef[] = [];
           const destructedSpiritLevels: (1 | 2)[] = [];
+          const destructedSpiritCores: number[] = [];
+          const destructedSpiritSoulCores: number[] = [];
           const destructedNexusCards: CardDef[] = [];
           const destructedNexusLevels: (1 | 2)[] = [];
+          const destructedNexusCores: number[] = [];
+          const destructedNexusSoulCores: number[] = [];
 
           // Find destroyed spirits
           for (let i = 0; i < originalOpponent.spirits.length; i++) {
@@ -2147,6 +2151,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               destructedSpiritIndices.push(i);
               destructedSpiritCards.push(originalOpponent.spirits[i]!.def);
               destructedSpiritLevels.push(originalOpponent.spirits[i]!.level);
+              destructedSpiritCores.push(originalOpponent.spirits[i]!.coreCount);
+              destructedSpiritSoulCores.push(originalOpponent.spirits[i]!.soulCoreCount);
             }
           }
 
@@ -2156,6 +2162,8 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               destructedNexusIndices.push(i);
               destructedNexusCards.push(originalOpponent.nexuses[i]!.def);
               destructedNexusLevels.push(originalOpponent.nexuses[i]!.level);
+              destructedNexusCores.push(originalOpponent.nexuses[i]!.coreCount);
+              destructedNexusSoulCores.push(originalOpponent.nexuses[i]!.soulCoreCount);
             }
           }
 
@@ -2168,8 +2176,12 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
               destructedNexusIndices,
               destructedSpiritCards,
               destructedSpiritLevels,
+              destructedSpiritCores,
+              destructedSpiritSoulCores,
               destructedNexusCards,
               destructedNexusLevels,
+              destructedNexusCores,
+              destructedNexusSoulCores,
             };
             break;
           }

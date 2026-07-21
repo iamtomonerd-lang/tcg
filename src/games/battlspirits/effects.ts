@@ -417,8 +417,14 @@ export function applyEffect(
       if (targetIndex >= 0 && targetIndex < opponent.spirits.length) {
         // Enforce the BP limit for explicitly chosen targets too ("BP◯◯以下" is a hard restriction)
         if (bpLimit !== undefined && spiritBp(opponent.spirits[targetIndex]!) > bpLimit) break;
-        // Card to trash, cores back to reserve (official rule)
-        destroySpirit(opponent, targetIndex);
+        // Destruction flow (層3責務の一部を層3.2で先行実行)
+        // Note: 本来は層3(resolveDestructionFlow)で実行すべきだが、applyEffect内での
+        // 即座の破壊が必要なため層3.2で実行。層3は confirm後に追加の処理を行う
+        const destroyedSpirit = destroySpirit(opponent, targetIndex);
+        if (destroyedSpirit) {
+          // Card must go to trash (layer 3 responsibility, executed here for completeness)
+          opponent.trash.push(destroyedSpirit.def);
+        }
         fixupSpiritIndicesAfterRemoval(next, 1 - sourcePlayer, targetIndex);
       }
       break;
