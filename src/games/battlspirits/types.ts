@@ -3,6 +3,7 @@
  */
 
 export type CardType = 'spirit' | 'nexus' | 'magic';
+export type CardState = 'recovered' | 'fatigued' | 'heavyFatigued';
 export type EffectAction = 'damage' | 'heal' | 'draw' | 'boost_bp' | 'search_deck' | 'destroy_creature' | 'trash_to_hand' | 'place_core' | 'discard_hand' | 'destroy_nexus';
 export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate' | 'battle_end' | 'end_step' | 'opponent_summon' | 'opponent_attack' | 'opponent_magic';
 export type FlashTrigger = 'opponent_summon' | 'opponent_attack' | 'opponent_magic' | 'opponent_destroy' | 'opponent_block';
@@ -87,6 +88,8 @@ export interface Spirit {
   coreCount: number;
   /** soul cores (persist across refresh, used for permanent leveling) */
   soulCoreCount: number;
+  /** card display state (recovered/fatigued/heavyFatigued) per 公式ルール 5-5 */
+  state: CardState;
   /** true = ready to attack, false = fatigued */
   canAttack: boolean;
   /** temporary BP boost from effects (このターン中; reset at end of turn) */
@@ -111,6 +114,8 @@ export interface Nexus {
   coreCount: number;
   /** soul cores placed on this nexus */
   soulCoreCount: number;
+  /** card display state (recovered/fatigued/heavyFatigued) per 公式ルール 5-5 */
+  state: CardState;
   /** cores placed on this nexus */
   placedCores?: number;
   /** exhausted (疲労) — e.g. paid as an activation cost; recovers at refresh */

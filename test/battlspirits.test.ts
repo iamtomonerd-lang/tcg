@@ -9,7 +9,7 @@ import type { GameState, PlayerState, Spirit, GameConfig, PlayerConfig } from '.
 const game = new BattlSpiritsGame();
 
 function makeSpirit(): Spirit {
-  return { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+  return { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
 }
 
 function makePlayer(spirits: Spirit[]): PlayerState {
@@ -400,7 +400,7 @@ describe('destroy_nexus conservation', () => {
     caster.hand = [CARD_DB.magic_break_claw!];
     caster.cores = 10;
     const defender = makePlayer([]);
-    defender.nexuses = [{ def: CARD_DB.nexus_ukiyo_rock!, level: 1, coreCount: 2, soulCoreCount: 1 }];
+    defender.nexuses = [{ def: CARD_DB.nexus_ukiyo_rock!, level: 1, coreCount: 2, soulCoreCount: 1, state: 'recovered' }];
     defender.soulCores = 0; // their only soul core sits on the nexus
 
     let state: GameState = {
@@ -454,7 +454,7 @@ describe('Flash-timing activation costs', () => {
 describe('BP boost durations', () => {
   it('battle-duration boosts expire when the battle resolves; the spirit is back to base BP', () => {
     // ゲン=ボー Lv2 has 攻撃中BP+2000 (duration: battle)
-    const genieBow: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 2, coreCount: 3, soulCoreCount: 0, canAttack: true };
+    const genieBow: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 2, coreCount: 3, soulCoreCount: 0, state: 'recovered', canAttack: true };
     const p0 = makePlayer([genieBow]);
     const p1 = makePlayer([]);
     p1.hand = [];
@@ -542,7 +542,7 @@ describe('BP boost durations', () => {
   });
 
   it('destroy_creature can be activated even without valid targets (effect fizzles)', () => {
-    const bigSpirit: Spirit = { def: CARD_DB.spirit_hibutsu_akurai!, level: 2, coreCount: 0, soulCoreCount: 4, canAttack: true }; // BP10000
+    const bigSpirit: Spirit = { def: CARD_DB.spirit_hibutsu_akurai!, level: 2, coreCount: 0, soulCoreCount: 4, state: 'recovered', canAttack: true }; // BP10000
     const p0 = makePlayer([]);
     const p1 = makePlayer([bigSpirit]);
     let state: GameState = {
@@ -570,31 +570,31 @@ describe('BP boost durations', () => {
 
 describe('真界放 (Shinkaihou) Skill', () => {
   it('spirit with 真界放 reaches Lv2 with Lv2-cost soul cores', () => {
-    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 0, soulCoreCount: 3, canAttack: true };
+    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 0, soulCoreCount: 3, state: 'recovered', canAttack: true };
     updateSpiritLevel(shinkaihouSpirit);
     expect(shinkaihouSpirit.level).toBe(2);
   });
 
   it('spirit with 真界放 reaches Lv2 with just 1 soul core', () => {
-    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 0, soulCoreCount: 1, canAttack: true };
+    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 0, soulCoreCount: 1, state: 'recovered', canAttack: true };
     updateSpiritLevel(shinkaihouSpirit);
     expect(shinkaihouSpirit.level).toBe(2);
   });
 
   it('spirit with 真界放 reaches Lv2 with total cores meeting cost', () => {
-    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 2, soulCoreCount: 1, canAttack: true };
+    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 2, soulCoreCount: 1, state: 'recovered', canAttack: true };
     updateSpiritLevel(shinkaihouSpirit);
     expect(shinkaihouSpirit.level).toBe(2);
   });
 
   it('spirit with 真界放 reaches Lv2 with regular cores only', () => {
-    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 3, soulCoreCount: 0, canAttack: true };
+    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 3, soulCoreCount: 0, state: 'recovered', canAttack: true };
     updateSpiritLevel(shinkaihouSpirit);
     expect(shinkaihouSpirit.level).toBe(2);
   });
 
   it('spirit with 真界放 stays at Lv1 with insufficient total cores and no soul core', () => {
-    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 2, soulCoreCount: 0, canAttack: true };
+    const shinkaihouSpirit: Spirit = { def: CARD_DB.spirit_genie_bow!, level: 1, coreCount: 2, soulCoreCount: 0, state: 'recovered', canAttack: true };
     updateSpiritLevel(shinkaihouSpirit);
     expect(shinkaihouSpirit.level).toBe(1);
   });
@@ -618,7 +618,7 @@ describe('ブレイククロー destroy_nexus', () => {
 describe('Attack-time search_deck effects', () => {
   it('ハーリア (Lv2) attack triggers search_deck and creates pendingDraw', () => {
     // Setup: Haria at Lv2 attacks
-    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
     const p0 = makePlayer([haria]);
 
     // Deck with 5 cards: 2 wind fang spirits, 3 others
@@ -655,7 +655,7 @@ describe('Attack-time search_deck effects', () => {
   });
 
   it('ハーリア card selection has correct pendingDraw setup with returnDestination', () => {
-    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
     const p0 = makePlayer([haria]);
 
     const windFang1 = CARD_DB.spirit_moon_shacco!; // Wind Fang 系統
@@ -684,7 +684,7 @@ describe('Attack-time search_deck effects', () => {
   });
 
   it('after search_deck card selection, select_draw_arrange action is available in legalActions', () => {
-    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
     const p0 = makePlayer([haria]);
 
     const windFang1 = CARD_DB.spirit_moon_shacco!;
@@ -715,7 +715,7 @@ describe('Attack-time search_deck effects', () => {
   });
 
   it('バグ1回帰: select_draw_arrange 後に攻撃が続行される（pendingFlash + 疲労 + 残カードはトラッシュへ）', () => {
-    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const haria: Spirit = { def: CARD_DB.spirit_haria!, level: 2, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
     const p0 = makePlayer([haria]);
     p0.deck = [CARD_DB.spirit_moon_shacco!, CARD_DB.magic_offering_draw!];
     const p1 = makePlayer([]);
@@ -763,9 +763,9 @@ describe('Attack-time search_deck effects', () => {
   });
 
   it('バグ2回帰: ソウルマジック：赤はフラッシュでソウルコア1個で発動できる', () => {
-    const attacker: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: false };
+    const attacker: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: false };
     const p0 = makePlayer([attacker]);
-    const redSymbolSpirit: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const redSymbolSpirit: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
     const p1 = makePlayer([redSymbolSpirit]);
     p1.hand = [CARD_DB.magic_flame_hurricane!];
     p1.cores = 0;
@@ -802,9 +802,9 @@ describe('Attack-time search_deck effects', () => {
   });
 
   it('バグ2回帰: メインフェイズでもソウルコア払いの use_magic が出る + damageThisTurn で BP10000 閾値', () => {
-    const bigSpirit: Spirit = { def: CARD_DB.spirit_gun_gata!, level: 2, coreCount: 3, soulCoreCount: 0, canAttack: true }; // Lv2 BP8000
+    const bigSpirit: Spirit = { def: CARD_DB.spirit_gun_gata!, level: 2, coreCount: 3, soulCoreCount: 0, state: 'recovered', canAttack: true }; // Lv2 BP8000
     const p0 = makePlayer([bigSpirit]);
-    const redSymbolSpirit: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const redSymbolSpirit: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
     const p1 = makePlayer([redSymbolSpirit]);
     p1.hand = [CARD_DB.magic_flame_hurricane!];
     p1.cores = 0;
@@ -833,8 +833,8 @@ describe('Attack-time search_deck effects', () => {
   });
 
   it('バグ3回帰: 召喚コストをスピリットのコアで支払い0個になった場合、消滅前の確認が入る', () => {
-    const spiritA: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
-    const spiritB: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const spiritA: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
+    const spiritB: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
     const p0 = makePlayer([spiritA, spiritB]);
     p0.cores = 1; // reserve 1 + spiritA 1 + spiritB 1 + soul 1
     p0.soulCores = 1;
@@ -997,7 +997,7 @@ describe('継召 (inheritance) cost reduction', () => {
 
   it('フィールドシンボルと継召は同じ軽減枠を共有する', () => {
     // 1 red field symbol + 3 red EX cards, reductionCost 3 → field uses 1, inheritance uses 2 more
-    const redFieldSpirit: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true };
+    const redFieldSpirit: Spirit = { def: CARD_DB.spirit_moon_shacco!, level: 1, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true };
     const state = summonState([gunGata, { ...gunGata, id: 'g2' }, { ...gunGata, id: 'g3' }]);
     state.players[0].spirits = [redFieldSpirit];
 
@@ -1210,7 +1210,7 @@ describe('End phase progression', () => {
 
 describe('【起動：フラッシュ】 activated flash effects (cost ▶ effect)', () => {
   const makeGraipher = (): Spirit => ({
-    def: CARD_DB.spirit_graipher!, level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true,
+    def: CARD_DB.spirit_graipher!, level: 1, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true,
   });
   const fuugaCard = () => CARD_DB.spirit_moon_shacco!; // lineage 風牙
   // Every starter-deck card carries 風牙, so build a non-風牙 card for cost filtering
@@ -1314,7 +1314,7 @@ describe('【起動：フラッシュ】 activated flash effects (cost ▶ effec
   });
 
   it('風牙岩 nexus: exhaust ▶ BP+2000 on the attacking 風牙 spirit; exhausted nexus cannot re-activate', () => {
-    const windFang = { def: CARD_DB.nexus_wind_fang_rock!, level: 1 as const, coreCount: 0, soulCoreCount: 0 };
+    const windFang = { def: CARD_DB.nexus_wind_fang_rock!, level: 1 as const, coreCount: 0, soulCoreCount: 0, state: 'recovered' as const };
     const p0: PlayerState = { ...makePlayer([makeGraipher()]), nexuses: [windFang] };
     const p1 = makePlayer([makeSpirit()]);
     let state: GameState = {
@@ -1360,7 +1360,7 @@ describe('【起動：フラッシュ】 activated flash effects (cost ▶ effec
 
   it('風牙岩 nexus cannot activate during the OPPONENT\'s attack step (自分のアタックステップ only)', () => {
     // P0 attacks; P1 (defender) owns 風牙岩 and has flash priority — must not be offered
-    const windFang = { def: CARD_DB.nexus_wind_fang_rock!, level: 1 as const, coreCount: 0, soulCoreCount: 0 };
+    const windFang = { def: CARD_DB.nexus_wind_fang_rock!, level: 1 as const, coreCount: 0, soulCoreCount: 0, state: 'recovered' as const };
     const p0 = makePlayer([makeGraipher()]);
     const p1: PlayerState = { ...makePlayer([makeSpirit()]), nexuses: [windFang] };
     let state: GameState = {
@@ -1379,11 +1379,11 @@ describe('【起動：フラッシュ】 activated flash effects (cost ▶ effec
   });
 
   it('風牙岩 nexus cannot target a non-風牙 attacking spirit (targetLineage restriction)', () => {
-    const windFang = { def: CARD_DB.nexus_wind_fang_rock!, level: 1 as const, coreCount: 0, soulCoreCount: 0 };
+    const windFang = { def: CARD_DB.nexus_wind_fang_rock!, level: 1 as const, coreCount: 0, soulCoreCount: 0, state: 'recovered' as const };
     // Attacker without 風牙 lineage (constructed test card)
     const nonFuugaAttacker: Spirit = {
       def: { ...CARD_DB.spirit_graipher!, id: 'test_non_fuuga_spirit', lineage: ['他系統'], effects: [] },
-      level: 1, coreCount: 1, soulCoreCount: 0, canAttack: true,
+      level: 1, coreCount: 1, soulCoreCount: 0, state: 'recovered', canAttack: true,
     };
     const p0: PlayerState = { ...makePlayer([nonFuugaAttacker]), nexuses: [windFang] };
     const p1 = makePlayer([makeSpirit()]);

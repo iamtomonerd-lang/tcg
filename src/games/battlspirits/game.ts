@@ -1979,6 +1979,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           level: 1,
           coreCount: placedRegular,
           soulCoreCount: placedSoul,
+          state: 'recovered',
           canAttack: true,
           bpBoost: 0,
         };
@@ -2881,6 +2882,7 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
           level: 1,
           coreCount: nexusRegular,
           soulCoreCount: nexusSoul,
+          state: 'recovered',
         };
         const nexusIndex = me.nexuses.length;
         me.nexuses.push(nexus);
