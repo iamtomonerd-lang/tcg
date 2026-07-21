@@ -560,8 +560,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
 
     if (!card) return state;
 
-    // Currently card.cardType must be 'magic'
-    if (card.cardType !== 'magic') return state;
+    // 5-12 Use rule: Any card type can be used if it has hand effects
+    // Check for effects that can be triggered immediately (手札効果)
+    const hasHandEffects = card.effects?.some(e => e.trigger === 'immediate');
+    if (!hasHandEffects) return state;
 
     // Remove card from hand
     me.hand.splice(handIndex, 1);
@@ -1722,7 +1724,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
     // Handle flash actions and flash skipping
     if (action.type === 'flash') {
       const card = me.hand[action.handIndex];
-      if (!card || card.cardType !== 'magic') return next;
+      if (!card) return next;
+      // 5-12 Use rule: Check for hand effects, not cardType
+      const hasHandEffects = card.effects?.some(e => e.trigger === 'immediate');
+      if (!hasHandEffects) return next;
       if (!action.paymentPlan) return next; // paymentPlan is required
 
       // Use common card consumption logic (inheritance, cost, trash)
@@ -3184,7 +3189,10 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       }
       case 'use_magic': {
         const card = me.hand[action.handIndex];
-        if (!card || card.cardType !== 'magic') return next;
+        if (!card) return next;
+        // 5-12 Use rule: Check for hand effects, not cardType
+        const hasHandEffects = card.effects?.some(e => e.trigger === 'immediate');
+        if (!hasHandEffects) return next;
         if (!action.paymentPlan) return next; // paymentPlan is required
 
         // Check if inheritance selection is needed (for magic cards with inheritance)
