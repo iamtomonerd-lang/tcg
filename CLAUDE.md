@@ -202,15 +202,23 @@ Opponent can react with flash magic during certain events:
 
 **Use Flow**:
 1. Player selects hand card with `handIndex`
-2. Check usability: Card has a usable effect for current phase/timing
+2. Check usability: Card has a usable effect for current phase/timing (Phase 1: effects チェック)
 3. Pay cost: Regular cores, soul cores, or special conditions
-4. Resolve effect: `triggerEffects(..., 'immediate', card, ...)`
+4. Resolve effect: `triggerEffects(..., 'immediate'/'use', card, ...)`
 5. Card disposal: Trash the used card
 
+**EffectTrigger Support** (Phase 2 - 2026-07-21):
+- ✅ `'immediate'`: Legacy trigger for hand card effects (backward compatible)
+- ✅ `'use'`: New dedicated trigger for 5-12 "Use" rule (Phase 2)
+- ⚠️ Migration: Existing cards use `'immediate'`, new cards should use `'use'`
+- ℹ️ Implementation: Both triggers are processed by `triggerEffects()` in `use_magic` and `flash`
+
 **Current Implementation Status**:
+- ✅ Phase 1 (2026-07-21): cardType check removed, effects-based validation added
+- ✅ Phase 2 (2026-07-21): 'use' trigger added to EffectTrigger type, game.ts updated to handle both 'immediate' and 'use'
 - ✅ Magic cards: Fully supported via `use_magic` (main phase) and `flash` (flash timing)
-- ⚠️ Unified naming: Action type still named `use_magic` (should be generalized to `use_card` in future)
-- ❌ Non-magic hand effects: Not yet implemented (awaiting refactoring)
+- ⚠️ Unified naming: Action type still named `use_magic` (generalization to `use_card` deferred)
+- ❌ Non-magic hand effects: Not yet in card definitions (awaiting card data updates)
 
 ## Implementing New Cards
 

@@ -1740,7 +1740,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
       const hasSoulMagicRedEffect = isSoulMagicRedCard(card2);
       // For Soul Magic Red: skip symbol check when cast with the normal cost (not the soul-core cost)
       const skipSymbolCheck = hasSoulMagicRedEffect && action.paymentPlan.paymentType !== 'soulMagic';
+      // 5-12「使用」ルール：'immediate' trigger (legacy) と 'use' trigger (Phase 2) 両対応
       next = triggerEffects(next, 'immediate', card2, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex, undefined, undefined, undefined, skipSymbolCheck);
+      next = triggerEffects(next, 'use', card2, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'flash', action.targetNexusIndex, undefined, undefined, undefined, skipSymbolCheck);
       checkResult(next);
       if (next.result) return next;
 
@@ -3436,7 +3438,9 @@ export class BattlSpiritsGame implements Game<GameState, Action> {
         }
 
         // Trigger magic effects with optional target and value (skipSymbolCheck already defined above)
+        // 5-12「使用」ルール：'immediate' trigger (legacy) と 'use' trigger (Phase 2) 両対応
         next = triggerEffects(next, 'immediate', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'main', action.targetNexusIndex, undefined, undefined, undefined, skipSymbolCheck);
+        next = triggerEffects(next, 'use', card, next.currentPlayer, undefined, action.targetSpiritIndex, action.effectValue, undefined, 'main', action.targetNexusIndex, undefined, undefined, undefined, skipSymbolCheck);
         // Fall through to flash checking below
         break;
       }

@@ -7,7 +7,7 @@ export type CardState = 'recovered' | 'fatigued' | 'heavyFatigued';
 export type CoreType = 'core' | 'soulCore';
 export type PlayerId = 0 | 1; // プレイヤー識別子：0 = プレイヤー1, 1 = プレイヤー2
 export type EffectAction = 'damage' | 'heal' | 'draw' | 'boost_bp' | 'search_deck' | 'destroy_creature' | 'trash_to_hand' | 'place_core' | 'discard_hand' | 'destroy_nexus';
-export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate' | 'battle_end' | 'end_step' | 'opponent_summon' | 'opponent_attack' | 'opponent_magic';
+export type EffectTrigger = 'summon' | 'attack' | 'block' | 'destroy' | 'immediate' | 'use' | 'battle_end' | 'end_step' | 'opponent_summon' | 'opponent_attack' | 'opponent_magic';
 export type FlashTrigger = 'opponent_summon' | 'opponent_attack' | 'opponent_magic' | 'opponent_destroy' | 'opponent_block';
 
 /**
@@ -35,7 +35,7 @@ export interface CardEffect {
   variableValue?: boolean; // effect value is player-selected (e.g., discard count)
   source?: 'trash' | 'void'; // source for place_core: trash or void (default)
   count?: number; // for search_deck: how many cards to add to hand (default 1)
-  mode?: 'main' | 'flash'; // for immediate triggers: 'main' (Main phase) or 'flash' (Flash timing)
+  mode?: 'main' | 'flash'; // 5-12「使用」ルール対応：'immediate'/'use' triggers のみで有効。main=主フェーズ限定, flash=フラッシュタイミング限定
   multiTarget?: boolean; // effect applies to multiple creatures/spirits
   targetType?: 'inheritance' | 'fatigued' | 'attacking'; // specific target selection criteria
   costAction?: EffectAction; // cost to activate this effect (e.g., discard_hand for ▶ effects)
